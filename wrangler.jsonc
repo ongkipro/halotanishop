@@ -51,7 +51,12 @@
   //   provider keys (Mengantar, AutoLaris, Meta) — saved from /admin, D1 first.
   "secrets": {
     "required": [
-      "INSTALL_TOKEN"
+      "INSTALL_TOKEN",
+      "MENGANTAR_API_KEY",
+      "MENGANTAR_ORIGIN_AREA_ID",
+      "MENGANTAR_PICKUP_ADDRESS_ID",
+      "AUTOLARIS_API_KEY",
+      "AUTOLARIS_WEBHOOK_SECRET"
     ]
   },
 
