@@ -1,20 +1,14 @@
 name: CI
 
-# This repository is the AdsBookCMS product. It deploys nothing.
-#
-# It previously carried a workflow that ran `wrangler deploy` on every push to
-# main, against the resources of one specific install (permatamall.shop). That
-# was correct for a store repository and dangerous here: adding a Cloudflare
-# token to this repository's secrets would have made product development
-# overwrite a live store.
-#
-# Deployment belongs to an install, from its own repository, against its own
-# Worker, D1, KV, R2 and domain. See RELEASE.md.
+# Halotani Shop is one standalone store repository. CI verifies source only;
+# production deployment remains an explicit operator action documented in
+# RELEASE.md and is never implied by a green push.
 
 on:
   push:
     branches:
       - main
+      - install/halotanishop
   pull_request:
   workflow_dispatch:
 

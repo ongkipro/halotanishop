@@ -25,7 +25,7 @@
 
   // Unique within the Cloudflare account. The button lets the operator rename
   // it; the default is a real, deployable name rather than a placeholder.
-  "name": "adsbookcms",
+  "name": "halotanishop",
   "main": "./src/worker.ts",
 
 
@@ -60,7 +60,8 @@
   // Domains & Routes), the workers.dev copy answers `X-Robots-Tag: noindex` and
   // canonical tags point at the store's own URL. An install may set this to
   // false in its own wrangler.jsonc once its domain is live.
-  "workers_dev": true,
+  // halotani.shop is attached below from the first deploy, so no workers.dev copy.
+  "workers_dev": false,
   // Hourly evaluation catches a stalled conversion outbox even when no operator
   // opens the dashboard. Alert transitions are deduplicated in the install's KV.
   "triggers": {
@@ -74,21 +75,21 @@
   "kv_namespaces": [
     {
       "binding": "SESSION",
-      "id": "00000000000000000000000000000000"
+      "id": "a0c49c31d4c14fcc99fe74b6b83ab93f"
     }
   ],
   "d1_databases": [
     {
       "binding": "OMS_DB",
-      "database_name": "adsbookcms-d1",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_name": "halotanishop-d1",
+      "database_id": "9787f8fd-59c5-47d7-923a-046436435648",
       "migrations_dir": "src/db/migrations"
     }
   ],
   "r2_buckets": [
     {
       "binding": "ASSET_BUCKET",
-      "bucket_name": "adsbookcms-assets"
+      "bucket_name": "halotanishop-assets"
     }
   ],
   "ai": {
@@ -103,17 +104,18 @@
     "head_sampling_rate": 1
   },
 
-  // No `routes`: the store's domain is attached in the dashboard (Workers →
-  // Settings → Domains & Routes). Wrangler leaves dashboard-managed routes
-  // alone when this key is absent; declaring one here would replace them on
-  // every deploy, and a placeholder domain would fail the first one.
+  // Declared here, as in the other installs: every deploy owns these domains.
+  "routes": [
+    { "pattern": "halotani.shop", "custom_domain": true },
+    { "pattern": "www.halotani.shop", "custom_domain": true }
+  ],
 
   // These are read at BUILD time through import.meta.env, not at runtime, so a
   // change here only takes effect after `npm run build`. Redeploying an already
   // built bundle with new vars changes nothing. See ARCHITECTURE.md §5.
   "vars": {
-    "PUBLIC_SITE_NAME": "Your Store",
-    "PUBLIC_SITE_URL": "https://example.com",
+    "PUBLIC_SITE_NAME": "Halotani Shop",
+    "PUBLIC_SITE_URL": "https://halotani.shop",
     // Deliberately empty, like the tagline below. A placeholder here becomes
     // the meta description Google prints under the store, and the second half
     // of the home page <title>.
@@ -122,8 +124,8 @@
     // every unconfigured store's <title>, which is how a fresh install came to
     // announce itself as "Toko Anda — Belum Dikonfigurasi".
     "PUBLIC_SITE_TAGLINE": "",
-    "PUBLIC_ADMIN_NAME": "AdsBookCMS Admin",
-    "PUBLIC_EMBED_ALLOWED_ORIGINS": "",
+    "PUBLIC_ADMIN_NAME": "Halotani Shop Admin",
+    "PUBLIC_EMBED_ALLOWED_ORIGINS": "https://halotani.shop",
 
     // Root-relative or absolute. Replace the placeholder wordmark in
     // public/images/ with the store's own brand assets.
@@ -138,6 +140,12 @@
     // compact-market. wide-catalog was retired in ADR-018 and migration 0044;
     // an unknown value takes the home page to its unavailable state (503).
     "PUBLIC_STOREFRONT_TEMPLATE": "compact-market",
+
+    // AutoLaris Create Order (/submit) runs as the QRIS/VA payment rail under the
+    // account's `courir_id: 1` profile, which takes a fixed origin/destination
+    // area pair.
+    "AUTOLARIS_ORDER_ORIGIN_ID": "3517100",
+    "AUTOLARIS_ORDER_DESTINATION_ID": "3518010",
 
     // Provinces excluded from cash on delivery, comma separated, lowercase.
     // This is the shipped Indonesian default; adjust per store.
