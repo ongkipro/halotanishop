@@ -29,10 +29,27 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
-    version: "1.7.12",
+    version: "1.7.13",
     date: "24 Oktober 2026",
     releaseTag: "2026.10-plugins",
     isLatest: true,
+    highlight: "Transfer manual bisa dikonfirmasi dari detail order, dan Purchase-nya terkirim ke Meta.",
+    changes: [
+      {
+        title: "Tombol Transfer Diterima",
+        description: "Order transfer bank manual yang belum lunas kini punya tombol Transfer Diterima di kartu Pembayaran. Setelah dikonfirmasi, order berstatus lunas dan bisa dipush ke Mengantar. Sebelumnya order ini tidak bisa ditandai lunas dari dashboard.",
+      },
+      {
+        title: "Purchase Meta untuk pembeli yang transfer lewat WhatsApp",
+        description: "Konfirmasi itu langsung mengirim Purchase ke Meta lewat server (CAPI), memakai identitas iklan yang tersimpan saat checkout. Pembeli tidak perlu kembali ke halaman terima kasih. Nomor invoice yang sama dipakai sebagai event_id, jadi tidak pernah terhitung dua kali. COD tetap mengirim Purchase dari halaman terima kasih.",
+      },
+    ],
+  },
+  {
+    version: "1.7.12",
+    date: "24 Oktober 2026",
+    releaseTag: "2026.10-plugins",
+    isLatest: false,
     highlight: "Sitemap dan judul halaman lebih bersih untuk Google.",
     changes: [
       {

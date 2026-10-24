@@ -1,6 +1,6 @@
 # AdsBookCMS Meta Pixel, CAPI, GTM, and Google Ads Specification
 
-> Verified against disk: 2026-10-12 @ `4f7d723` + meta-track-order working tree
+> Verified against disk: 2026-10-24 @ `8849a28` + EMQ baseline working tree
 
 This document owns the technical tracking contract for AdsBookCMS-rendered and headless storefronts. It covers event semantics, identity, browser/server boundaries, deduplication, durable delivery, store configuration, and verification. It does not claim attribution certainty, legal compliance, consent applicability, or live provider acceptance.
 
@@ -117,7 +117,7 @@ install on 2026-09-26 and neither is visible in this repository:
 | `ViewContent` | `view_item` | One canonical product is viewed | Canonical D1 product ID and current D1 value. |
 | `AddToCart` | `add_to_cart` | Current direct-response form reaches qualified customer intent | Never a scroll, impression, or arbitrary CTA click. |
 | `InitiateCheckout` | `begin_checkout` | A valid checkout submit attempt begins | Product, variant, value, and customer boundary have passed browser validation; server still revalidates. |
-| `Purchase` | `purchase` | The qualifying persisted order state is confirmed | COD requires persisted order success; online payment requires authenticated paid reconciliation, which itself enqueues the server CAPI Purchase (same `INV-` event id, so a browser leg that already fired is a no-op) for buyers who never return to `/thanks`. |
+| `Purchase` | `purchase` | The qualifying persisted order state is confirmed | COD requires persisted order success and fires from `/thanks`; a manual transfer requires the operator's "Transfer Diterima" confirmation, which enqueues the server CAPI Purchase (§13); online payment requires authenticated paid reconciliation, which itself enqueues the server CAPI Purchase (same `INV-` event id, so a browser leg that already fired is a no-op) for buyers who never return to `/thanks`. |
 
 `src/lib/meta-event-contract.ts` accepts exactly these five names. The repository does not map every interaction to `Lead` or `Purchase`. Analytics UI events must remain separate from optimization events.
 
@@ -723,6 +723,29 @@ Order creation alone is not Purchase. `/api/order-status` reads the existing D1 
 
 Payment success, provider acceptance, ad-platform acceptance, attribution, and reported revenue are separate observable facts.
 
+### Manual transfer (2026-10-24, 1.7.13)
+
+The buyer pays into the seller's own account, usually after a WhatsApp chat,
+so no provider can confirm it and `/thanks` never sees it paid (`fire()` stops
+on a non-COD order that is not `is_paid`). The operator's "Transfer Diterima"
+button on the order detail page is the qualifying event: it PATCHes
+`payment_status: paid`, and `manualTransferBecamePaid()` in
+`src/lib/paid-order-purchase.ts` then calls `enqueuePurchaseForPaidOrder`,
+the same server path AutoLaris reconciliation uses. The Purchase carries the
+`INV-` number as `event_id` and the identity stored at checkout
+(`meta_request_context`: fbp, fbc, IP, user agent, external id), with
+`event_time` at confirmation. It is best effort: a CAPI failure never undoes
+the payment, and the outbox retries it.
+
+Only `manual_transfer` crossing into a paid status qualifies. COD stays on
+`/thanks` (courier remittance must not report it again), and QRIS/VA stay on
+reconciliation. Before 1.7.13 the dashboard had no control that set a manual
+transfer paid at all, so those orders could not be pushed to Mengantar either.
+
+**Rule for every install and every new order path:** a path that makes an
+order paid outside `/thanks` must call `enqueuePurchaseForPaidOrder`, or the
+buyer it served never reaches Meta as a Purchase.
+
 ## 14. Consent and Privacy Boundary
 
 The implementation must:
@@ -780,3 +803,107 @@ For the selected storefront:
 - use Meta Test Events only with an operator-provided test code and explicit outbound-call approval.
 
 A passing local test or build does not prove live Meta/Google acceptance, Event Match Quality, attribution, catalog health, or campaign performance. Record exact observed results and non-actions in `STATUS.md` and `BUILD-LOG.md`.
+
+### 16.1 Checking a live install without sending events (2026-10-24)
+
+The procedure behind the 1.7.12 check on revenleather and petanisejahtera.com.
+
+- **Block before you watch.** Route every tracking request in Playwright and
+  abort it after reading the payload: `facebook.com/tr`, `/api/meta-event`,
+  `google.com/(ccm|rmkt|pagead)`, `doubleclick.net`, `googleadservices.com`.
+  An order-path walk that does not do this sends real AddToCart and
+  InitiateCheckout events through CAPI with the test buyer's data. That
+  happened once on 2026-10-23.
+- **The browser Pixel is silent under automation.** fbevents loads and
+  `fbq('track')` is called, but no `/tr` request is made while
+  `navigator.webdriver` is true. Launch Chrome with
+  `--disable-blink-features=AutomationControlled` before you conclude the
+  Pixel is broken.
+- **Deduplication is checked within one visit:** each `eid` on a Pixel hit must
+  equal the `event_id` of one `/api/meta-event` body. Expected pairs: PageView
+  and ViewContent on load; AddToCart once name and phone qualify;
+  InitiateCheckout once the district resolves (hybrid), or on submit (middle).
+  `SubscribedButtonClick` is Meta's automatic event and has no CAPI twin.
+- **Attribution:** a URL with `fbclid` must leave `_fbc`, `_fbp` and
+  `adsbook_click_ids` cookies, on an edge-cache hit as well as a miss.
+- **Server side:** `npx wrangler tail --format json` on the install's Worker
+  for a couple of minutes of real traffic; `/api/meta-event`, submit and
+  `/thanks` should answer 200 with no exceptions or `error` logs.
+- Purchase is not covered by any of this: it needs a real order, which is a
+  production write and needs explicit approval.
+
+### 16.2 "Purchases are missing in Ads Manager": measure before changing code (2026-10-24)
+
+Run these read-only queries against the install's D1 (`--remote` needs
+approval) before touching the tracking code. On revenleather the report turned
+out to be a delivery that was already complete plus one real gap elsewhere.
+
+1. Coverage per payment method, last 30 days: `orders` LEFT JOIN
+   `capi_event_outbox` ON `event_name = 'Purchase' AND event_id = order_number`,
+   grouped by `payment_method`, counting rows with no outbox row and rows by
+   `status` (`sent`, `pending`, `failed` with `last_error`).
+2. Split the misses by `order_number` prefix. `ABN-` rows are abandoned leads
+   and correctly have no Purchase. Only `INV-` misses are defects.
+3. Payload quality without printing values: parse `payload.userData` and count
+   which keys are non-empty (phone, name, city, postalCode, externalId, fbp,
+   fbc, clientIp, userAgent), and compare city/postal with the order row.
+4. Then ask Meta (§16.3). A complete outbox with a shortfall in Ads Manager
+   is attribution (window, impression-date reporting) or a campaign optimising
+   on a different dataset, not delivery.
+
+Baseline, revenleather, 2026-10-11 to 2026-10-24: 136/136 `INV-` COD orders
+`sent`, fbc 134/136; 41 `ABN-` leads without one (correct); 12
+`manual_transfer` orders with none, because nothing could mark them paid
+(fixed in 1.7.13, §13). Payload city and postal code were missing on most
+Purchases before 2026-10-23 and are complete since.
+
+### 16.3 Event Match Quality from Meta itself (2026-10-24)
+
+Meta's Dataset Quality API returns the per-event EMQ, match-key coverage,
+event coverage, deduplication and freshness that Events Manager shows
+([reference](https://developers.facebook.com/docs/marketing-api/conversions-api/dataset-quality-api)):
+
+```
+GET https://graph.facebook.com/v26.0/dataset_quality
+    ?dataset_id=<pixel id>
+    &fields=web{event_name,event_match_quality{composite_score,match_key_feedback{identifier,coverage{percentage}}},event_coverage{percentage,goal_percentage},dedupe_key_feedback{dedupe_key,browser_events_with_dedupe_key{percentage},server_events_with_dedupe_key{percentage}},data_freshness{upload_frequency}}
+    &access_token=<the store's CAPI token>
+```
+
+The token is the store's own `stores.meta_capi_token`: reading it is a secret
+access and needs the owner's approval. Pipe the D1 row straight into the script
+that makes the request and print only the response. Never echo the token, put
+it on a command line, or write it to a file.
+
+Baseline, revenleather pixel, 2026-10-24:
+
+| Event | EMQ | Notes |
+| --- | --- | --- |
+| Purchase | 7.8 | phone, fn, ct, st, zp, country, external_id, fbp, IP, UA 100%; ln 84.6%; fbc 92.3%; event_id dedupe 100/100 |
+| InitiateCheckout | 7.8 | the same keys, from the checkout form |
+| AddToCart | 7.3 | fires before the address is typed: ct and zp 3.5% |
+| ViewContent / PageView | 6.1 | server fbp 38-58%: the deferred Pixel has not set `_fbp` yet |
+
+How to read it, and what not to do about it:
+
+- **Email is the only key left that moves Purchase above 8.** A COD form
+  collects none. The remaining gaps are real absences: a buyer with one name has
+  no last name, and a buyer who did not arrive from an ad has no fbc.
+- **Never fabricate a key to raise the score.** A synthetic
+  `<phone>@<domain>` email, a first name copied into `ln`, or a guessed gender
+  or birth date match no Meta account. They add no signal, can lower match
+  quality, and break Meta's terms that the customer data sent is genuine.
+  `matchableCustomerEmail` (§7) drops the store's own synthetic addresses for
+  this reason. The owner asked about this on 2026-10-24 and the answer stands.
+- **Deferred by the owner (2026-10-24): an optional email field** on the order
+  form (`type="email"`, `autocomplete="email"`, optionally behind
+  "+ Tambah email untuk invoice"). It is the only legitimate route above 8.
+  Re-measure about a week after shipping it, and do not promise a score.
+- **Leave the deferred Pixel alone.** The low upper-funnel fbp is the price of
+  loading fbevents late for PageSpeed (ADR-030). fbc and external_id still
+  cover those events.
+- **Open questions:** Purchase `order_id` showed on only 50% of server events,
+  while every outbox payload carries it. Another sender on the same pixel is
+  the suspect, unverified (revenleather.com, the Shopify store, may share it;
+  it is out of scope for this product). `SubscribedButtonClick` is Meta's
+  automatic event and can be turned off in Events Manager → Settings.

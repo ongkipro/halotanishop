@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { enqueuePurchaseForPaidOrder } from "./paid-order-purchase.ts";
+import { enqueuePurchaseForPaidOrder, manualTransferBecamePaid } from "./paid-order-purchase.ts";
 
 type Row = Record<string, unknown>;
 
@@ -146,4 +146,16 @@ test("a stored checkout context reaches the server-side Purchase", async (contex
   assert.equal(payload.userData.externalId, "0123456789abcdef0123456789abcdef");
   // Meta reads a missing country as a missing key rather than a default.
   assert.equal(payload.userData.country, "id");
+});
+
+test("only a manual transfer turning paid is an operator-confirmed Purchase", () => {
+  assert.equal(manualTransferBecamePaid("manual_transfer", "pending", "paid"), true);
+  assert.equal(manualTransferBecamePaid("manual_transfer", "unpaid", "settled"), true);
+  // Already paid: re-saving the order must not report it again.
+  assert.equal(manualTransferBecamePaid("manual_transfer", "paid", "paid"), false);
+  assert.equal(manualTransferBecamePaid("manual_transfer", "pending", "failed"), false);
+  // COD's Purchase is the persisted order, sent from /thanks.
+  assert.equal(manualTransferBecamePaid("cod", "unpaid", "paid"), false);
+  // QRIS and VA are confirmed by AutoLaris reconciliation, which sends its own.
+  assert.equal(manualTransferBecamePaid("bank_transfer", "pending", "paid"), false);
 });

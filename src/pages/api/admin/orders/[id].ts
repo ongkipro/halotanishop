@@ -9,6 +9,7 @@ import { getMengantarDispatchEligibility } from '../../../../lib/payment-dispatc
 import { calculateCodCustomerTotal, calculateCodFeeBreakdown } from '../../../../lib/payment-fee-policy';
 import { dispatchOrderToMengantar } from '../../../../lib/mengantar-dispatch';
 import { buildPaymentNotification, recordNotification } from '../../../../lib/notifications';
+import { enqueuePurchaseForPaidOrder, manualTransferBecamePaid } from '../../../../lib/paid-order-purchase.ts';
 import {
   getReceiverPerformance,
   isRecentReceiverRefusal,
@@ -673,6 +674,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       return jsonError('Tidak ada perubahan yang dikirim.', 400);
     }
 
+    let metaPurchase: Awaited<ReturnType<typeof enqueuePurchaseForPaidOrder>> | null = null;
     if (assignments.length > 0) {
       const destinationEditGuard =
         hasCustomerChanges || hasShippingSelection
@@ -737,6 +739,16 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
           }),
         });
       }
+      // A manual transfer is confirmed here and nowhere else, so this is its
+      // Purchase. Best effort, like the AutoLaris path: the payment is already
+      // durable, and the outbox keys on the order number, so a repeat is a no-op.
+      if (manualTransferBecamePaid(current.payment_method, current.payment_status, resolvedPaymentStatus)) {
+        try {
+          metaPurchase = await enqueuePurchaseForPaidOrder(db, locals, current.id);
+        } catch (error) {
+          console.error('paid-order-purchase-failed', error);
+        }
+      }
     }
 
     let dispatchOutcome: Awaited<ReturnType<typeof dispatchOrderToMengantar>> | undefined;
@@ -758,7 +770,13 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
         ? dispatchOutcome?.status === 'unpaid'
           ? `Draft shipment ${updated.order_number} diterima Mengantar dan menunggu top up wallet`
           : `Shipment ${updated.order_number} berhasil dibuat di Mengantar`
-        : `Order ${updated.order_number} berhasil diperbarui`,
+        : `Order ${updated.order_number} berhasil diperbarui${
+            metaPurchase?.status === 'queued'
+              ? ' · Purchase dikirim ke Meta'
+              : metaPurchase?.status === 'deduplicated'
+                ? ' · Purchase sudah tercatat sebelumnya'
+                : ''
+          }`,
       data: {
         id: updated.id,
         order_number: updated.order_number,
@@ -790,6 +808,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
         receiver_risk_label: updated.receiver_risk_label,
         ...readStoredReceiverPerformance(updated.receiver_performance_json),
         receiver_performance_checked_at: updated.receiver_performance_checked_at,
+        meta_purchase: metaPurchase,
       },
     });
   } catch (error) {

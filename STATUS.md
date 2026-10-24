@@ -2,6 +2,16 @@
 
 > Verified against disk: 2026-10-23 (1.7.8 on revenleather; 1.7.4 on zvarashop; 1.7.2 on beranda-tani, numaskin-adbook, taniniaga, agritani-shop, zanobyshop)
 
+## 2026-10-24 — 1.7.13: manual transfer confirmation sends the Purchase
+
+- Audit of revenleather D1, last 30 days: every `INV-` COD order (136/136) has
+  a `sent` CAPI Purchase, fbc on 59 of the last 60. The 41 without one are
+  `ABN-` abandoned leads, correctly. All 12 `manual_transfer` orders sat
+  `pending` with no Purchase: the dashboard had no way to mark them paid.
+- **1.7.13** adds "Transfer Diterima" to the order detail page for an unpaid
+  manual transfer; the PATCH that marks it paid enqueues the server CAPI
+  Purchase (TRACKING_SPECS §13). COD stays on `/thanks` by the owner's choice.
+
 ## 2026-10-24 — 1.7.12: sitemap and titles; 1.7.11 live on revenleather and beranda-tani
 
 - 1.7.11 deployed: revenleather `49445725`, beranda-tani (petanisejahtera.com)

@@ -38,6 +38,27 @@ export type PaidOrderPurchaseResult =
   | { status: "deduplicated" }
   | { status: "skipped"; reason: string };
 
+const PAID_STATUSES = new Set(["paid", "settled", "success"]);
+
+/**
+ * Whether an operator's payment edit is the moment a manual transfer becomes a
+ * Purchase. The buyer paid into the seller's own account, often after a
+ * WhatsApp chat, so `/thanks` never saw it paid and only the operator can.
+ * COD stays out on purpose: its Purchase is the persisted order, sent from
+ * `/thanks`, and courier remittance must not report it a second time.
+ */
+export function manualTransferBecamePaid(
+  paymentMethod: string,
+  previousStatus: string,
+  nextStatus: string,
+): boolean {
+  return (
+    paymentMethod === "manual_transfer" &&
+    PAID_STATUSES.has(nextStatus) &&
+    !PAID_STATUSES.has(previousStatus)
+  );
+}
+
 export async function enqueuePurchaseForPaidOrder(
   database: D1Database,
   locals: App.Locals,
@@ -61,7 +82,7 @@ export async function enqueuePurchaseForPaidOrder(
     .bind(orderId)
     .first<PaidOrderRow>();
   if (!order) return { status: "skipped", reason: "order-not-found" };
-  if (!["paid", "settled", "success"].includes(String(order.payment_status).toLowerCase())) {
+  if (!PAID_STATUSES.has(String(order.payment_status).toLowerCase())) {
     return { status: "skipped", reason: "order-not-paid" };
   }
   const products = await database

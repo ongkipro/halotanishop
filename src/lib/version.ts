@@ -8,7 +8,8 @@ export type CmsVersionInfo = {
 };
 
 export const CMS_VERSION: CmsVersionInfo = {
-  version: "1.7.12",
+  version: "1.7.13",
+  // 1.7.13: "Transfer Diterima" on a manual-transfer order marks it paid and sends its Meta Purchase from the server.
   // 1.7.12: a native landing page can declare canonicalSlug and leaves the sitemap; legal page titles name the store once.
   // 1.7.11: Smart Placement in the template; the catalogue is read once per request; product pages make six sequential D1 reads, not nine; shipping-quote type narrowing restored.
   // 1.7.10: setup checklist owes a courier when every courier is off; deploy preflight and fleet:status report product-owned files an install edited.

@@ -979,6 +979,48 @@ export function OrderDetail({ invoice }: { invoice: string }) {
     }
   };
 
+  // A manual transfer lands in the seller's own account, so the operator is the
+  // only one who can confirm it. Marking it paid also sends the order's Meta
+  // Purchase from the server: the buyer left /thanks long before.
+  const confirmManualTransfer = async () => {
+    if (!order) return;
+    if (
+      !(await confirm({
+        title: `Transfer ${order.order_number} sudah masuk?`,
+        description: `Pastikan ${currency(order.total_amount || 0)} sudah diterima di rekening toko. Order ditandai lunas dan Purchase dikirim ke Meta.`,
+        confirmLabel: "Ya, transfer diterima",
+        tone: "default",
+      }))
+    ) {
+      return;
+    }
+    setSaving(true);
+    setNotice("Menyimpan konfirmasi transfer…");
+    try {
+      const response = await fetch(
+        `/api/admin/orders/${encodeURIComponent(String(order.id))}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payment_status: "paid" }),
+        }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "Konfirmasi transfer gagal disimpan.");
+      }
+      setOrder((current) => (current ? { ...current, ...payload.data } : current));
+      setNotice(payload.message || "Transfer dikonfirmasi.");
+      toast.success(payload.message || "Transfer dikonfirmasi.");
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Konfirmasi transfer gagal disimpan.";
+      setNotice(message);
+      toast.error(message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const pushToMengantar = async () => {
     if (!order) return;
     setSaving(true);
@@ -1506,7 +1548,9 @@ export function OrderDetail({ invoice }: { invoice: string }) {
                     className="w-full"
                   >
                     {!paymentReady
-                      ? "Menunggu Pembayaran Online"
+                      ? order.payment_method === "manual_transfer"
+                        ? "Menunggu Konfirmasi Transfer"
+                        : "Menunggu Pembayaran Online"
                       : !shippingDataComplete
                       ? "Lengkapi Alamat & Ekspedisi"
                       : "Push Order ke Mengantar"}
@@ -1550,6 +1594,21 @@ export function OrderDetail({ invoice }: { invoice: string }) {
                   {paymentLabels[paymentStatus] || order.payment_status}
                 </span>
               </div>
+
+              {order.payment_method === "manual_transfer" &&
+                !paymentPaid &&
+                !paymentFailed &&
+                !paymentRefunded &&
+                paymentStatus !== "cancelled" && (
+                  <Button
+                    type="button"
+                    onClick={() => void confirmManualTransfer()}
+                    disabled={saving}
+                    className="w-full"
+                  >
+                    Transfer Diterima
+                  </Button>
+                )}
 
               <div className="border-t border-slate-100 pt-3 space-y-2">
                 <div className="flex justify-between items-center">
