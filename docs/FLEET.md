@@ -129,9 +129,9 @@ Everything else merges `product/main` as is; regenerate `docs/ROUTE-MAP.md`,
   and the grid grows from 10 to 70 products by scrolling alone. Not measurable
   from this workstation: the Lighthouse score itself (two runs of identical code
   gave 81 and 61 because the root document's time followed the colo). Still
-  heavy: the 133 KB home hero upload (`/assets/uploads/2026-08-18/ccf44dda…webp`,
-  600 px, uploaded before the 1 280 px / q0.8 upload rule), the three preloaded
-  Inter weights, and about 430 KB of Pixel and gtag.
+  heavy: the main image of the "Tas Slempang" product (the old 1254 px upload,
+  132 KB; the home hero was re-encoded to 56 KB under a new R2 key, BUILD-LOG
+  entry 231), the three preloaded Inter weights, and about 430 KB of Pixel and gtag.
 - **permatamall** — the reference store. Its footer keeps a "Meta Ads &
   Privasi" → `/meta-ads` link (Meta App Basic Settings needs it).
 - **taniniaga** — favicons and `public/images/logo.svg` are its own.

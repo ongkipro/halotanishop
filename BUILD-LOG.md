@@ -8223,3 +8223,26 @@ No migration, no version bump. 1154 tests pass, `npm run check` 0/0/0.
   judge on disk, covered end to end by `card-images-script.test.ts`, which runs the
   script in a temp folder. Quality 74 became 66 after measuring 12 real packshots
   (52 KB originals, 32 KB at 74, 30 KB at 66, no visible loss at card size).
+
+### Entry 231: zvara home hero re-encoded; the upload limit stays 2 MB (owner decision)
+
+- **Upload rule, decided 2026-11-01 (Paduka: "image max 2mb aja"):** unchanged.
+  The ceiling is 2 MB at every layer (`upload-r2.ts` answers 413, `ProductForm`,
+  `MAX_ENCODED_BYTES` after the browser's WebP pass), with the 1280 px edge and
+  quality 0.8 in `client-image.ts` as they were. A 1000 px / 0.72 tightening was
+  proposed and dropped; do not reopen it without new evidence. Measured for
+  context: a 480 px twin of a packshot is about 30 KB, a 1000 px product image
+  about 55 KB.
+- **zvara.shop home hero:** the upload of 2026-08-18 was 1254x1254, 132 KB,
+  stored before the edge rule. It was re-encoded to 1000 px, q70 (56 KB, banner
+  text still sharp) and stored under a **new** R2 key
+  `uploads/2026-11-01/8eef89d6-6e9c-4de0-b770-6b41ad8732e9.webp`, because
+  `/assets/*` is served `immutable` for a year and an overwritten key would never
+  reach a browser that has the old one. `storefront_content` row `home` (draft and
+  published) points at it; image bytes on the home page went 453 to 380 KB.
+  Rollback: the old object `uploads/2026-08-18/ccf44dda-90ac-486e-b088-1553d19d4a36.webp`
+  is still in R2; `UPDATE storefront_content SET draft_json = REPLACE(draft_json,
+  '<new path>', '<old path>'), published_json = REPLACE(published_json, '<new path>',
+  '<old path>') WHERE content_key = 'home'`.
+- The same upload is still a product's main image (card uses its `-sm` twin, the
+  product page the 132 KB original). Content, left alone.
