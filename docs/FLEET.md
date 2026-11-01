@@ -1,6 +1,6 @@
 # AdsBookCMS install fleet
 
-> Verified against disk: 2026-11-02 @ `17ac629` (versions, sync, distance, deploy time and schema read with `npm run fleet:status`, live `/hello` and a JSON-LD fetch of sample pages after the 1.8.8 rollout; "Version" is the working tree)
+> Verified against disk: 2026-11-02 @ `de910e1` (versions, sync, distance, deploy time and schema read with `npm run fleet:status` after the 1.8.9 rollout; "Version" is the working tree)
 
 Every store that runs AdsBookCMS: one install = one repository = one Worker
 = one store (`AGENTS.md`). This file is the registry of which installs exist,
@@ -15,23 +15,43 @@ distance behind the product, last deploy and schema for each local clone.
 
 | # | Store (domain) | Repository | Branch | Version | Behind product | Schema (applied/expected) | Last deploy |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.8** | 0 | 93/93 | 2026-11-02 |
-| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
-| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
-| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
-| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
-| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
-| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
-| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
-| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
-| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.9** | 0 | 93/93 | 2026-11-02 |
+| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
 | 11 | skincarebpom.shop | `ongkipro/skincarebpom` | `install/skincarebpom` | 1.8.5 in tree, 371 uncommitted files | 201 | 62/80 | 2026-10-18 |
-| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | **1.8.9** | 0 | 80/80 | 2026-11-02 |
 
 All twelve repositories and the product (`ongkipro/adsbookcms`) are
 **public** since 2026-11-01, after a full-history scan found no secret or
 customer data (test fixtures and base64 inside payment SVGs only). Never commit
 a real token, `.dev.vars`, `.env` or customer export to any of them.
+
+### Rollout of 1.8.9 (2026-11-02)
+
+Eleven of the twelve installs run **1.8.9** (`fleet:status`: clean, synced, 0
+behind; live `/hello` agrees); skincarebpom stays out by instruction. The change is
+the payment page following the store's `--sf-accent` tokens (ADR-019), no migration.
+
+- Rendered with a VA state held only in the browser's `sessionStorage` (no order,
+  no server write): the "Salin Nomor VA" button is navy on numaskin
+  (`#002b49`, `numaskin.css` line 117), green on beranda-tani (`#1b5e20`,
+  `petani-sejahtera.css` line 39) and `#121212` on the neutral stores. In
+  `?preview=1` alone the page looks the same everywhere because the accent
+  buttons only exist for a real payment.
+- revenleather keeps its own leather-themed `payment.astro` and `thanks.astro`
+  (diff against the pre-merge head empty; the 20 grafir files unchanged). The
+  product's `payment-accent.test.ts` asserts the token version, so revenleather
+  marks its two tests `test.skip` (its own commit); expect that file to conflict on
+  a future merge and keep the install's side.
+- Still unverified: a payment page with a real provider payload (QR image,
+  provider link), which needs a real order.
 
 ### Rollout of 1.8.7 and 1.8.8 (2026-11-02)
 

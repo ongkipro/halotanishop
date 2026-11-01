@@ -30,10 +30,49 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
-    version: "1.8.9",
+    version: "1.9.2",
     date: "2 November 2026",
     releaseTag: "2026.10-ops",
     isLatest: true,
+    highlight: "Form checkout tetap jelas dengan aksen oranye.",
+    changes: [
+      {
+        title: "Kolom terisi tetap abu-abu, bingkai fokus gelap",
+        description: "Dengan tombol oranye, kolom yang sudah terisi kembali berlatar abu-abu netral (bukan peach), dan kolom yang sedang diketik berbingkai gelap dengan cincin aksen, supaya tidak tertukar dengan bingkai merah saat error.",
+      },
+    ],
+  },
+  {
+    version: "1.9.1",
+    date: "2 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
+    highlight: "Tombol aksi utama kini oranye secara bawaan.",
+    changes: [
+      {
+        title: "Warna tombol CTA bawaan: oranye",
+        description: "Tombol Pesan sekarang, tombol pada form checkout, halaman pembayaran, halaman terima kasih, dan halaman 404 memakai oranye #C2410C (hover #9A3412, kontras 5,2:1 di bawah teks putih), bukan hitam. Merah tidak dipakai karena sudah menjadi warna error checkout. Toko yang sudah menimpa token --sf-accent tetap memakai warnanya sendiri.",
+      },
+    ],
+  },
+  {
+    version: "1.9.0",
+    date: "2 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
+    highlight: "Tombol aksi utama kini biru secara bawaan.",
+    changes: [
+      {
+        title: "Warna tombol CTA bawaan: biru (diganti oranye di 1.9.1)",
+        description: "Tidak pernah dipasang di toko mana pun. Tombol Pesan sekarang, tombol pada form checkout, halaman pembayaran, halaman terima kasih, dan halaman 404 memakai biru #2563EB (hover #1D4ED8, kontras 5,2:1 di bawah teks putih), bukan hitam. Toko yang sudah menimpa token --sf-accent tetap memakai warnanya sendiri.",
+      },
+    ],
+  },
+  {
+    version: "1.8.9",
+    date: "2 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
     highlight: "Halaman pembayaran mengikuti warna aksen toko.",
     changes: [
       {

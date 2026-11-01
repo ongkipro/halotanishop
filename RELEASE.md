@@ -1,6 +1,6 @@
 # Release and Deployment — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `0b6a44d` (§4 registry at 1.8.9, baseline 1167; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `be6ee6a` (§4 registry at 1.9.2, baseline 1167; other sections retain their recorded evidence)
 
 This document is the single owner of how a change reaches production. It replaces the previous `VERSION.md` runbook and the deleted `AUTO_UPDATE_DEPLOY.md`, which between them described three mutually exclusive release models, none of which matched the one workflow that exists.
 
@@ -204,10 +204,10 @@ Two registries, currently in step:
 
 | Source | Field | Value |
 | --- | --- | --- |
-| `src/lib/version.ts` | `version` | `1.8.9` |
+| `src/lib/version.ts` | `version` | `1.9.2` |
 | `src/lib/version.ts` | `releaseTag` | `2026.10-ops` |
 | `src/lib/version.ts` | `schemaVersion` | `80` |
-| `package.json` | `version` | `1.8.9` |
+| `package.json` | `version` | `1.9.2` |
 
 `src/lib/version.ts` is what the admin sidebar renders and is the value users
 see. Keep it and `package.json` in step when bumping.

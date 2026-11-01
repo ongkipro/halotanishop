@@ -1,6 +1,6 @@
 # AdsBookCMS — Design System
 
-> Verified against disk: 2026-11-01 @ `d0ea0d2` (1.8.3: §3 header, footer and home order; §7.3; earlier: storefront §1.1 Shopify-theme palette, §3 PDP order, login panel §1.3; §2, §7.4 as rewritten for compact-market v2)
+> Verified against disk: 2026-11-02 @ `156a214` (1.9.1: accent is CTA orange in §1.1; other sections retain their recorded evidence)
 >
 > **The public palette is neutral plus one overridable accent (ADR-019, as
 > amended 2026-08-23).** Colour tokens below that describe the retired gold
@@ -33,7 +33,7 @@ properties.
 
 ### 1.1 Storefront palette (`compact-market`)
 
-Neutral ink on white, ink as the interactive accent, one sale colour: the
+Neutral ink on white, orange (`#C2410C`) as the interactive accent since 1.9.1 (ink before), one sale colour: the
 Shopify theme (Dawn) palette, read from the Dawn demo store's home and product
 page on 2026-10-31 (ink `rgb(18,18,18)`, ink at 75% for body copy, `#F3F3F3`
 secondary surface, solid ink "Buy it now", blue "Sale" badge). Set 2026-10-31,
@@ -48,7 +48,7 @@ replacing the v2 blue accent.
 | `#E5E5E5` | Outline of pill controls at rest (chips, search, secondary buttons) |
 | `#EDEDED` | The hairline above the sticky buy bar |
 | `#E5E5E5` faded | The rule under the header: a 1px `linear-gradient` from transparent to `#E5E5E5` at 20%/80% and back, so it fades out at both edges |
-| `#121212` / `#333333` | Accent — primary buy action (sticky bar "Pesan sekarang", checkout submit, thanks/payment actions), selected variant border; same value as `--sf-accent` / `--sf-accent-strong`. A store re-brands through those tokens (ADR-019) |
+| `#C2410C` / `#9A3412` | Accent — primary buy action (sticky bar "Pesan sekarang", checkout submit, thanks/payment actions), selected variant border; same value as `--sf-accent` / `--sf-accent-strong` (CTA orange since 1.9.1; it was ink `#121212`/`#333333` from 2026-10-31; red is the checkout error colour, so it is not used). A store re-brands through those tokens (ADR-019) |
 | `#F3F3F3` (`--sf-accent-soft`) | A filled field and the selected variant card; an empty field is white (`--sf-field-empty`) |
 | `#334FB4` | Discount pill only (`-25%`, `rounded-full` like Dawn's badge), white text, 7.2:1 |
 | `#D92D20` | Checkout errors only (`form-hybrid.css`), never a sale |

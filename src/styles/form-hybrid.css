@@ -3,14 +3,17 @@
 [data-hybrid-form-root],
 [data-middle-form-root] {
   color: #1a1a1a;
-  /* Shopify-theme palette (Dawn, design/refs/dawn-pdp): ink carries every
-     selected / focused / primary control, a neutral grey marks what is
-     filled or chosen, and empty fields are plain white with a hairline. A
+  /* Ink for text, orange for the one action (ADR-019, amended 2026-11-02):
+     --sf-accent carries every selected / focused / primary control, a pale
+     tint of it marks what is filled or chosen, and empty fields are plain
+     white with a hairline. #c2410c is 5.18:1 under white text, #9a3412 on
+     hover 7.31:1; brighter oranges fail AA (#f97316 is 2.8:1) and red is
+     the checkout error colour, so it is not the call to action. A
      store re-brands by overriding these tokens (ADR-019), never a call site. */
-  --sf-accent: #121212;
-  --sf-accent-strong: #333333;
-  --sf-accent-soft: #f3f3f3;
-  --sf-accent-ring: rgba(18, 18, 18, 0.22);
+  --sf-accent: #c2410c;
+  --sf-accent-strong: #9a3412;
+  --sf-accent-soft: #fff7ed;
+  --sf-accent-ring: rgba(194, 65, 12, 0.28);
   --sf-field: #ffffff;
   /* An empty input is white; a filled one takes --sf-accent-soft, so a buyer
      can still see at a glance which fields are waiting. */
@@ -319,14 +322,14 @@
    the same hook the floating label already uses. */
 .form-field input:not(:placeholder-shown),
 .form-field textarea:not(:placeholder-shown) {
-  background: var(--sf-accent-soft);
+  background: var(--sf-surface-alt);
 }
 /* While typing the well goes white, so the caret and the value sit on the
    plainest possible surface. Declared after the filled rule so it wins. */
 .form-field input:focus,
 .form-field textarea:focus {
   outline: none;
-  border-color: var(--sf-accent);
+  border-color: var(--sf-focus-frame);
   background: var(--sf-field);
   box-shadow: none !important;
 }
@@ -386,14 +389,14 @@
   /* A validated field is by definition filled, so it keeps the filled grey
      rather than reverting to white. */
   border-color: var(--sf-field-border);
-  background: var(--sf-accent-soft) !important;
+  background: var(--sf-surface-alt) !important;
   box-shadow: none !important;
 }
 .field-grid input.field-valid:focus,
 .field-grid textarea.field-valid:focus,
 .form-field input.field-valid:focus,
 .form-field textarea.field-valid:focus {
-  border-color: var(--sf-accent) !important;
+  border-color: var(--sf-focus-frame) !important;
   background: var(--sf-field) !important;
   box-shadow: none !important;
 }
@@ -1141,6 +1144,9 @@
    rules above. */
 [data-hybrid-form-root],
 [data-middle-form-root] {
+  /* The frame of the field being typed in. Ink, not the accent: an orange frame
+     reads as the red error frame; the accent stays in the ring around it. */
+  --sf-focus-frame: #1a1a1a;
   --sf-valid: #15803d;
   --sf-valid-border: rgba(21, 128, 61, 0.45);
   --sf-invalid-ring: rgba(220, 38, 38, 0.18);
@@ -1158,7 +1164,7 @@
 .field-grid textarea.field-valid:focus,
 .form-field input.field-valid:focus,
 .form-field textarea.field-valid:focus {
-  border-color: var(--sf-accent) !important;
+  border-color: var(--sf-focus-frame) !important;
   box-shadow: 0 0 0 3px var(--sf-accent-ring) !important;
 }
 .field-grid input.field-valid,

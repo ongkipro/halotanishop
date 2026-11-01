@@ -8,7 +8,10 @@ export type CmsVersionInfo = {
 };
 
 export const CMS_VERSION: CmsVersionInfo = {
-  version: "1.8.9",
+  version: "1.9.2",
+  // 1.9.2: with the orange accent, a filled checkout field is neutral grey again (--sf-surface-alt, not the accent tint) and the field being typed in has an ink frame (--sf-focus-frame) with the accent only in its ring, so it cannot be mistaken for the red error frame. No migration.
+  // 1.9.1: the default action colour is orange (#c2410c, hover #9a3412, 5.18:1 and 7.31:1 under white text) instead of 1.9.0's blue, which was never deployed to any store. Red is the checkout error colour and brighter oranges fail AA. Same call sites and tokens as 1.9.0; a store that overrides --sf-accent keeps its colour. No migration.
+  // 1.9.0: the default action colour is blue (#2563eb, hover #1d4ed8) instead of black ink: the --sf-accent tokens in form-hybrid.css, the sticky "Pesan sekarang", the thanks/404/testimonial/landing buttons. A store that overrides --sf-accent keeps its own colour; one that never did turns blue. No migration.
   // 1.8.9: the payment page follows the store's --sf-accent re-brand tokens (ADR-019) instead of a fixed black, so a store with its own accent shows it where the buyer pays. A store that never overrode the tokens looks the same. No migration.
   // 1.8.8: a native Astro landing page now carries its product's Product JSON-LD (price, availability per variant), supplied by BaseLayout from the native-landing register instead of written into each page. No migration.
   // 1.8.7: the home page <title> no longer repeats the store name and stays within 60 characters, and a store description under 70 characters is extended with the store's own categories for the meta description. No migration.

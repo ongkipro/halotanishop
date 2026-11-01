@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `0b6a44d` (Entry 239; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `be6ee6a` (Entry 243; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8393,3 +8393,45 @@ confirmation and status markers take `var(--sf-accent)` / `--sf-accent-strong` i
 tokens, so the rest look unchanged. `payment-accent.test.ts` guards it at source. TRK-1 is
 closed on the nine-install `fbp` measurement; EMQ-1 records the Events Manager read Paduka
 deferred.
+
+### Entry 240: 1.8.9 rolled out to the fleet
+
+Eleven of twelve installs (skincarebpom excluded by instruction) run 1.8.9; `fleet:status`
+clean, synced, 0 behind. Per-install Worker ids and the conflict notes are in the agents'
+reports, summarised in `docs/FLEET.md` ("Rollout of 1.8.9"). Evidence for the visible
+change: with a VA state placed in `sessionStorage`, "Salin Nomor VA" computes
+`rgb(0,43,73)` on numaskin, `rgb(27,94,32)` on beranda-tani and `rgb(18,18,18)` on
+zvara, and the three renders were opened and compared. revenleather keeps its own
+themed page, so two of the product's payment-accent tests are skipped there. Not verified:
+a payment with a real provider payload.
+
+### Entry 241: released as 1.9.0, CTA blue by default
+
+No migration, 1167 tests, check 0/0/0. `form-hybrid.css` token defaults: accent `#2563eb`,
+strong `#1d4ed8`, soft `#eff6ff`, ring `rgba(37,99,235,.28)`. Seven hard-coded ink buttons
+(sticky "Pesan sekarang" in `produk/[slug].astro`, three in `thanks.astro`, `404`,
+`testimoni`, `landing-page/index`) now use `var(--sf-accent, #2563EB)`/`--sf-accent-strong`
+with a blue fallback because those pages sit outside the form root that defines the tokens.
+Proof: the local build rendered through Playwright (390 px) shows the buttons, the selected
+variant card, the order summary and the payment CTA in `rgb(37,99,235)`, no page error.
+Admin screens and install-owned native landing pages are untouched. Decision and rejected
+alternatives: ADR-019 amendment 2026-11-02. Not rolled out: Paduka decides when.
+
+### Entry 242: 1.9.1, the default CTA is orange, not blue
+
+Entry 241's blue (1.9.0) was replaced before any store received it: Paduka asked for orange
+or red. Measured against white text: `#c2410c` 5.18:1 (chosen, hover `#9a3412` 7.31:1),
+`#dc2626` 4.83:1 but the checkout error colour is `#d92d20`, `#f97316` 2.8:1 and `#ea580c`
+3.6:1 (below AA). Same tokens and the same seven call-site fallbacks as 1.9.0, new values;
+ADR-019's amendment rewritten to the final choice, with the rejected options. The discount
+pill stays `#334FB4`. 1167 tests, check 0/0/0.
+
+### Entry 243: 1.9.2, form states under the orange accent
+
+Found on the live zvara canary (1.9.1): with the filled-field tint following `--sf-accent-soft`
+the name and phone fields turned peach beside their green tick, and the focused field's orange
+frame looked like the red error frame. `form-hybrid.css`: filled and valid fields take
+`--sf-surface-alt` (neutral), and a new `--sf-focus-frame: #1a1a1a` is the frame while typing,
+with `--sf-accent-ring` kept as the ring. The selected variant card, bullets, summary tint and
+the buttons keep the accent. 1167 tests. The zvara native landing page's own hero button
+(`bg-stone-950`, amber text) is that page's design and stays.

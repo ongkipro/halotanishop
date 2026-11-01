@@ -1,8 +1,19 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `0b6a44d` (1.8.9 released; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `be6ee6a` (1.9.2 released; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+
+## 2026-11-02 — 1.9.2: the default CTA is orange, form states corrected
+
+`main` carries 1.9.1: `--sf-accent` is `#c2410c` and the buttons that were hard-coded
+ink read the token with an orange fallback (ADR-019 amendment). 1.9.0 had made it blue;
+Paduka asked for orange or red the same day and it never reached a store. Orange won:
+red is the checkout error colour, and brighter oranges fail AA under white text. A store
+that never overrode the tokens turns orange on its next merge; numaskin, beranda-tani
+and revenleather keep their own colour. 1.9.2 keeps filled fields grey and the typing frame ink so orange never reads as the red error. Rollout state: `docs/FLEET.md`.
 
 ## 2026-11-02 — 1.8.9: payment page follows the store accent
+
+Rolled out to eleven of the twelve installs the same day (`docs/FLEET.md`, "Rollout of 1.8.9").
 
 The payment page now loads the `form-hybrid.css` token layer and uses `--sf-accent`
 and `--sf-accent-strong` for its buttons and markers (ADR-019), so numaskin (navy) and
