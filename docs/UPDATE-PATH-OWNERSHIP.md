@@ -54,6 +54,10 @@ copy-paste update must leave them byte-identical:
   it full-bleed, the OS rounds it). The product ships neutral defaults; a store
   that swapped them keeps its own, and in a merge-type install a product change
   to one of them is a conflict the store's copy wins.
+- **`src/data/card-derivatives.ts` and the `*-sm.webp` twins beside static
+  images under `public/images/`** — written by `npm run card-images` for that
+  store's own images. The product ships the list empty. An update that resets it
+  loses nothing but the saving: `cardImageSrc` then serves the full image again.
 - **`RELEASE.md`** — once in a store's repo it is that install's adoption and
   deployment log, not the product release log. Do not overwrite it with the
   product's.
