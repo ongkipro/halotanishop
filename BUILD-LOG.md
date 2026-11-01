@@ -8191,3 +8191,10 @@ No migration, no version bump. 1149 tests pass, `npm run check` 0/0/0.
   are on 12 of 486 Purchase events because the short checkout form asks for a
   province only; the payload matches the order row exactly. Email is 0% because
   the COD form does not collect one.
+- **Verified live on zvara.shop (Worker `11b08a82`):** the first
+  `/api/meta-event` request of a fresh visitor carries `_fbp` before
+  `fbevents.js` is requested. The browser then holds two `_fbp` cookies
+  (host-only from this bootstrap, `.domain` from fbevents) with the same value.
+- Full method and the other measurements are `TRACKING_SPECS.md` §16.1b; the
+  fleet state, including five installs left merged-but-unpushed by an
+  interrupted rollout, is `docs/FLEET.md`.
