@@ -8,7 +8,8 @@ export type CmsVersionInfo = {
 };
 
 export const CMS_VERSION: CmsVersionInfo = {
-  version: "1.8.8",
+  version: "1.8.9",
+  // 1.8.9: the payment page follows the store's --sf-accent re-brand tokens (ADR-019) instead of a fixed black, so a store with its own accent shows it where the buyer pays. A store that never overrode the tokens looks the same. No migration.
   // 1.8.8: a native Astro landing page now carries its product's Product JSON-LD (price, availability per variant), supplied by BaseLayout from the native-landing register instead of written into each page. No migration.
   // 1.8.7: the home page <title> no longer repeats the store name and stays within 60 characters, and a store description under 70 characters is extended with the store's own categories for the meta description. No migration.
   // 1.8.6: `_fbp` is written before the deferred pixel so first-visit server events carry it; PUBLIC_DEFAULT_BRAND is the brand for a product with none; `npm run card-images` makes 480 px twins for static images; the home grid and /produk load 12, then 12 more as the button nears the screen. No migration.

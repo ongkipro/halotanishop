@@ -1,6 +1,15 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `17ac629` (1.8.8 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `0b6a44d` (1.8.9 released; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+
+## 2026-11-02 — 1.8.9: payment page follows the store accent
+
+The payment page now loads the `form-hybrid.css` token layer and uses `--sf-accent`
+and `--sf-accent-strong` for its buttons and markers (ADR-019), so numaskin (navy) and
+beranda-tani (green) show their own accent where the buyer pays; the other stores,
+whose tokens are the neutral defaults, look as before. revenleather keeps its own
+leather-themed page. TRK-1 is closed on the nine-install measurement
+(`TRACKING_SPECS.md` 16.1c); Event Match Quality waits for account access (EMQ-1).
 
 ## 2026-11-02 — 1.8.8: SEO pass and fleet rollout
 

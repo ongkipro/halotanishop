@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `8fd451f` (Entry 238; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `0b6a44d` (Entry 239; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8383,3 +8383,13 @@ Lesson: a font URL pasted into a page is never tested by the build; the browser'
 Not done and not possible from here: Purchase on a fresh order (a production
 write), Event Match Quality and Search Console (accounts), the `fbp` re-measure
 (due about 2026-11-11, UNIMPLEMENTED_SPECS TRK-1).
+
+### Entry 239: released as 1.8.9, payment accent tokens
+
+No migration. 1167 tests, `npm run check` 0/0/0. `src/pages/payment.astro` imports the
+re-brand token layer and marks its root `data-hybrid-form-root`; primary buttons, copy
+confirmation and status markers take `var(--sf-accent)` / `--sf-accent-strong` instead of
+`#121212`/`#333333`. Only numaskin (`#002b49`) and beranda-tani (`#1b5e20`) override the
+tokens, so the rest look unchanged. `payment-accent.test.ts` guards it at source. TRK-1 is
+closed on the nine-install `fbp` measurement; EMQ-1 records the Events Manager read Paduka
+deferred.

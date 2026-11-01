@@ -1,6 +1,6 @@
 # Release and Deployment — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `f53486c` (§4 registry at 1.8.8, baseline 1165; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `0b6a44d` (§4 registry at 1.8.9, baseline 1167; other sections retain their recorded evidence)
 
 This document is the single owner of how a change reaches production. It replaces the previous `VERSION.md` runbook and the deleted `AUTO_UPDATE_DEPLOY.md`, which between them described three mutually exclusive release models, none of which matched the one workflow that exists.
 
@@ -62,7 +62,7 @@ npm run check     # astro check && tsc --noEmit
 npm run build     # astro build
 ```
 
-Current verified baseline: **1165 tests passing** (2026-11-02, 1.8.8), `npm run check` 0 errors / 0 warnings / 0 hints and `npm run build` complete. AGENTS.md §4 carries the figure that the next change must not lower.
+Current verified baseline: **1167 tests passing** (2026-11-02, 1.8.9), `npm run check` 0 errors / 0 warnings / 0 hints and `npm run build` complete. AGENTS.md §4 carries the figure that the next change must not lower.
 
 ### Current production-readiness assessment
 
@@ -204,10 +204,10 @@ Two registries, currently in step:
 
 | Source | Field | Value |
 | --- | --- | --- |
-| `src/lib/version.ts` | `version` | `1.8.8` |
+| `src/lib/version.ts` | `version` | `1.8.9` |
 | `src/lib/version.ts` | `releaseTag` | `2026.10-ops` |
 | `src/lib/version.ts` | `schemaVersion` | `80` |
-| `package.json` | `version` | `1.8.8` |
+| `package.json` | `version` | `1.8.9` |
 
 `src/lib/version.ts` is what the admin sidebar renders and is the value users
 see. Keep it and `package.json` in step when bumping.
