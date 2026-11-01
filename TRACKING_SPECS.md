@@ -902,7 +902,10 @@ Findings:
 - **Measuring from Playwright:** wait for `load`, not `networkidle` (the pixel
   never lets the network go idle, so `networkidle` times out). Read the cookie a
   request actually sent with `request.allHeaders()`. A fresh browser context per
-  run is a first-time visitor.
+  run is a first-time visitor. **Timing from a workstation:** read the colo from
+  the `cf-ray` suffix (or `/cdn-cgi/trace`) and compare only requests that landed
+  on the colo you mean; this machine's route flips between SIN, HKG, NRT, CDG,
+  FRA and MRS, which alone moves TTFB between 0.12 s and 3 s.
 
 ### 16.2 "Purchases are missing in Ads Manager": measure before changing code (2026-10-24)
 
