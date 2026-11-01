@@ -219,7 +219,7 @@ The [Modules](#modules) section is the same book read from the other side.
 
 ## Modules
 
-139 modules under `src/lib`; 14 without a sibling test.
+140 modules under `src/lib`; 14 without a sibling test.
 `used by` lists routes importing the module directly — a module used by nothing
 is either transitive (imported by another lib) or dead, and only reading tells which.
 
@@ -302,6 +302,7 @@ is either transitive (imported by another lib) or dead, and only reading tells w
 | `meta-order-context` | 4 | — | ✓ | `/api/submit-middle-order` `/api/submit-order` `/api/v1/checkout` `/api/v1/tracking/events` |
 | `meta-purchase-order` | 6 | `order_items` `orders` `product_variants` `products` | ✓ | `/api/meta-event` `/api/v1/tracking/events` |
 | `native-landing-pages` | 10 | — | ✓ | `/[slug]` `/sitemap.xml` `/admin/ads/utm` |
+| `native-landing-product` | 2 | — | ✓ | — |
 | `notification-chime` | 3 | — | ✓ | — |
 | `notifications` | 15 | `admin_credentials` `notification_reads` `notifications` `orders` | ✓ | `/api/admin/notifications` `/api/admin/orders/[id]` |
 | `operational-alerts` | 10 | — | ✓ | — |

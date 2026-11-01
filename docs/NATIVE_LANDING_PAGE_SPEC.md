@@ -1,6 +1,6 @@
 # Native Direct-Response Landing Page Standard
 
-> Verified against disk: 2026-11-02 @ `894a861` (product structured data section added; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `40d80e4` (1.8.8: native landing product JSON-LD section rewritten)
 
 This document is the portable implementation standard for a native Astro
 product landing page. `docs/LANDING-PAGES.md` remains the canonical owner of
@@ -107,4 +107,4 @@ without the applicable approval.
 
 ## Product structured data
 
-A native page that takes over a product's address must give `BaseLayout` a `product` prop (name, description, image, url, sku, offers) so the page carries one `Product` JSON-LD block like `/produk/[slug]` and the CMS landing route do. Audit 2026-11-02: the native pages on zvara.shop and taniniaga.shop emit only `Organization` and `WebSite`, so Google gets no price or availability from them.
+`BaseLayout` emits the page's `Product` JSON-LD for you: when the request path is an active slug in `src/data/native-landing-pages.ts`, it reads that entry's `productSlug` from the catalogue and builds the block (`src/lib/native-landing-product.ts`: name, description, image, SKU, one offer per variant with price and `InStock`). A page that passes its own `product` prop to `BaseLayout` keeps it; never add a second `<script type="application/ld+json">` Product block by hand. Registering the page is therefore also what gives it structured data. Before 1.8.8 the native pages on zvara.shop and taniniaga.shop sent only `Organization` and `WebSite` (audit 2026-11-02).
