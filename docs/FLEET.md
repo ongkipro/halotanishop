@@ -37,7 +37,7 @@ a real token, `.dev.vars`, `.env` or customer export to any of them.
 
 A rollout of 1.8.5 was interrupted mid-way. Shipped and verified: **zvarashop**
 (also carries `PUBLIC_DEFAULT_BRAND` and the early `_fbp`, Worker version
-`11b08a82`) and **revenleather** (`8414aaa`, Worker version `e749164f`: 1.8.5
+`08fff93d`: also the card twins and load-more on scroll) and **revenleather** (`8414aaa`, Worker version `e749164f`: 1.8.5
 plus the early `_fbp`). Merged
 into the working tree but **not pushed, and not proven deployed** (the "Last
 deploy" column is the clone's own record, which can predate the merge):
@@ -121,6 +121,17 @@ Everything else merges `product/main` as is; regenerate `docs/ROUTE-MAP.md`,
   merge of the product template must not reset it. Open data item: product
   `99840` (Theravol Natural Oil) has no `google_product_category`; set it in the
   admin.
+- **zvarashop** keeps `src/data/card-derivatives.ts` filled (64 landing images)
+  and the `hero-product-sm.webp` twins beside them; both are install-owned (see
+  `docs/UPDATE-PATH-OWNERSHIP.md`). After adding or replacing a landing image run
+  `npm run card-images`, commit the twins and the list. Measured 2026-11-01 on the
+  home page: 10 cards 52 KB to 29 KB each, page weight 1 183 to 1 014 KiB, no 404,
+  and the grid grows from 10 to 70 products by scrolling alone. Not measurable
+  from this workstation: the Lighthouse score itself (two runs of identical code
+  gave 81 and 61 because the root document's time followed the colo). Still
+  heavy: the 133 KB home hero upload (`/assets/uploads/2026-08-18/ccf44dda…webp`,
+  600 px, uploaded before the 1 280 px / q0.8 upload rule), the three preloaded
+  Inter weights, and about 430 KB of Pixel and gtag.
 - **permatamall** — the reference store. Its footer keeps a "Meta Ads &
   Privasi" → `/meta-ads` link (Meta App Basic Settings needs it).
 - **taniniaga** — favicons and `public/images/logo.svg` are its own.
