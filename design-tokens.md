@@ -15,8 +15,8 @@ colors:
   raised:         "#F3F3F3"   # media wells, search well, notes, review cards
   border:         "#EDEDED"   # the only hairline: sticky header and buy bar
   outline:        "#E5E5E5"   # pill controls at rest
-  accent:         "#2563EB"   # the buy action (CTA blue, ADR-019 amended 2026-11-02), = --sf-accent
-  accent-strong:  "#1D4ED8"   # hover, = --sf-accent-strong
+  accent:         "#C2410C"   # the buy action (CTA orange, ADR-019 amended 2026-11-02), = --sf-accent
+  accent-strong:  "#9A3412"   # hover, = --sf-accent-strong
   sale:           "#334FB4"   # discount pill only; #D92D20 is checkout errors
   on-ink:         "#FFFFFF"   # text on ink
   focus:          "#2563EB"   # focus ring only - see accessibility notes
@@ -27,7 +27,7 @@ shadows: { buy-bar: "0 -8px 24px rgba(17,17,17,0.08)" }   # the only one
 motion: { duration-base: 200ms, easing: ease-out }
 ---
 
-> Verified against disk: 2026-11-02 @ `156a214` (accent is CTA blue; other values retain their recorded evidence, subordinate to DESIGN-SYSTEM.md)
+> Verified against disk: 2026-11-02 @ `156a214` (accent is CTA orange; other values retain their recorded evidence, subordinate to DESIGN-SYSTEM.md)
 
 ## Rationale
 

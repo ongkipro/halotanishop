@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `156a214` (Entry 241; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `407af14` (Entry 242; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8416,3 +8416,12 @@ Proof: the local build rendered through Playwright (390 px) shows the buttons, t
 variant card, the order summary and the payment CTA in `rgb(37,99,235)`, no page error.
 Admin screens and install-owned native landing pages are untouched. Decision and rejected
 alternatives: ADR-019 amendment 2026-11-02. Not rolled out: Paduka decides when.
+
+### Entry 242: 1.9.1, the default CTA is orange, not blue
+
+Entry 241's blue (1.9.0) was replaced before any store received it: Paduka asked for orange
+or red. Measured against white text: `#c2410c` 5.18:1 (chosen, hover `#9a3412` 7.31:1),
+`#dc2626` 4.83:1 but the checkout error colour is `#d92d20`, `#f97316` 2.8:1 and `#ea580c`
+3.6:1 (below AA). Same tokens and the same seven call-site fallbacks as 1.9.0, new values;
+ADR-019's amendment rewritten to the final choice, with the rejected options. The discount
+pill stays `#334FB4`. 1167 tests, check 0/0/0.

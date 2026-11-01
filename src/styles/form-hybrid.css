@@ -3,16 +3,17 @@
 [data-hybrid-form-root],
 [data-middle-form-root] {
   color: #1a1a1a;
-  /* Ink for text, blue for the one action (ADR-019, amended 2026-11-02):
+  /* Ink for text, orange for the one action (ADR-019, amended 2026-11-02):
      --sf-accent carries every selected / focused / primary control, a pale
      tint of it marks what is filled or chosen, and empty fields are plain
-     white with a hairline. #2563eb is 5.17:1 under white text, #1d4ed8 on
-     hover 6.7:1. A
+     white with a hairline. #c2410c is 5.18:1 under white text, #9a3412 on
+     hover 7.31:1; brighter oranges fail AA (#f97316 is 2.8:1) and red is
+     the checkout error colour, so it is not the call to action. A
      store re-brands by overriding these tokens (ADR-019), never a call site. */
-  --sf-accent: #2563eb;
-  --sf-accent-strong: #1d4ed8;
-  --sf-accent-soft: #eff6ff;
-  --sf-accent-ring: rgba(37, 99, 235, 0.28);
+  --sf-accent: #c2410c;
+  --sf-accent-strong: #9a3412;
+  --sf-accent-soft: #fff7ed;
+  --sf-accent-ring: rgba(194, 65, 12, 0.28);
   --sf-field: #ffffff;
   /* An empty input is white; a filled one takes --sf-accent-soft, so a buyer
      can still see at a glance which fields are waiting. */

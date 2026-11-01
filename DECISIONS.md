@@ -1,6 +1,6 @@
 # Architecture Decision Record — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `156a214` (ADR-019 amended again 2026-11-02; earlier ADRs retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `407af14` (ADR-019 amended again 2026-11-02, accent is orange; earlier ADRs retain their recorded evidence)
 
 Append-only. One decision per entry. A decision is recorded here only when it constrains future work; implementation detail belongs in `ARCHITECTURE.md`, remaining work in `UNIMPLEMENTED_SPECS.md`.
 
@@ -511,21 +511,24 @@ Tokens live in `design-tokens.md` at the repository root.
 
 ---
 
-**Amendment 2026-11-02 — the default accent is blue.** Paduka: the buy button is a
-call to action and should be blue by default. 2026-10-31 had set it to ink
-(`#121212`) after the Shopify Dawn demo, on the reasoning that a house colour
-should not fight a merchant's own. The re-brand surface was the answer to that
-fear and it holds: the accent is the nine `--sf-*` tokens, so a merchant who wants
-ink, green or navy overrides declarations and nothing else. What changes is only
-the default a store gets when it overrides nothing: `--sf-accent` `#2563eb`
-(5.17:1 under white text), `--sf-accent-strong` `#1d4ed8` (6.7:1), `--sf-accent-soft`
-`#eff6ff`, `--sf-accent-ring` `rgba(37,99,235,.28)`. The standalone buttons that
-were hard-coded ink (sticky "Pesan sekarang", thanks, 404, testimonials, landing
-index) now read `var(--sf-accent, #2563EB)`, so one declaration moves them.
-*Consequence:* stores that never overrode the tokens turn blue on their next
-merge; numaskin (`#002b49`), beranda-tani (`#1b5e20`) and revenleather (its own
-palette) keep their colour. The discount pill (`#334FB4`) is now close in hue to the
-CTA; it is left as it was and is worth a look if the two read as one.
+**Amendment 2026-11-02 — the default accent is orange.** Paduka: the buy button is a
+call to action and should not be black. Blue (`#2563eb`) was released as 1.9.0 and
+replaced the same day by orange before any store received it; the final choice is 1.9.1.
+2026-10-31 had set ink (`#121212`) after the Shopify Dawn demo, on the reasoning that a
+house colour should not fight a merchant's own. The re-brand surface answers that fear
+and holds: the accent is the nine `--sf-*` tokens, so a merchant who wants ink, green or
+navy overrides declarations and nothing else. Only the default changes:
+`--sf-accent` `#c2410c` (5.18:1 under white text), `--sf-accent-strong` `#9a3412` (7.31:1),
+`--sf-accent-soft` `#fff7ed`, `--sf-accent-ring` `rgba(194,65,12,.28)`. Rejected: red (it
+is the checkout error colour `#D92D20`, 4.83:1, so a red button reads as a warning),
+brighter orange `#f97316`/`#ea580c` (2.8:1 and 3.6:1, below AA for button text), blue
+(still blue is the discount pill and the admin's own brand, so a blue CTA blurred
+two meanings). The buttons that were hard-coded ink (sticky "Pesan sekarang", thanks,
+404, testimonials, landing index) read `var(--sf-accent, #C2410C)`, so one declaration
+moves them. *Consequence:* stores that never overrode the tokens turn orange on their
+next merge; numaskin (`#002b49`), beranda-tani (`#1b5e20`) and revenleather (its own
+palette) keep their colour. The discount pill (`#334FB4`) stays blue and is now
+distinct from the call to action.
 
 ## ADR-020 — Isolated installs are updated by manual copy, not a fleet engine
 
