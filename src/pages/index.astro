@@ -6,6 +6,7 @@ import { getRuntimeEnv } from '../lib/env';
 import { getTenantHomeContent } from '../lib/tenant-content';
 import { resolveStorefrontTemplate } from '../lib/storefront-template';
 import { dailySeed, pickDaily } from '../lib/daily-rotation';
+import { homeDescription, homeTitle } from '../lib/home-seo';
 
 const database = getRuntimeEnv(Astro.locals)?.OMS_DB;
 const [catalog, homeResolution, templateResolution] = await Promise.all([
@@ -36,8 +37,12 @@ const content = homeResolution.state === 'ready' ? homeResolution.content : null
 const template = templateResolution.state === 'ready' ? templateResolution.definition : null;
 if (unavailable) Astro.response.status = 503;
 const homepageTitle = ready
-  ? `${Astro.locals.tenant.name} — ${Astro.locals.tenant.tagline || Astro.locals.tenant.description}`
+  ? homeTitle(Astro.locals.tenant.name, Astro.locals.tenant.tagline || Astro.locals.tenant.description)
   : `Storefront ${Astro.locals.tenant.name}`;
+const homepageDescription = homeDescription(
+  Astro.locals.tenant.description,
+  products.map((product) => product.category),
+);
 // The hero's slides, resolved HERE rather than inside CompactMarketHome, so
 // the preload below names the image the hero will actually render. When the
 // operator has no slides of their own the hero borrows a daily rotation from
@@ -67,7 +72,7 @@ const itemList = {
 
 <BaseLayout
   title={homepageTitle}
-  description={Astro.locals.tenant.description}
+  description={homepageDescription}
   image={heroSlides[0]?.image || undefined}
   preloadImages={heroSlides[0]?.image}
   itemList={ready ? itemList : undefined}
