@@ -8246,3 +8246,15 @@ No migration, no version bump. 1154 tests pass, `npm run check` 0/0/0.
   '<old path>') WHERE content_key = 'home'`.
 - The same upload is still a product's main image (card uses its `-sm` twin, the
   product page the 132 KB original). Content, left alone.
+
+### Entry 232: the login timing-floor test measures medians, not one sample
+
+`admin-credentials.test.ts` "the login timing work floor is a real PBKDF2
+verification" failed once in CI on a documentation-only PR and passed on the
+re-run. It timed the digest compare once (about 0.03 ms) and demanded the
+PBKDF2 floor exceed ten times that, so one pause inside that single sample was
+enough. It now takes the median of 5 floor runs and 9 compare runs. Checked: with
+the floor replaced by the cheap compare the test still fails (3 of 3), the
+property it guards (LOGIN-13) is untouched, and over 30 000 samples under 12 busy
+loops on 8 cores a single sample crossed the limit 2 times against 0 of 3 333
+median-of-9 groups. The CI failure rate was not reproduced locally.
