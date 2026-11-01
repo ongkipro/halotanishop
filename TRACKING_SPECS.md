@@ -1,6 +1,6 @@
 # AdsBookCMS Meta Pixel, CAPI, GTM, and Google Ads Specification
 
-> Verified against disk: 2026-11-01 @ `0dd1dc3` (§16.1 user agent and multipart body, §16.1a fleet audit; other sections retain their recorded evidence; §16.1b server-leg audit added 2026-11-01)
+> Verified against disk: 2026-11-02 @ `eb0ced6` (§16.1c early-`_fbp` measurement and 1.8.6 browser re-check added; other sections retain their recorded evidence)
 
 This document owns the technical tracking contract for AdsBookCMS-rendered and headless storefronts. It covers event semantics, identity, browser/server boundaries, deduplication, durable delivery, store configuration, and verification. It does not claim attribution certainty, legal compliance, consent applicability, or live provider acceptance.
 
@@ -906,6 +906,28 @@ Findings:
   the `cf-ray` suffix (or `/cdn-cgi/trace`) and compare only requests that landed
   on the colo you mean; this machine's route flips between SIN, HKG, NRT, CDG,
   FRA and MRS, which alone moves TTFB between 0.12 s and 3 s.
+
+### 16.1c Early `_fbp` measured, 1.8.6 browser re-check (2026-11-02)
+
+Read-only aggregates over `capi_event_outbox` (hourly, PageView and ViewContent)
+on zvarashop-d1 and revenleather-d1. Before the deploy `fbp` sat at 5-47% by hour;
+from the first full hour after it, **100%** on both (zvara 13:00-18:00 UTC
+77/100/100/100/100%, revenleather 15:00 onward 100%). All rows `sent`, none
+failed. Revenleather's `fbc` fell to about 2% in the same hours because that
+traffic came from three IPs without a `fbclid` (audit and deploy checks plus a
+quiet Sunday), not from a change in click-id handling: `eventSourceUrl` carried no
+`fbclid` in any of those rows. The sample is sixteen hours, hence TRK-1 stays
+open until the ten-day re-measure.
+
+Browser re-check on all eleven installs after 1.8.6 (product page with `fbclid`
+and `utm_source`, mobile Chrome user agent, every beacon aborted): nine installs
+with a Pixel show one Pixel id, PageView and ViewContent each with an `eid` equal
+to a CAPI `event_id`, `_fbp`, `_fbc` and `adsbook_click_ids` set, no page error.
+cekat.shop and klikinaja.shop have no Pixel and an empty catalogue, so they
+post only the server PageView (AUD-T-L L-5). On taniniaga.shop `/produk/kojien`
+renders the native landing page of another slug, and its ViewContent `eid`
+carries that landing slug; the Pixel and CAPI ids still match, so deduplication
+is intact.
 
 ### 16.2 "Purchases are missing in Ads Manager": measure before changing code (2026-10-24)
 
