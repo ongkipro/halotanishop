@@ -25,3 +25,17 @@ test("asking twice does not stack suffixes", () => {
   const once = cardImageSrc("/assets/uploads/2026-08-18/a.webp");
   assert.equal(cardImageSrc(once), once);
 });
+
+test("a listed static image is swapped for its card twin; an unlisted one is left alone", () => {
+  const listed = new Set(["/images/landing/a/hero-product.webp"]);
+  assert.equal(
+    cardImageSrc("/images/landing/a/hero-product.webp", listed),
+    "/images/landing/a/hero-product-sm.webp",
+  );
+  // No twin listed: a swap would answer 404 through the Worker.
+  assert.equal(
+    cardImageSrc("/images/landing/b/hero-product.webp", listed),
+    "/images/landing/b/hero-product.webp",
+  );
+  assert.equal(cardImageSrc("/images/landing/b/hero-product.webp", new Set()), "/images/landing/b/hero-product.webp");
+});

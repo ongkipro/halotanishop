@@ -68,6 +68,8 @@ const INITIAL_COUNT = 10;
   </main>
 
   <script>
+    import { autoLoadMore } from '../../lib/auto-load-more';
+
     const INITIAL_COUNT = 10;
     const STEP = 10;
     let visibleCount = INITIAL_COUNT;
@@ -92,6 +94,7 @@ const INITIAL_COUNT = 10;
           loadMoreBtn.classList.add('hidden');
         }
       });
+      autoLoadMore(loadMoreBtn);
     }
   </script>
 </BaseLayout>

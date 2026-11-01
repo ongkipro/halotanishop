@@ -8198,3 +8198,22 @@ No migration, no version bump. 1149 tests pass, `npm run check` 0/0/0.
 - Full method and the other measurements are `TRACKING_SPECS.md` §16.1b; the
   fleet state, including five installs left merged-but-unpushed by an
   interrupted rollout, is `docs/FLEET.md`.
+
+### Entry 230: lighter catalogue cards and load-more on scroll (zvara.shop Lighthouse)
+
+No migration, no version bump. 1154 tests pass, `npm run check` 0/0/0.
+
+- **Measured on zvara.shop (Lighthouse mobile, home 62):** ten 600x600 landing
+  hero images (~55 KB each) sat in 182 CSS px cards, because `cardImageSrc` only
+  knew the admin-upload `-sm` twin. 29 of its 70 products point at such static
+  files. A static file has no server fallback (a missing twin answers 404
+  through the Worker), so the swap is driven by a generated list:
+  `npm run card-images` writes `<name>-sm.webp` (480 px) and
+  `src/data/card-derivatives.ts`; `cardImageSrc` swaps only listed paths. The
+  list ships empty, so no install changes until it runs the script.
+- **Load more** already existed on the home grid and `/produk` (10 at a time,
+  a button, two separate scripts). `lib/auto-load-more.ts` now clicks that
+  button as it nears the screen, after the first scroll or touch, and
+  re-observes after each click; the button stays for keyboard and no-script
+  use. Tested with a fake observer (`auto-load-more.test.ts`).
+- Server timing was *not* the problem: see `UNIMPLEMENTED_SPECS.md` PERF-1.

@@ -138,6 +138,8 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
 </section>
 
 <script>
+  import { autoLoadMore } from '../../../lib/auto-load-more';
+
   function initProductCatalog() {
     const searchInput = document.getElementById('catalog-search') as HTMLInputElement | null;
     const cards = document.querySelectorAll('.product-card') as NodeListOf<HTMLElement>;
@@ -209,6 +211,9 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
     });
 
     filterAndRender();
+    // The next ten load as the button nears the screen; the button stays as the
+    // keyboard and no-script path.
+    autoLoadMore(loadMoreBtn);
   }
 
   if (document.readyState === 'loading') {
