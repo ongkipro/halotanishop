@@ -1,6 +1,6 @@
 # AdsBookCMS install fleet
 
-> Verified against disk: 2026-11-02 @ `eb0ced6` (versions, sync, distance, deploy time and schema read with `npm run fleet:status` and live `/hello` on 2026-11-02 after the 1.8.6 rollout; "Version" is the working tree)
+> Verified against disk: 2026-11-02 @ `17ac629` (versions, sync, distance, deploy time and schema read with `npm run fleet:status`, live `/hello` and a JSON-LD fetch of sample pages after the 1.8.8 rollout; "Version" is the working tree)
 
 Every store that runs AdsBookCMS: one install = one repository = one Worker
 = one store (`AGENTS.md`). This file is the registry of which installs exist,
@@ -15,28 +15,64 @@ distance behind the product, last deploy and schema for each local clone.
 
 | # | Store (domain) | Repository | Branch | Version | Behind product | Schema (applied/expected) | Last deploy |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.6** | 0 | 93/93 | 2026-11-02 |
-| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
-| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
-| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
-| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
-| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
-| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.6** | 0 | 80/80 | 2026-11-02 |
-| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.6** | 0 | 80/80 | 2026-11-02 |
-| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | **1.8.6** | 0 | 80/80 | 2026-11-02 |
-| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | **1.8.6** | 0 | 80/80 | 2026-11-02 |
+| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.8** | 0 | 93/93 | 2026-11-02 |
+| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
+| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | **1.8.8** | 0 | 80/80 | 2026-11-02 |
 | 11 | skincarebpom.shop | `ongkipro/skincarebpom` | `install/skincarebpom` | 1.8.5 in tree, 371 uncommitted files | 201 | 62/80 | 2026-10-18 |
-| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | **1.8.6** | 0 | 80/80 | 2026-11-01 |
+| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | **1.8.8** | 0 | 80/80 | 2026-11-02 |
 
 All twelve repositories and the product (`ongkipro/adsbookcms`) are
 **public** since 2026-11-01, after a full-history scan found no secret or
 customer data (test fixtures and base64 inside payment SVGs only). Never commit
 a real token, `.dev.vars`, `.env` or customer export to any of them.
 
+### Rollout of 1.8.7 and 1.8.8 (2026-11-02)
+
+Eleven of the twelve installs runs **1.8.8** (`fleet:status`: clean, synced,
+0 behind; live `/hello` agrees). skincarebpom is out of scope by Paduka's instruction (2026-11-02): its clone sits on 1.8.5 with 371 uncommitted files and was not touched.
+
+- **1.8.7** gave the home `<title>` no repeated store name (at most 60
+  characters) and extended a short meta description with the store's own
+  categories. Live titles are 40-58 characters. cekat.shop and klikinaja.shop
+  stay at 33 characters: an empty catalogue has no categories to add.
+- **1.8.8** makes `BaseLayout` emit one `Product` JSON-LD block for a native
+  landing page, from the register entry's `productSlug`
+  (`src/lib/native-landing-product.ts`). Before it, zvara.shop and
+  taniniaga.shop sent only `Organization` and `WebSite` from the pages that
+  sell. Sampled live after the rollout: zvara `/produk/celana-knit-jumbo` and
+  `/produk/tiga-jari-oil`, taniniaga `/produk/kojien` and three native slugs,
+  numaskin `/lp-nad-serum-kerutan`, beranda-tani's native pages: exactly one
+  `Product` block each, offer prices matching the page.
+- **permatamall** had three hand-written blocks (`nutrilove-cuka-apel`,
+  `nutrilove-perut-buncit-detox`, `nutrilove-gula-darah-stabil`) that the layout
+  would have doubled; the blocks were removed from those pages (permatamall
+  `888f37a`, Worker `23a87160`) and each page now has one. The removed blocks
+  also carried a hard-coded `aggregateRating` (4.9, 3 840 reviews) that no data
+  in the store backs; it is gone from the markup and was not replaced.
+- **Indexing:** `page.revenleather.com` dropped `PUBLIC_SITE_NOINDEX` (Paduka's
+  decision, 2026-11-02, Worker `abf0d22c`); revenleather.com and .id (Shopify)
+  serve a different segment and stay. All eleven stores now answer
+  `index, follow` with no `X-Robots-Tag`.
+- baven.shop carried an uncommitted `PUBLIC_DEFAULT_BRAND` in `wrangler.jsonc`
+  (the same setting zvara already commits); it was committed on its own before
+  the merge.
+- numaskin-adbook's first 1.8.7 deploy was refused by the preflight because
+  `origin/main` held five native landing pages the clone lacked; merging
+  `origin` first fixed it, which is what the preflight is for.
+- Still not checked: a rendered visual pass of the pages shipped today, and the
+  one skipped test every install now reports (the product baseline says none).
+
 ### Rollout of 1.8.6 (2026-11-02)
 
-Every install with a local clone runs 1.8.6 (live `/hello` and `fleet:status`
-agree) except **skincarebpom**, which has no local clone and stays on 1.5.11.
+Eleven of the twelve installs runs 1.8.6 (live `/hello` and `fleet:status`
+agree) except **skincarebpom**, which was left out by instruction (its clone is on 1.8.5 with 371 uncommitted files; the live Worker was last deployed 2026-10-18).
 
 - zvarashop (`3ee1ee1`, Worker `4d86c8e0`), numaskin-adbook (`be853139`),
   klikinaja (`eac65816`, schema 62 → 80, only additive migrations),
