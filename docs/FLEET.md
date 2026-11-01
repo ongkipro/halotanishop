@@ -35,7 +35,7 @@ a real token, `.dev.vars`, `.env` or customer export to any of them.
 
 ### Rollout of 1.8.7 and 1.8.8 (2026-11-02)
 
-Eleven of the twelve installs runs **1.8.8** (`fleet:status`: clean, synced,
+Eleven of the twelve installs run **1.8.8** (`fleet:status`: clean, synced,
 0 behind; live `/hello` agrees). skincarebpom is out of scope by Paduka's instruction (2026-11-02): its clone sits on 1.8.5 with 371 uncommitted files and was not touched.
 
 - **1.8.7** gave the home `<title>` no repeated store name (at most 60
@@ -71,7 +71,7 @@ Eleven of the twelve installs runs **1.8.8** (`fleet:status`: clean, synced,
 
 ### Rollout of 1.8.6 (2026-11-02)
 
-Eleven of the twelve installs runs 1.8.6 (live `/hello` and `fleet:status`
+Eleven of the twelve installs run 1.8.6 (live `/hello` and `fleet:status`
 agree) except **skincarebpom**, which was left out by instruction (its clone is on 1.8.5 with 371 uncommitted files; the live Worker was last deployed 2026-10-18).
 
 - zvarashop (`3ee1ee1`, Worker `4d86c8e0`), numaskin-adbook (`be853139`),

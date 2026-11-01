@@ -1,6 +1,6 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `17ac629` (1.8.8 on Eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `17ac629` (1.8.8 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
 
 ## 2026-11-02 — 1.8.8: SEO pass and fleet rollout
 

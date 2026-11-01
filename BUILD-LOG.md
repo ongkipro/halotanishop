@@ -8311,7 +8311,7 @@ code on their own 1.8.5 headers; they take the number with their next merge.
 
 ### Entry 236: 1.8.6 rolled out to the fleet
 
-No product code changed. Eleven of the twelve installs now runs 1.8.6
+No product code changed. Eleven of the twelve installs now run 1.8.6
 (`npm run fleet:status` and live `/hello` agree); skincarebpom was left out by instruction (clone
 on 1.8.5 with 371 uncommitted files, last deployed 2026-10-18). Registry and per-install notes: `docs/FLEET.md`.
 
