@@ -8135,10 +8135,10 @@ request or horizontal scroll.
   QRIS/VA orders too; KPI values are never truncated and step down by length
   on phones (16, 14, 12px) so "Rp 1.234.567.890" fits a 360px card.
 
-### Entry 227: CAPI outbox — the cron drains a backlog, fleet tracking and cron audit (unreleased)
+### Entry 227: CAPI outbox — the cron drains a backlog, fleet tracking and cron audit (released as 1.8.5)
 
-No migration. 1146 tests pass, `npm run check` 0/0/0. Not deployed; ships with
-the next release.
+No migration. 1146 tests pass, `npm run check` 0/0/0. Released as 1.8.5
+(version bump, "What's new" entry).
 
 - **Review of the CAPI delivery mechanism.** Every event is written to
   `capi_event_outbox` before it is sent, sent at once, retried on backoff
