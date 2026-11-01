@@ -194,7 +194,7 @@ Migration-specific notes:
   `stores.business_address`, both nullable, edited in Pengaturan › Store and
   read by the legal and contact pages. Additive, no backfill.
 
-`1.8.0` (2026-10-31) is the first release that carries `0067`–`0078`; `1.8.2` carries `0079` (a product's Google category id and path); `1.8.3`, `1.8.4` and `1.8.5` add no migration.
+`1.8.0` (2026-10-31) is the first release that carries `0067`–`0078`; `1.8.2` carries `0079` (a product's Google category id and path); `1.8.3`, `1.8.4`, `1.8.5` and `1.8.6` add no migration.
 
 ---
 
@@ -204,10 +204,10 @@ Two registries, currently in step:
 
 | Source | Field | Value |
 | --- | --- | --- |
-| `src/lib/version.ts` | `version` | `1.8.5` |
+| `src/lib/version.ts` | `version` | `1.8.6` |
 | `src/lib/version.ts` | `releaseTag` | `2026.10-ops` |
 | `src/lib/version.ts` | `schemaVersion` | `80` |
-| `package.json` | `version` | `1.8.5` |
+| `package.json` | `version` | `1.8.6` |
 
 `src/lib/version.ts` is what the admin sidebar renders and is the value users
 see. Keep it and `package.json` in step when bumping.
