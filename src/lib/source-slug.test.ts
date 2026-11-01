@@ -550,3 +550,64 @@ test("a cut export ends on a whole order and says how many rows it kept", async 
   assert.ok(!lines.some((line) => line.startsWith("INV-BIG,")));
   assert.equal(response.headers.get("x-export-truncated"), String(ORDER_EXPORT_ROW_LIMIT - 1));
 });
+
+test("a Friday is compared with last Friday, hour by hour, with AOV, lead conversion and the COD split", async () => {
+  const { GET: analytics } = await import("../pages/api/admin/analytics.ts");
+  const sqlite = migratedSqlite();
+  seedLeadStore(sqlite);
+  const insert = sqlite.prepare(`INSERT INTO orders (order_number, store_id, customer_name, customer_phone, address,
+    province, city, district, total_amount, created_at, payment_method, payment_status, shipping_status)
+    VALUES (?, 1, 'Budi', '6281200000000', 'Jl', 'Jawa Barat', 'Bandung', 'Coblong', ?, ?, ?, ?, ?)`);
+  // Friday 2026-10-30 (WIB): two orders at 10:xx, one lead.
+  insert.run("INV-1", 100000, "2026-10-30T03:10:00.000Z", "cod", "unpaid", "pending");
+  insert.run("INV-2", 50000, "2026-10-30T03:40:00.000Z", "qris", "paid", "pending");
+  insert.run("ABN-3", 0, "2026-10-30T04:00:00.000Z", "cod", "unpaid", "abandoned");
+  // Last Friday 2026-10-23: one order at 09:xx WIB. Thursday 10-29 must not count.
+  insert.run("INV-4", 80000, "2026-10-23T02:30:00.000Z", "cod", "unpaid", "pending");
+  insert.run("INV-5", 999000, "2026-10-29T03:00:00.000Z", "cod", "unpaid", "pending");
+  const response = await analytics({
+    url: new URL("https://toko.test/api/admin/analytics?startDate=2026-10-30&endDate=2026-10-30&interval=hour&preset=today"),
+    locals: { runtimeEnv: { OMS_DB: d1(sqlite) } },
+  } as unknown as Parameters<typeof analytics>[0]);
+  const body = (await response.json()) as { data: Record<string, any> };
+  const data = body.data;
+  assert.equal(data.previous.mode, "week");
+  assert.equal(data.previous.start_date, "2026-10-23");
+  assert.equal(data.previous.total_revenue, 80000, "Thursday is not last Friday");
+  assert.equal(data.average_order_value, 75000);
+  assert.equal(data.lead_conversion_rate, 66.67);
+  assert.equal(data.cod_revenue, 100000);
+  assert.equal(data.prepaid_revenue, 50000);
+  assert.equal(data.trends.length, 24);
+  assert.equal(data.previous.trends.length, 24);
+  assert.equal(data.trends[10].revenue, 150000, "10:00 WIB bucket");
+  assert.equal(data.previous.trends[9].revenue, 80000, "09:00 WIB bucket last Friday");
+  // An explicit choice wins over the preset's default.
+  const previous = await analytics({
+    url: new URL("https://toko.test/api/admin/analytics?startDate=2026-10-30&endDate=2026-10-30&interval=hour&preset=today&compare=previous"),
+    locals: { runtimeEnv: { OMS_DB: d1(sqlite) } },
+  } as unknown as Parameters<typeof analytics>[0]);
+  const explicit = (await previous.json()) as { data: Record<string, any> };
+  assert.equal(explicit.data.previous.start_date, "2026-10-29");
+  assert.equal(explicit.data.previous.total_revenue, 999000);
+});
+
+test("Action needed marks what has waited more than a day", async () => {
+  const { readOrderAttention } = await import("./order-attention.ts");
+  const sqlite = migratedSqlite();
+  seedLeadStore(sqlite);
+  const insert = sqlite.prepare(`INSERT INTO orders (order_number, store_id, customer_name, customer_phone, address,
+    province, city, district, total_amount, created_at, payment_method, payment_status, shipping_status, lead_follow_up_status)
+    VALUES (?, 1, 'Budi', '6281200000000', 'Jl', 'Jawa Barat', 'Bandung', 'Coblong', 1000, ?, ?, ?, ?, 'new')`);
+  const now = Date.parse("2026-11-01T12:00:00.000Z");
+  const hoursAgo = (h: number) => new Date(now - h * 3_600_000).toISOString();
+  insert.run("INV-NEW", hoursAgo(2), "cod", "unpaid", "pending");
+  insert.run("INV-OLD", hoursAgo(30), "cod", "unpaid", "pending");
+  insert.run("INV-QRIS-OLD", hoursAgo(26), "qris", "pending", "pending");
+  insert.run("ABN-OLD", hoursAgo(48), "cod", "unpaid", "abandoned");
+  const { items } = await readOrderAttention(d1(sqlite), { now });
+  const item = (key: string) => items.find((entry) => entry.key === key);
+  assert.deepEqual([item("confirm")?.count, item("confirm")?.stale], [3, 2]);
+  assert.deepEqual([item("awaiting_payment")?.count, item("awaiting_payment")?.stale], [1, 1]);
+  assert.deepEqual([item("leads_new")?.count, item("leads_new")?.stale], [1, 1]);
+});
