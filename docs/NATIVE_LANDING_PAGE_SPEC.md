@@ -1,6 +1,6 @@
 # Native Direct-Response Landing Page Standard
 
-> Verified against disk: 2026-08-27 @ `3bb51a3` + payment-recovery working tree
+> Verified against disk: 2026-11-02 @ `894a861` (product structured data section added; other sections retain their recorded evidence)
 
 This document is the portable implementation standard for a native Astro
 product landing page. `docs/LANDING-PAGES.md` remains the canonical owner of
@@ -104,3 +104,7 @@ product adoption and deploy path. Keep `wrangler.jsonc`, secrets, merchant
 assets, D1 identity, and provider configuration install-owned. No landing-page
 release authorizes a remote migration, provider call, or production deployment
 without the applicable approval.
+
+## Product structured data
+
+A native page that takes over a product's address must give `BaseLayout` a `product` prop (name, description, image, url, sku, offers) so the page carries one `Product` JSON-LD block like `/produk/[slug]` and the CMS landing route do. Audit 2026-11-02: the native pages on zvara.shop and taniniaga.shop emit only `Organization` and `WebSite`, so Google gets no price or availability from them.

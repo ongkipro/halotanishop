@@ -1,6 +1,22 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-01 @ `fbcb8ba` (1.8.4 released and deployed to seven installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `eb0ced6` (1.8.6 released and deployed to every install with a local clone; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+
+## 2026-11-02 — 1.8.6 rolled out to the fleet
+
+`main` is `eb0ced6` (PR #143), version 1.8.6, schema 80. All eleven installs
+with a local clone are on 1.8.6 (see `docs/FLEET.md`); skincarebpom has no clone
+and stays on 1.5.11. Live check on each domain: `/hello` shows v1.8.6; the new
+rollouts also passed `/` and `/produk`. Gates in each install: check 0/0/0,
+tests 1157–1170 pass with 1 skipped, build.
+
+Tracking: the early `_fbp` fix measured on the server leg. On zvara.shop and
+page.revenleather.com `fbp` on PageView/ViewContent went from 20–50% to 100%
+from the first hour after deploy (`TRACKING_SPECS.md` §16.1c). The browser leg
+was re-run on all eleven installs with every beacon aborted: Pixel and CAPI
+carry the same `eid` for PageView and ViewContent, `_fbp`, `_fbc` and
+`adsbook_click_ids` are set. Not covered: Purchase on a fresh order, Event
+Match Quality in Events Manager.
 
 ## 2026-11-01 — 1.8.4 released and deployed
 
