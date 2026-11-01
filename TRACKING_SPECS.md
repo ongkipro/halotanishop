@@ -1,6 +1,6 @@
 # AdsBookCMS Meta Pixel, CAPI, GTM, and Google Ads Specification
 
-> Verified against disk: 2026-10-31 @ `122cb89` + feat/admin-topbar-polish working tree (§2 /thanks gate, §15, §16.1; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-01 @ `368833b` (§16.1 user agent and multipart body, §16.1a fleet audit; other sections retain their recorded evidence)
 
 This document owns the technical tracking contract for AdsBookCMS-rendered and headless storefronts. It covers event semantics, identity, browser/server boundaries, deduplication, durable delivery, store configuration, and verification. It does not claim attribution certainty, legal compliance, consent applicability, or live provider acceptance.
 
@@ -630,7 +630,7 @@ On a successful send the `attempts` counter is not incremented and `last_error` 
 Two ways, and it needs both:
 
 - **Opportunistically**, on the back of later storefront traffic, scheduled through `waitUntil()` by `/api/meta-event` and `/api/v1/tracking/events`.
-- **On the hour**, from `runScheduledMaintenance` in `src/worker.ts`, which reads the store ads config and calls `drainCapiOutbox` directly.
+- **On the hour**, from `runScheduledMaintenance` in `src/worker.ts`, which reads the store ads config and calls `drainCapiOutboxBacklog`: up to `CAPI_CRON_DRAIN_BATCHES` (3) batches of ten, stopping at the first batch that does not land in full — an empty backlog or a refusing Meta. A storefront request still drains one batch. Three batches keep the cron inside the Free plan's 50 subrequests next to its other fetches; one batch an hour would need ten hours to land a 107-row requeue on a quiet store.
 
 This section used to say there was no cron, and for a while that was true. It was also the bug: backoff caps at an hour, which quietly assumes a visitor arrives within the hour. A store between campaigns has no such visitor, so a failed event simply sat there — while the health check counted it as overdue with nothing acting on it. The scheduled handler now owns the clock; opportunistic draining remains because it delivers sooner when there *is* traffic.
 
@@ -818,7 +818,12 @@ The procedure behind the 1.7.12 check on revenleather and petanisejahtera.com.
   `fbq('track')` is called, but no `/tr` request is made while
   `navigator.webdriver` is true. Launch Chrome with
   `--disable-blink-features=AutomationControlled` before you conclude the
-  Pixel is broken.
+  Pixel is broken. A `HeadlessChrome` user agent silences it the same way
+  (2026-11-01): give the context a real mobile Chrome user agent too.
+- **Read the beacon body, not only its URL.** fbevents POSTs to
+  `www.facebook.com/tr/` with a `multipart/form-data` body; `ev`, `id` and `eid`
+  are form fields there, so a check that parses only query parameters reports
+  "no events" on a Pixel that works.
 - **Deduplication is checked within one visit:** each `eid` on a Pixel hit must
   equal the `event_id` of one `/api/meta-event` body. Expected pairs: PageView
   and ViewContent on load; AddToCart once name and phone qualify;
@@ -831,6 +836,20 @@ The procedure behind the 1.7.12 check on revenleather and petanisejahtera.com.
   `/thanks` should answer 200 with no exceptions or `error` logs.
 - Purchase is not covered by any of this: it needs a real order, which is a
   production write and needs explicit approval.
+
+### 16.1a Fleet audit after 1.8.4 (2026-11-01)
+
+Run with §16.1's method on the seven 1.8.4 installs (zvara.shop,
+permatamall.shop, agritani.shop, taniniaga.shop, halotani.shop, baven.shop,
+page.numaskin.id), a product page opened with `fbclid` and `utm_*`, every
+beacon aborted. Each showed exactly one Pixel id, one PageView and one
+ViewContent, both with an `eid`; `adsbook_click_ids` held the `fbclid` and the
+UTM campaign and `_fbc` was set; zvara and baven also fired their Google Ads
+tag (`AW-…`); `/thanks` answered `Cache-Control: no-store`; no page error. No
+tracking, CAPI or click-id code changed between 1.8.0 and 1.8.4. Every live
+install pins Graph API v26.0, Meta's newest (changelog checked 2026-11-01).
+Not covered: Purchase and the server leg, which need a real order or a read
+of the install's `capi_event_outbox`.
 
 ### 16.2 "Purchases are missing in Ads Manager": measure before changing code (2026-10-24)
 

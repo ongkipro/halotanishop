@@ -54,6 +54,36 @@ Each install also has a KV namespace for caches (binding `SESSION`). Resource
 ids live in the install's own `wrangler.jsonc`, never in this repository's
 template.
 
+## Tracking (audited 2026-11-01)
+
+Browser check per `TRACKING_SPECS.md` §16.1a: a product page with `fbclid` and
+`utm_*`, every beacon aborted.
+
+| Install | Meta Pixel | Google Ads tag | CAPI Graph API | PageView / ViewContent with `eid` | Click ids + UTM kept |
+| --- | --- | --- | --- | --- | --- |
+| zvarashop | `5111…` | `AW-18486474319` | v26.0 | yes | yes |
+| permatamall | `5111…` | — | v26.0 | yes | yes |
+| agritani-shop | `1640…` | — | v26.0 | yes | yes |
+| taniniaga | `1640…` | — | v26.0 | yes | yes |
+| halotanishop | `1640…` | — | v26.0 | yes | yes |
+| bavenshop | `5111…` | `AW-18486474319` | v26.0 | yes | yes |
+| numaskin-adbook | `1186…` | — | v26.0 | yes | yes |
+
+The installs on older releases (revenleather, beranda-tani, klikinaja,
+skincarebpom, cekat-shop) also pin v26.0. Graph API v26.0 is Meta's newest
+(changelog checked 2026-11-01); v20.0 expired 2026-09-24.
+
+## Cron
+
+Every install registers the product's hourly housekeeping trigger
+`7 * * * *` (`src/worker.ts` `scheduled`: CAPI retry, payment expiry, receiver
+scoring, purges). skincarebpom had it commented out from 2026-08-22, when the
+account's five-trigger ceiling gave the slot to zanobyshop; it was restored
+2026-11-01 (`3247a23`, registered with `wrangler triggers deploy`, no code
+redeploy) once eleven installs were already registering one each — the
+account no longer stops at five. A new install keeps the trigger; never
+comment it out to make room.
+
 ## Merge rules that differ per install
 
 Everything else merges `product/main` as is; regenerate `docs/ROUTE-MAP.md`,

@@ -5,7 +5,9 @@ import { metaNameParts, normalizeMetaText, sha256Hex, toE164Digits } from './met
  * two years — re-check the changelog before bumping, do not guess:
  * https://developers.facebook.com/docs/graph-api/changelog
  *
- * Verified current on 2026-08-14 (v26.0, released 2026-07-29).
+ * Verified current on 2026-08-14 (v26.0, released 2026-07-29) and again on
+ * 2026-11-01: v26.0 is still the newest, available until a date Meta has not
+ * set; v20.0 expired 2026-09-24. Every live install carries v26.0.
  */
 export const META_GRAPH_API_VERSION = 'v26.0';
 

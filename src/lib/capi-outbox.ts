@@ -6,8 +6,9 @@ import { sendMetaCapiEvent, type MetaCustomData, type MetaUserData } from "./met
  * A conversion event is recorded in D1 *before* it is transmitted, so a network
  * blip, a Meta 429, or an expired token cannot silently discard revenue signal.
  * Failed events retry with exponential backoff, drained opportunistically by
- * later storefront traffic — no cron trigger or queue binding required, which
- * matters because the Astro Cloudflare adapter owns the Worker entrypoint.
+ * later storefront traffic and, since 1.4.0, by the hourly cron in
+ * `src/worker.ts` (`drainCapiOutboxBacklog`), so a store with no visitors
+ * still retries. No queue binding: Queues need the Workers Paid plan.
  */
 
 export type OutboxEvent = {
@@ -383,6 +384,36 @@ export async function drainCapiOutbox(
   let sent = 0;
   for (const row of due.results ?? []) {
     if (await transmit(database, row, pixelId, accessToken)) sent += 1;
+  }
+  return sent;
+}
+
+/**
+ * Batches the hourly cron may drain in one run. A storefront request drains one
+ * batch so it stays short; the cron is the only drain a quiet store gets, and
+ * at one batch an hour a requeue the size of 2026-09-03's (107 rows) needs ten
+ * hours to land between campaigns. Three batches stay well inside the Free plan's 50
+ * subrequests per invocation alongside the cron's other fetches.
+ */
+export const CAPI_CRON_DRAIN_BATCHES = 3;
+
+/**
+ * Drains batch after batch while each one lands in full. A short batch means
+ * the backlog is empty; a failed send means Meta is refusing, and pressing on
+ * would only spend more rows' attempt budgets against the same refusal.
+ */
+export async function drainCapiOutboxBacklog(
+  database: D1Database,
+  pixelId: string,
+  accessToken: string,
+  now = new Date(),
+  maxBatches = CAPI_CRON_DRAIN_BATCHES,
+): Promise<number> {
+  let sent = 0;
+  for (let batch = 0; batch < maxBatches; batch += 1) {
+    const landed = await drainCapiOutbox(database, pixelId, accessToken, now);
+    sent += landed;
+    if (landed < MAX_DRAIN_BATCH) break;
   }
   return sent;
 }

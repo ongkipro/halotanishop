@@ -8134,3 +8134,26 @@ request or horizontal scroll.
   the non-COD revenue figure is labelled "Non-COD", since it holds unpaid
   QRIS/VA orders too; KPI values are never truncated and step down by length
   on phones (16, 14, 12px) so "Rp 1.234.567.890" fits a 360px card.
+
+### Entry 227: CAPI outbox — the cron drains a backlog, fleet tracking and cron audit (unreleased)
+
+No migration. 1146 tests pass, `npm run check` 0/0/0. Not deployed; ships with
+the next release.
+
+- **Review of the CAPI delivery mechanism.** Every event is written to
+  `capi_event_outbox` before it is sent, sent at once, retried on backoff
+  (2, 4, 8, 16 minutes; 15 for a rate limit; five attempts) by any later
+  storefront request and by the hourly cron. That stays: Cloudflare Queues
+  would give delayed retries natively but need the Workers Paid plan, and a
+  faster cron would only matter for a store with no visitors at all.
+- **The one gap.** The cron drained one batch of ten an hour, and it is the
+  only drain a store between campaigns has, so a requeue of 2026-09-03's size
+  (107 rows) needed ten hours to land. `drainCapiOutboxBacklog` now drains up
+  to three batches per run (`CAPI_CRON_DRAIN_BATCHES`) and stops at the first
+  batch that does not land in full, so a refusing Meta does not burn more rows'
+  attempt budgets. Requeueing failed rows stays a manual operator action.
+- **Fleet audit after 1.8.4** (`TRACKING_SPECS.md` §16.1a, `docs/FLEET.md`):
+  one Pixel per store, PageView/ViewContent with `eid`, click ids and UTM kept,
+  Graph API v26.0 everywhere. skincarebpom's hourly cron, commented out since
+  2026-08-22 to free a slot for zanobyshop, is registered again.
+- PRD A47 records the 1.8.3–1.8.4 dashboard requirements (REQ-274–279).
