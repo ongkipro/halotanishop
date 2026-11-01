@@ -51,6 +51,8 @@ function createAnalyticsDatabase() {
       payment_method TEXT NOT NULL,
       payment_status TEXT NOT NULL,
       shipping_status TEXT NOT NULL,
+      -- The funnel's "handed to Mengantar" step reads it; NULL is not handed over.
+      provider_order_id TEXT,
       created_at TEXT NOT NULL
     );
   `);

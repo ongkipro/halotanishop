@@ -688,6 +688,10 @@ rows-read ceilings; it retains the covering experiment for reproducibility.
   a short chip beside the existing traffic-source badge, truncated with the full
   path in its tooltip, so the list gains no column and a phone card gains one
   chip rather than a line.
+  *Amended 2026-11-01:* on the order list the landing page is the tooltip of
+  the traffic-source badge rather than visible text. Stores name landing pages
+  after their products, so the chip repeated the Produk column on every row.
+  The filter, the abandoned-lead list and order detail are unchanged.
 - **REQ-195** — The slug shall be shown with what it is when it is known: a CMS
   landing page by its title, a native page by its registered name, a product page
   by its product, otherwise the bare slug.

@@ -19,8 +19,10 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import {
+  ArrowRight,
   BadgeDollarSign,
   CalendarDays,
+  CircleCheck,
   CircleCheckBig,
   CreditCard,
   PackageCheck,
@@ -72,7 +74,26 @@ type AnalyticsData = {
     interval: "hour" | "day";
   };
   trends: Array<{ date: string; revenue: number; orders: number }>;
+  funnel: { leads: number; orders: number; handed_over: number; delivered: number; returned: number };
+  previous: {
+    start_date: string;
+    end_date: string;
+    /** The period runs to today, so the earlier one is cut at the same time of day. */
+    partial: boolean;
+    total_revenue: number;
+    live_orders: number;
+    conversion_rate: number;
+    online_orders: number;
+    rts_rate: number;
+    rts_base: number;
+  } | null;
 };
+
+/** The counts read from a bounded row set; the other two are whole-table sums. */
+const CAPPED_KEYS = new Set(["confirm", "ready_push", "push_problem", "needs_waybill", "needs_pickup", "needs_drop_off"]);
+
+type AttentionItem = { key: string; label: string; hint: string; count: number; href: string; tone: "info" | "warn" | "bad" };
+type RankingRow = { label: string; revenue: number; orders?: number; units?: number };
 
 type PaymentMethodBucket = { count: number; percentage: number };
 
@@ -93,6 +114,36 @@ const compactRupiah = (value: number) => {
 const percentage = (value: number) =>
   `${value.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`;
 
+/**
+ * The change against the period just before. Money and counts move in
+ * percent; a rate already is one, so it moves in points. Nothing is shown
+ * when there is no earlier period or it was empty (a percentage of zero is
+ * not a number anyone can act on).
+ */
+function Delta({ current, previous, kind, invert = false }: {
+  current: number;
+  previous: number | undefined;
+  kind: "percent" | "points";
+  invert?: boolean;
+}) {
+  if (previous === undefined) return null;
+  if (kind === "percent" && previous <= 0) return null;
+  const change = kind === "percent" ? ((current - previous) / previous) * 100 : current - previous;
+  const rounded = Math.round(change * 10) / 10;
+  if (!Number.isFinite(rounded)) return null;
+  const good = invert ? rounded < 0 : rounded > 0;
+  const tone = rounded === 0 ? "text-slate-500 bg-slate-100" : good ? "text-emerald-700 bg-emerald-50" : "text-rose-700 bg-rose-50";
+  const sign = rounded > 0 ? "▲" : rounded < 0 ? "▼" : "•";
+  const value = `${Math.abs(rounded).toLocaleString("id-ID", { maximumFractionDigits: 1 })}${kind === "percent" ? "%" : " poin"}`;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${tone}`} title="Dibanding periode sebelumnya dengan panjang yang sama">
+      <span aria-hidden="true">{sign}</span>
+      {value}
+      <span className="sr-only">{rounded > 0 ? "naik" : rounded < 0 ? "turun" : "tetap"} dibanding periode sebelumnya</span>
+    </span>
+  );
+}
+
 function LoadingState() {
   return (
     <div
@@ -110,8 +161,21 @@ function LoadingState() {
   );
 }
 
-export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsLink?: boolean }) {
+export function AnalyticsDashboard({
+  showPaymentsLink = false,
+  showAttention = false,
+  showInsights = false,
+}: {
+  showPaymentsLink?: boolean;
+  /** Roles that work the order list see "Perlu tindakan" (its endpoint is theirs). */
+  showAttention?: boolean;
+  /** Roles that may read the Analitik menu see its top products and pages. */
+  showInsights?: boolean;
+}) {
   const [data, setData] = useState<AnalyticsData | null>(null);
+  const [attention, setAttention] = useState<{ items: AttentionItem[]; capped: boolean } | null>(null);
+  const [attentionError, setAttentionError] = useState("");
+  const [rankings, setRankings] = useState<{ products: RankingRow[]; pages: RankingRow[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -194,7 +258,58 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
             interval: source.period?.interval === "hour" ? "hour" : "day",
           },
           trends: Array.isArray(source.trends) ? source.trends : [],
+          funnel: {
+            leads: Number(source.funnel?.leads) || 0,
+            orders: Number(source.funnel?.orders) || 0,
+            handed_over: Number(source.funnel?.handed_over) || 0,
+            delivered: Number(source.funnel?.delivered) || 0,
+            returned: Number(source.funnel?.returned) || 0,
+          },
+          previous: source.previous && typeof source.previous === "object"
+            ? {
+                start_date: String(source.previous.start_date || ""),
+                end_date: String(source.previous.end_date || ""),
+                partial: Boolean(source.previous.partial),
+                total_revenue: Number(source.previous.total_revenue) || 0,
+                live_orders: Number(source.previous.live_orders) || 0,
+                conversion_rate: Number(source.previous.conversion_rate) || 0,
+                online_orders: Number(source.previous.online_orders) || 0,
+                rts_rate: Number(source.previous.rts_rate) || 0,
+                rts_base: Number(source.previous.rts_base) || 0,
+              }
+            : null,
         });
+        // The Analitik menu's own rankings, over the same days. Dated periods
+        // only: the Analitik endpoints refuse "all time". Not awaited: the
+        // cards paint first, and a failure here hides this card only rather
+        // than reading as the dashboard's own error.
+        if (showInsights && start && end) {
+          const query = `date_filter=custom&date_start=${start}&date_end=${end}`;
+          const read = async (path: string) => {
+            const response = await fetch(`/api/admin/insights/${path}?${query}`, { headers: { Accept: "application/json" } });
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok || !Array.isArray(body?.data?.rows)) throw new Error(body?.error || "Peringkat gagal dimuat.");
+            return body.data.rows as Array<Record<string, unknown>>;
+          };
+          void Promise.all([read("products"), read("landing")])
+            .then(([products, pages]) => {
+              if (sequence !== requestSequence.current) return;
+              setRankings({
+                products: products.slice(0, 5).map((row) => ({ label: String(row.label ?? ""), revenue: Number(row.revenue) || 0, units: Number(row.units) || 0 })),
+                pages: pages
+                  .filter((row) => row.kind !== "none")
+                  .slice(0, 5)
+                  .map((row) => ({ label: String(row.label ?? ""), revenue: Number(row.revenue) || 0, orders: Number(row.orders) || 0 })),
+              });
+            })
+            .catch((reason) => {
+              if (sequence !== requestSequence.current) return;
+              console.error("dashboard-rankings", reason);
+              setRankings(null);
+            });
+        } else {
+          setRankings(null);
+        }
       } catch (reason) {
         if (sequence !== requestSequence.current) return;
         setError(
@@ -208,12 +323,30 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
         else setRefreshing(false);
       }
     },
-    [],
+    [showInsights],
   );
+
+  // Open work is not tied to the report's period; it reloads with the refresh button.
+  const loadAttention = useCallback(async () => {
+    if (!showAttention) return;
+    setAttentionError("");
+    try {
+      const response = await fetch("/api/admin/orders/attention", { headers: { Accept: "application/json" } });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.success) throw new Error(body.error || "Daftar tindakan gagal dimuat.");
+      setAttention({ items: Array.isArray(body.data?.items) ? body.data.items : [], capped: Boolean(body.data?.capped) });
+    } catch (reason) {
+      setAttentionError(reason instanceof Error ? reason.message : "Daftar tindakan gagal dimuat.");
+    }
+  }, [showAttention]);
 
   useEffect(() => {
     void loadAnalytics(dateSelection, true);
   }, [loadAnalytics, dateSelection]);
+
+  useEffect(() => {
+    void loadAttention();
+  }, [loadAttention]);
 
   if (loading) return <LoadingState />;
   if (error && !data) {
@@ -243,7 +376,10 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
       value: currency(data.total_revenue),
       // Not "pendapatan": this is order value still in play, before payment.
       // Cancelled orders and failed payments are already excluded.
-      note: `Nilai ${data.live_orders.toLocaleString("id-ID")} order aktif · bersih diterima ${currency(data.collected_revenue)}`,
+      // "Diterima" read as nothing on a COD store until parcels arrive; it is
+      // the money already paid, net of shipping and the COD fee.
+      note: `Nilai ${data.live_orders.toLocaleString("id-ID")} order aktif · sudah dibayar ${currency(data.collected_revenue)}`,
+      delta: <Delta current={data.total_revenue} previous={data.previous?.total_revenue} kind="percent" />,
       icon: BadgeDollarSign,
       tone: "text-emerald-700",
       iconTone: "bg-blue-50 text-blue-700",
@@ -257,6 +393,7 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
         data.total_orders === data.live_orders
           ? "Order aktif pada periode ini"
           : `Dari ${data.total_orders.toLocaleString("id-ID")} masuk · ${(data.total_orders - data.live_orders).toLocaleString("id-ID")} batal/gagal/retur`,
+      delta: <Delta current={data.live_orders} previous={data.previous?.live_orders} kind="percent" />,
       icon: PackageCheck,
       tone: "text-slate-950",
       iconTone: "bg-blue-50 text-blue-700",
@@ -266,6 +403,9 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
       value: percentage(data.conversion_rate),
       // COD is paid on delivery and is excluded from the base on purpose.
       note: `Dari ${data.online_orders.toLocaleString("id-ID")} order non-COD`,
+      delta: data.online_orders > 0 && (data.previous?.online_orders ?? 0) > 0
+        ? <Delta current={data.conversion_rate} previous={data.previous?.conversion_rate} kind="points" />
+        : null,
       icon: CircleCheckBig,
       tone: "text-slate-950",
       iconTone: "bg-blue-50 text-blue-700",
@@ -277,6 +417,9 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
         data.rts_base > 0
           ? `Dari ${data.rts_base.toLocaleString("id-ID")} kiriman selesai`
           : "Belum ada kiriman yang selesai",
+      delta: data.rts_base > 0 && (data.previous?.rts_base ?? 0) > 0
+        ? <Delta current={data.rts_rate} previous={data.previous?.rts_rate} kind="points" invert />
+        : null,
       icon: RotateCcw,
       tone: data.rts_rate > 10 ? "text-rose-700" : "text-slate-950",
       iconTone:
@@ -318,8 +461,93 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
     : "Semua pesanan checkout · WIB";
 
 
+  const toneClass: Record<AttentionItem["tone"], string> = {
+    info: "text-blue-700",
+    warn: "text-amber-700",
+    bad: "text-rose-700",
+  };
+  const openItems = attention?.items.filter((item) => item.count > 0) ?? [];
+  const doneItems = attention?.items.filter((item) => item.count === 0) ?? [];
+
+  // The funnel: leads still open, orders placed, handed to Mengantar, received.
+  // Each step's share is of the orders placed, the step a store controls from
+  // there on; RTS is of the parcels that reached an outcome, like the card.
+  const funnel = data.funnel;
+  const share = (value: number, base: number) => (base > 0 ? percentage((value / base) * 100) : "–");
+  // A step links only where its list can show the same rows: the order list
+  // filters by the same Jakarta days. The lead and shipping lists cannot be
+  // narrowed to this period, so those steps are figures, not links.
+  const periodQuery = data.period.start_date && data.period.end_date
+    ? `date_filter=custom&date_start=${data.period.start_date}&date_end=${data.period.end_date}`
+    : "";
+  const funnelSteps: Array<{ label: string; value: number; note: string; href?: string }> = [
+    { label: "Lead belum checkout", value: funnel.leads, note: "Pesanan tertinggal di periode ini" },
+    { label: "Order masuk", value: funnel.orders, note: funnel.leads + funnel.orders > 0 ? `${share(funnel.orders, funnel.leads + funnel.orders)} dari lead + order` : "Belum ada", href: `/admin/orders${periodQuery ? `?${periodQuery}` : ""}` },
+    { label: "Diserahkan ke Mengantar", value: funnel.handed_over, note: `${share(funnel.handed_over, funnel.orders)} dari order` },
+    { label: "Diterima pembeli", value: funnel.delivered, note: funnel.delivered + funnel.returned > 0 ? `${share(funnel.returned, funnel.delivered + funnel.returned)} retur dari kiriman selesai` : "Belum ada kiriman selesai" },
+  ];
+
   return (
     <div className="space-y-4 md:space-y-5">
+      {showAttention && (
+        <Card aria-labelledby="attention-heading" className="border-slate-200 shadow-none">
+          <CardHeader className="border-b border-slate-100 pb-3">
+            <CardTitle as="h3" id="attention-heading" className="text-sm font-semibold text-slate-950 md:text-base">
+              Perlu tindakan
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Pekerjaan yang menunggu sekarang, semua periode. Angka sama dengan daftar yang dibuka.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-3 sm:p-4">
+            {attentionError ? (
+              <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-rose-700">
+                {attentionError}
+                <Button variant="outline" size="sm" onClick={() => void loadAttention()}>Coba lagi</Button>
+              </div>
+            ) : !attention ? (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-busy="true" aria-label="Memuat daftar tindakan">
+                {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-16 rounded-lg" />)}
+              </div>
+            ) : openItems.length === 0 ? (
+              <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-3 text-sm text-emerald-800">
+                <CircleCheck className="size-4 shrink-0" aria-hidden="true" /> Semua beres. Tidak ada order yang menunggu tindakan.
+              </p>
+            ) : (
+              <>
+                <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {openItems.map((item) => (
+                    <li key={item.key}>
+                      <a
+                        href={item.href}
+                        className="group flex h-full items-start justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2.5 transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-slate-900">{item.label}</span>
+                          <span className="mt-0.5 block text-xs leading-4 text-slate-500">{item.hint}</span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-1">
+                          <span className={`text-xl font-semibold tabular-nums ${toneClass[item.tone]}`}>
+                            {item.count.toLocaleString("id-ID")}{attention.capped && item.count > 0 && CAPPED_KEYS.has(item.key) ? "+" : ""}
+                          </span>
+                          <ArrowRight className="size-4 text-slate-300 transition-colors group-hover:text-slate-500" aria-hidden="true" />
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+                {doneItems.length > 0 && (
+                  <p className="mt-3 text-xs text-slate-500">
+                    <CircleCheck className="mr-1 inline size-3.5 text-emerald-600" aria-hidden="true" />
+                    Beres: {doneItems.map((item) => item.label).join(" · ")}
+                  </p>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <section className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
         <div className="flex items-center gap-2.5">
           <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
@@ -330,6 +558,12 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
             <p className="text-xs text-slate-500">
               Semua metrik mengikuti periode ini; dibuka pada bulan berjalan (WIB).
             </p>
+            {data.previous && (
+              <p className="text-xs text-slate-500">
+                ▲▼ dibanding {data.previous.start_date.split("-").reverse().join("/")}–{data.previous.end_date.split("-").reverse().join("/")}
+                {data.previous.partial ? " sampai jam yang sama." : " (panjang sama)."}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex w-full gap-2 sm:w-auto">
@@ -344,7 +578,10 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
           <Button
             variant="secondary"
             size="default"
-            onClick={() => void loadAnalytics(dateSelection)}
+            onClick={() => {
+              void loadAnalytics(dateSelection);
+              void loadAttention();
+            }}
             disabled={refreshing}
             aria-label="Perbarui data dashboard"
             aria-busy={refreshing}
@@ -383,9 +620,12 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
                   <metric.icon className="size-4" aria-hidden="true" />
                 </span>
               </div>
-              <p className={`mt-3 text-lg font-semibold tabular-nums tracking-tight sm:text-2xl ${metric.tone}`}>
-                {metric.value}
-              </p>
+              <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <p className={`text-lg font-semibold tabular-nums tracking-tight sm:text-2xl ${metric.tone}`}>
+                  {metric.value}
+                </p>
+                {metric.delta}
+              </div>
               <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500 sm:text-xs">
                 {metric.note}
               </p>
@@ -532,6 +772,86 @@ export function AnalyticsDashboard({ showPaymentsLink = false }: { showPaymentsL
             )}
           </CardContent>
         </Card>
+      </div>
+
+      <div className={`grid grid-cols-1 gap-4 ${showInsights && rankings ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : ""}`}>
+        <Card aria-labelledby="funnel-heading" className="min-w-0 border-slate-200 shadow-none">
+          <CardHeader className="border-b border-slate-100 pb-4">
+            <CardTitle as="h3" id="funnel-heading" className="text-sm font-semibold text-slate-950 md:text-base">
+              Corong penjualan
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Dari lead sampai paket diterima, {periodLabel}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="@container p-4">
+            {/* Four across only when the card is wide enough to read them. */}
+            <ol className="grid grid-cols-2 gap-2 @2xl:grid-cols-4">
+              {funnelSteps.map((step, index) => (
+                <li key={step.label}>
+                  {(() => {
+                    const body = (
+                      <>
+                        <span className="text-xs font-medium text-slate-500">
+                          {index + 1}. {step.label}
+                        </span>
+                        <span className="mt-1 text-xl font-semibold tabular-nums text-slate-950">{step.value.toLocaleString("id-ID")}</span>
+                        <span className="mt-0.5 text-xs leading-4 text-slate-500">{step.note}</span>
+                      </>
+                    );
+                    const frame = "flex h-full flex-col rounded-lg border border-slate-200 px-3 py-2.5";
+                    return step.href ? (
+                      <a href={step.href} className={`${frame} transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300`}>{body}</a>
+                    ) : (
+                      <div className={frame}>{body}</div>
+                    );
+                  })()}
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+
+        {showInsights && rankings && (
+          <Card aria-labelledby="top-heading" className="min-w-0 border-slate-200 shadow-none">
+            <CardHeader className="border-b border-slate-100 pb-4">
+              <CardTitle as="h3" id="top-heading" className="text-sm font-semibold text-slate-950 md:text-base">
+                Teratas periode ini
+              </CardTitle>
+              <CardDescription className="text-xs">Menurut omset order aktif, {periodLabel}.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-5 p-4 sm:grid-cols-2">
+              {[
+                { title: "Produk", rows: rankings.products, href: "/admin/analytics/products", unit: (row: RankingRow) => `${(row.units ?? 0).toLocaleString("id-ID")} unit` },
+                { title: "Landing page", rows: rankings.pages, href: "/admin/analytics/landing", unit: (row: RankingRow) => `${(row.orders ?? 0).toLocaleString("id-ID")} order` },
+              ].map((list) => (
+                <div key={list.title} className="min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.06em] text-slate-500">{list.title}</p>
+                    <a href={list.href} className="text-xs font-medium text-slate-600 underline-offset-4 hover:text-slate-900 hover:underline">Lihat semua</a>
+                  </div>
+                  {list.rows.length === 0 ? (
+                    <p className="mt-2 text-xs text-slate-500">Belum ada data di periode ini.</p>
+                  ) : (
+                    <ol className="mt-2 space-y-1.5">
+                      {list.rows.map((row, index) => (
+                        <li key={`${row.label}-${index}`} className="flex items-baseline justify-between gap-3 text-sm">
+                          <span className="min-w-0 truncate text-slate-800" title={row.label}>
+                            <span className="mr-1.5 tabular-nums text-slate-400">{index + 1}</span>{row.label}
+                          </span>
+                          <span className="shrink-0 text-right">
+                            <span className="block font-semibold tabular-nums text-slate-950">{compactRupiah(row.revenue)}</span>
+                            <span className="block text-xs text-slate-500">{list.unit(row)}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

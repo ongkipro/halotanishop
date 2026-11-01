@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { jsonError, jsonOk } from '../../../lib/api.ts';
 import { getRuntimeEnv } from '../../../lib/env.ts';
-import { ORDER_ROW, RELEASED_ORDER } from '../../../lib/order-metrics.ts';
+import { LEAD_ROW, ORDER_ROW, RELEASED_ORDER } from '../../../lib/order-metrics.ts';
+import { daysBetweenAdminDates, shiftAdminDate } from '../../../lib/admin-date-filter.ts';
 
 export const prerender = false;
 
@@ -19,6 +20,7 @@ type AnalyticsRow = {
   virtual_account_orders: number | string | null;
   qris_orders: number | string | null;
   unknown_payment_orders: number | string | null;
+  handed_over_orders: number | string | null;
 };
 
 type TrendRow = {
@@ -83,7 +85,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   // and a ranking cannot drift apart.
 
   try {
-    const row = await (database as D1Database).prepare(`
+    const summarySql = `
       SELECT
         COUNT(*) AS total_orders,
         -- Order value of orders still in play. A cancelled order, a returned
@@ -114,10 +116,14 @@ export const GET: APIRoute = async ({ locals, url }) => {
         COALESCE(SUM(CASE WHEN payment_method = 'manual_transfer' THEN 1 ELSE 0 END), 0) AS manual_transfer_orders,
         COALESCE(SUM(CASE WHEN payment_method = 'bank_transfer' THEN 1 ELSE 0 END), 0) AS virtual_account_orders,
         COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN 1 ELSE 0 END), 0) AS qris_orders,
-        COALESCE(SUM(CASE WHEN payment_method NOT IN ('cod', 'manual_transfer', 'bank_transfer', 'qris') THEN 1 ELSE 0 END), 0) AS unknown_payment_orders
+        COALESCE(SUM(CASE WHEN payment_method NOT IN ('cod', 'manual_transfer', 'bank_transfer', 'qris') THEN 1 ELSE 0 END), 0) AS unknown_payment_orders,
+        -- Handed to Mengantar: the shipment exists there (provider order id),
+        -- whatever happened to it since. The funnel's middle step.
+        COALESCE(SUM(CASE WHEN provider_order_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS handed_over_orders
       FROM orders
       ${dateFilter}
-    `).bind(...params).first() as AnalyticsRow | null;
+    `;
+    const row = await (database as D1Database).prepare(summarySql).bind(...params).first() as AnalyticsRow | null;
 
     const totalOrders = Number(row?.total_orders ?? 0);
     const totalRevenue = Number(row?.total_revenue ?? 0);
@@ -138,6 +144,55 @@ export const GET: APIRoute = async ({ locals, url }) => {
     // order never dispatched cannot be returned, so counting it in the base
     // reported 0% RTS on any store that had not shipped yet.
     const rtsBase = deliveredOrders + returnedOrders;
+
+    // The funnel's first step: leads still unconverted, created in the period.
+    // A lead that checked out became an order and is counted there instead.
+    const leadConditions = [LEAD_ROW, ...conditions.slice(1)];
+    const leadRow = await (database as D1Database)
+      .prepare(`SELECT COUNT(*) AS leads FROM orders WHERE ${leadConditions.join(' AND ')}`)
+      .bind(...params)
+      .first<{ leads: number | string | null }>();
+    const leads = Number(leadRow?.leads ?? 0);
+
+    // The same summary over the equally long period just before, for the
+    // cards' "vs periode sebelumnya". Only for a dated request: "all time"
+    // has nothing before it.
+    let previous: Record<string, unknown> | null = null;
+    if (startParam && endParam) {
+      const days = daysBetweenAdminDates(startParam, endParam) + 1;
+      const previousEnd = shiftAdminDate(startParam, -1);
+      const previousStart = shiftAdminDate(previousEnd, -(days - 1));
+      // A period that runs to today is still filling. Compare like with like:
+      // the earlier period only up to the same moment, so "Hari ini" at 10:00
+      // is set against yesterday until 10:00, not all of yesterday.
+      const nowMs = Date.now();
+      const todayJakarta = new Date(nowMs + 7 * 3_600_000).toISOString().slice(0, 10);
+      const partial = endParam >= todayJakarta;
+      const previousSql = partial
+        ? summarySql.replace(dateFilter, `${dateFilter} AND created_at < ?`)
+        : summarySql;
+      const previousParams = partial
+        ? [previousStart, previousEnd, new Date(nowMs - days * 86_400_000).toISOString()]
+        : [previousStart, previousEnd];
+      const before = await (database as D1Database)
+        .prepare(previousSql)
+        .bind(...previousParams)
+        .first() as AnalyticsRow | null;
+      const beforeOnline = Number(before?.online_orders ?? 0);
+      const beforeDelivered = Number(before?.delivered_orders ?? 0);
+      const beforeReturned = Number(before?.returned_orders ?? 0);
+      previous = {
+        start_date: previousStart,
+        end_date: previousEnd,
+        partial,
+        total_revenue: Number(before?.total_revenue ?? 0),
+        live_orders: Number(before?.live_orders ?? 0),
+        conversion_rate: pct(Number(before?.paid_orders ?? 0), beforeOnline),
+        online_orders: beforeOnline,
+        rts_rate: pct(beforeReturned, beforeDelivered + beforeReturned),
+        rts_base: beforeDelivered + beforeReturned,
+      };
+    }
 
     const groupBy = interval === 'hour' ? "STRFTIME('%Y-%m-%d %H:00:00', created_at, '+7 hours')" : "DATE(created_at, '+7 hours')";
     const trendsResult = await (database as D1Database).prepare(`
@@ -229,6 +284,14 @@ export const GET: APIRoute = async ({ locals, url }) => {
         conversion_rate: pct(paidOrders, onlineOrders),
         rts_rate: pct(returnedOrders, rtsBase),
         rts_base: rtsBase,
+        funnel: {
+          leads,
+          orders: totalOrders,
+          handed_over: Number(row?.handed_over_orders ?? 0),
+          delivered: deliveredOrders,
+          returned: returnedOrders,
+        },
+        previous,
         cod_percentage: ratio(codOrders),
         transfer_percentage: ratio(virtualAccountOrders),
         qris_percentage: ratio(qrisOrders),

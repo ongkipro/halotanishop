@@ -20,17 +20,12 @@ import {
 } from '../../../../lib/order-lifecycle.ts';
 import type { AdminShippingStatus } from '../../../../lib/order-lifecycle.ts';
 import { isRecentReceiverRefusal, scheduleReceiverPerformanceRefresh } from '../../../../lib/rts-scoring.ts';
-import {
-  ADMIN_CUSTOM_DATE_FILTER,
-  isAdminDateFilter,
-  parseAdminDateSelection,
-} from '../../../../lib/admin-date-filter.ts';
+import { AWAITING_PAYMENT_SQL, LIST_SHIPPING_STATUS_SQL, orderListFilter } from '../../../../lib/order-list-filter.ts';
 import {
   sourceFacetStatement,
   sourceFilterOptions,
   sourceLabelsFromRows,
   sourceLabelsStatement,
-  sourceSlugPredicate,
 } from '../../../../lib/source-slug.ts';
 
 /** The order lines the CRM templates list (`{{rincian_pesanan}}`). */
@@ -54,8 +49,6 @@ function parseItemsJson(raw: string | null) {
 export const prerender = false;
 
 const BULK_SHIPPING_STATUSES = ADMIN_SHIPPING_STATUSES;
-const SHIPPING_STATUSES = ['all', ...BULK_SHIPPING_STATUSES] as const;
-const PAYMENT_STATUSES = ['all', 'unpaid', 'paid', 'settled', 'success', 'failed', 'refunded', 'expired'] as const;
 
 type OrderRow = {
   id: number;
@@ -158,15 +151,6 @@ export function parseBulkStatusUpdate(body: unknown): BulkStatusUpdate {
 
 
 /**
- * The status the list shows, filters and counts by. A pending order voided
- * through its payment (`payment_status = cancelled` sets `stock_restored_at`
- * but leaves shipping `pending`) is cancelled, not waiting: it read
- * "Menunggu konfirmasi" and counted under Menunggu (audit 2026-10-31 M2).
- */
-const LIST_SHIPPING_STATUS_SQL =
-  "(CASE WHEN shipping_status = 'pending' AND stock_restored_at IS NOT NULL THEN 'cancelled' ELSE shipping_status END)";
-
-/**
  * Set by `/admin/orders` when it server-renders the first rows through this
  * route: the island's own fetch follows within a second, and scoring the same
  * unscored orders twice is a second provider call each. Forging it only
@@ -180,82 +164,20 @@ export const GET: APIRoute = async ({ url, locals, request }) => {
     return jsonError('Database order belum tersedia.', 503);
   }
 
-  const search = String(url.searchParams.get('search') || '').trim().slice(0, 120);
-  const shippingStatus = String(url.searchParams.get('shipping_status') || 'all').trim().toLowerCase();
-  const paymentStatus = String(url.searchParams.get('payment_status') || 'all').trim().toLowerCase();
-  const dateFilter = String(url.searchParams.get('date_filter') || 'all').trim().toLowerCase();
-  const sourceFilter = String(url.searchParams.get('source') || 'all').trim().toLowerCase();
   const page = Math.max(Number.parseInt(url.searchParams.get('page') || '1', 10) || 1, 1);
   const limit = Math.min(Math.max(Number.parseInt(url.searchParams.get('limit') || '25', 10) || 25, 1), 100);
-  if (!SHIPPING_STATUSES.includes(shippingStatus as (typeof SHIPPING_STATUSES)[number])) {
-    return jsonError('Filter status pengiriman tidak valid.', 400);
+  const filter = orderListFilter(url.searchParams);
+  if (!filter.ok) {
+    return jsonError(filter.error, filter.status, filter.code ? { code: filter.code } : undefined);
   }
-  if (!PAYMENT_STATUSES.includes(paymentStatus as (typeof PAYMENT_STATUSES)[number])) {
-    return jsonError('Filter status pembayaran tidak valid.', 400);
-  }
-  if (dateFilter !== ADMIN_CUSTOM_DATE_FILTER && !isAdminDateFilter(dateFilter)) {
-    return jsonError('Filter periode order tidak valid.', 400);
-  }
+  const { parts: whereParts, params } = filter;
 
   try {
-    let whereClause = '';
-    const whereParts: string[] = ["shipping_status <> 'abandoned'"];
-    const params: unknown[] = [];
-
-    if (search) {
-      const term = `%${search}%`;
-      whereParts.push('(customer_name LIKE ? OR customer_phone LIKE ? OR order_number LIKE ? OR cnote_no LIKE ?)');
-      params.push(term, term, term, term);
-    }
-
-    // Recorded separately: the summary reads every filter, but the status
-    // chips must not filter by the status they let you pick, or selecting one
-    // would zero the others and break the control.
-    // The two indices differ: one search term pushes four params for a single
-    // clause, so the clause position is not the param position.
-    const shippingStatusIndex = shippingStatus !== 'all' ? whereParts.length : -1;
-    const statusParamIndex = shippingStatus !== 'all' ? params.length : -1;
-    if (shippingStatus !== 'all') {
-      whereParts.push(`${LIST_SHIPPING_STATUS_SQL} = ?`);
-      params.push(shippingStatus);
-    }
-    if (paymentStatus !== 'all') {
-      whereParts.push('payment_status = ?');
-      params.push(paymentStatus);
-    }
-    if (dateFilter !== 'all') {
-      // Refuses an unresolvable period rather than answering for a different
-      // one — passing the raw string straight in used to make anything
-      // unrecognised, `custom` included, silently become the 7-day default.
-      const { resolution } = parseAdminDateSelection(url.searchParams);
-      if (!resolution.ok) {
-        return jsonError(resolution.reason, 422, { code: 'DATE_RANGE_INVALID' });
-      }
-      whereParts.push("date(created_at, '+7 hours') BETWEEN ? AND ?");
-      params.push(resolution.start, resolution.end);
-    }
-    // The landing page the order came from (PRD A36). A read filter only.
-    const sourceSlug = sourceSlugPredicate(url.searchParams.get('source_slug'));
-    if (sourceSlug) {
-      whereParts.push(sourceSlug.sql);
-      params.push(...sourceSlug.params);
-    }
-    if (sourceFilter === 'meta') {
-      whereParts.push("(ad_click_ids LIKE '%fbclid%' OR ad_click_ids LIKE '%_fbc%' OR ad_click_ids LIKE '%meta%' OR ad_click_ids LIKE '%facebook%' OR ad_click_ids LIKE '%instagram%')");
-    } else if (sourceFilter === 'google') {
-      whereParts.push("(ad_click_ids LIKE '%gclid%' OR ad_click_ids LIKE '%gbraid%' OR ad_click_ids LIKE '%wbraid%' OR ad_click_ids LIKE '%google%')");
-    } else if (sourceFilter === 'organic') {
-      // `%ttclid%` stays excluded even though TikTok is no longer a filterable
-      // source (removed below): an order captured one before that removal has
-      // a real ad click id on it, and must not read as organic just because
-      // its own category went away.
-      whereParts.push("(ad_click_ids IS NULL OR ad_click_ids = '' OR ad_click_ids = '{}' OR (ad_click_ids NOT LIKE '%fbclid%' AND ad_click_ids NOT LIKE '%gclid%' AND ad_click_ids NOT LIKE '%ttclid%' AND ad_click_ids NOT LIKE '%gbraid%' AND ad_click_ids NOT LIKE '%wbraid%'))");
-    }
-
-    whereClause = ` WHERE ${whereParts.join(' AND ')}`;
-    // Same filters minus the status predicate, for the chips.
-    const chipParts = whereParts.filter((_, index) => index !== shippingStatusIndex);
-    const chipParams = params.filter((_, index) => index !== statusParamIndex);
+    const whereClause = ` WHERE ${whereParts.join(' AND ')}`;
+    // Same filters minus the status predicate, for the chips: selecting one
+    // must not zero the others.
+    const chipParts = whereParts.filter((_, index) => index !== filter.statusPart);
+    const chipParams = params.filter((_, index) => index !== filter.statusParam);
     const chipWhereClause = ` WHERE ${chipParts.join(' AND ')}`;
     const offset = (page - 1) * limit;
     const db = database as D1Database;
@@ -360,7 +282,7 @@ export const GET: APIRoute = async ({ url, locals, request }) => {
       db.prepare(`
         SELECT
           COUNT(*) AS total_orders,
-          SUM(CASE WHEN payment_status = 'unpaid' THEN 1 ELSE 0 END) AS unpaid_count,
+          SUM(CASE WHEN ${AWAITING_PAYMENT_SQL} THEN 1 ELSE 0 END) AS unpaid_count,
           SUM(CASE WHEN UPPER(COALESCE(rts_risk_label, '')) LIKE '%HIGH%' THEN 1 ELSE 0 END) AS high_risk_count,
           COALESCE(SUM(total_amount), 0) AS total_value
         FROM orders${whereClause}

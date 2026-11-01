@@ -1127,3 +1127,121 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+
+/* ── Field focus and validity (2026-11-01) ───────────────────────────────
+   One block, so it can be lifted out whole: deleting it restores the plain
+   1px focus border, the grey-only valid state and the old variant rows above.
+   - Focus: the frame keeps its 1px border and gains a soft 3px ring in the
+     store's own accent (`--sf-accent-ring`), drawn as a box-shadow so nothing
+     shifts. A buyer on a phone sees which field takes the keystrokes.
+   - Valid: a thin green frame and a tick at the trailing edge — "this one is
+     done" — on the grey a filled field already has.
+   - Invalid: the red frame it had, with a red ring while it is being fixed.
+   The floating label is untouched: its position, size and motion are the
+   rules above. */
+[data-hybrid-form-root],
+[data-middle-form-root] {
+  --sf-valid: #15803d;
+  --sf-valid-border: rgba(21, 128, 61, 0.45);
+  --sf-invalid-ring: rgba(220, 38, 38, 0.18);
+}
+.form-field input,
+.form-field textarea {
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+.form-field input:focus,
+.form-field textarea:focus,
+.field-grid input.field-valid:focus,
+.field-grid textarea.field-valid:focus,
+.form-field input.field-valid:focus,
+.form-field textarea.field-valid:focus {
+  border-color: var(--sf-accent) !important;
+  box-shadow: 0 0 0 3px var(--sf-accent-ring) !important;
+}
+.field-grid input.field-valid,
+.field-grid textarea.field-valid,
+.form-field input.field-valid,
+.form-field textarea.field-valid {
+  border-color: var(--sf-valid-border);
+  /* A tick drawn in the field, so the markup and the scripts stay as they are. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2315803d' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-size: 1rem 1rem !important;
+  background-position: right 0.85rem center !important;
+  padding-right: 2.4rem;
+}
+.field-grid textarea.field-valid,
+.form-field textarea.field-valid {
+  background-position: right 0.85rem top 0.85rem !important;
+}
+/* While a valid field is being edited the tick steps aside: it is a verdict on
+   what was entered, and the value is changing. */
+.field-grid input.field-valid:focus,
+.field-grid textarea.field-valid:focus,
+.form-field input.field-valid:focus,
+.form-field textarea.field-valid:focus {
+  background-image: none !important;
+}
+.field-grid input.field-invalid:focus,
+.field-grid textarea.field-invalid:focus,
+.form-field input.field-invalid:focus,
+.form-field textarea.field-invalid:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px var(--sf-invalid-ring) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .form-field input,
+  .form-field textarea {
+    transition: none;
+  }
+}
+/* Variant choice, same family as the fields. The row's hairline was #E5E5E5,
+   1.05:1 on the canvas and gone on most phones; it now takes the field
+   border, darkens on hover, and the chosen row doubles its ink edge with an
+   inset shadow (2px to the eye, nothing moves). The radio was `display:none`,
+   which also took it out of the keyboard order; it is visually hidden now, so
+   Tab and the arrow keys reach it and the focused row shows the field ring. */
+.variant-option input {
+  display: block;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.variant-option {
+  position: relative;
+}
+.variant-copy,
+.simple-variant-copy {
+  border-color: var(--sf-field-border);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+.variant-option:hover input:not(:checked) + .variant-copy {
+  border-color: #8a8a8a;
+}
+.variant-option input:checked + .variant-copy,
+.simple-variant-option input:checked + .simple-variant-copy {
+  border-color: var(--sf-accent);
+  box-shadow: inset 0 0 0 1px var(--sf-accent);
+}
+.variant-option input:focus-visible + .variant-copy {
+  box-shadow:
+    inset 0 0 0 1px var(--sf-accent),
+    0 0 0 3px var(--sf-accent-ring);
+}
+@media (prefers-reduced-motion: reduce) {
+  .variant-copy,
+  .simple-variant-copy {
+    transition: none;
+  }
+}
+/* ── end field focus and validity ───────────────────────────────────────── */

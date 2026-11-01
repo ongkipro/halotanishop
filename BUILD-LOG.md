@@ -8038,3 +8038,60 @@ and an audit of the feeds and structured data.
   `Disallow: /` group for each of them, so the file stated both. Search
   engines and AI answer agents stay named; training crawlers fall to `*`,
   which still allows them where the zone has no managed file.
+
+### Entry 225: 1.8.3 — Dashboard "Perlu tindakan", CSV export, checkout fields, storefront chrome
+
+Released as 1.8.3 (no migration); built on `feat/check-tabs`. 1139 tests pass, `npm run check` 0/0/0,
+`npm run build` succeeds; every admin page opened in a browser with no script
+error and no failed request.
+
+- **Dashboard.** A "Perlu tindakan" panel lists open work with a count and
+  the list it opens: waiting confirmation, ready to push, push refused or
+  unknown, online payment waiting, leads not contacted, and the three
+  Mengantar queues (`src/lib/order-attention.ts`, `GET
+  /api/admin/orders/attention`). Each count is read with its list's own rule:
+  the order list's void-aware status, `getMengantarDispatchEligibility` with
+  the env pickup fallback, `matchesShippingQueue`. `source-slug.test.ts` pins
+  each count to the rows its link returns. The cards compare with the period
+  just before (cut at the same time of day when the period runs to today), a
+  funnel runs lead → order → handed to Mengantar → received, and the Analitik
+  rankings show the top five products and landing pages for roles that hold
+  that menu. The setup line names the steps left.
+- **"Belum dibayar" was COD.** The filter and card matched
+  `payment_status = 'unpaid'`, which is every COD order and no QRIS/VA order
+  (those are written `pending`). They now mean an online order awaiting
+  payment (`AWAITING_PAYMENT_SQL`). Expiry is recorded on
+  `payment_transactions` only, never on the order, so a lapsed instruction
+  is read from the latest transaction: it leaves "Belum dibayar" and the
+  "Kedaluwarsa" filter, which matched nothing before, finds it.
+- **CSV export** of Pesanan, Pesanan tertinggal and Pengiriman
+  (`GET /api/admin/orders/export?kind=`, `src/lib/order-export.ts`): the
+  screen's own filters (moved to `src/lib/order-list-filter.ts`, which the
+  three list routes now use), one row per item, every field a column, money
+  on an order's first item row, Jakarta time, a UTF-8 BOM, formula-like text
+  defused, minted payment emails dropped. A cut file ends on a whole order
+  and the button reports it; a refused request is a toast, never a saved
+  file.
+- **Order list.** The landing page under the invoice moved to a tooltip (it
+  repeated the Produk column on stores that name pages after products; PRD
+  REQ-194 amended). The buyer's area reads "district, city" over the
+  province, catalogue-named (`buyerAreaLines`).
+- **`/admin/shipping`** keeps every parcel still in `processing` inside its
+  200-row window, so a queue tab cannot read 0 while the dashboard counts it.
+- **Cek WA & Ongkir** became two tabs, input left and result right by
+  container width; weight is entered in grams.
+- **Storefront.** The header is the store name, centred, with "Official
+  Store" under it; the announcement bar and the catalogue icon are gone. The
+  home page no longer lists landing pages. The footer is the navigation
+  (Belanja, Bantuan) on white under the header's hairline, with the store
+  name as a watermark sized to the footer and an ongki.pro credit; it reads
+  no database. The home hero is square.
+- **Checkout fields.** Focus draws a 3px ring in the store accent; a valid
+  field gets a green edge and a tick; variant rows take the field border and
+  are reachable by keyboard (their radios were `display: none`). All of it is
+  one marked block at the end of `form-hybrid.css`.
+- **Admin chrome.** The sidebar's product card floats as frosted glass; the
+  phone menu no longer carries Keluar (the account menu does).
+- **Removed.** `home/LandingPagesSection.astro` (nothing renders it since the
+  home page stopped listing landing pages; an install that kept its own home
+  template keeps its own copy) and `ui/popover.tsx` (imported by nothing).

@@ -189,3 +189,23 @@ export function isProvinceExcluded(input: unknown, excluded: readonly string[]) 
   if (!provinceCode) return false;
   return excluded.some((item) => normalizeProvinceCode(item) === provinceCode);
 }
+
+/**
+ * A buyer's area in two short lines for a list: "district, city" and the
+ * province. The province reads by its catalogue name, so `ID-JK` and
+ * `Daerah Khusus Ibukota Jakarta` both show `DKI Jakarta`; a spelling the
+ * catalogue does not know stays as typed. Jakarta's cities drop the
+ * `Administrasi` prefix, and a district that repeats its city is shown once.
+ * `full` is the stored text, for a tooltip.
+ */
+export function buyerAreaLines(district: unknown, city: unknown, province: unknown) {
+  const text = (value: unknown) => String(value ?? '').trim();
+  const shortCity = text(city).replace(/^(?:kota\s+)?administrasi\s+/i, '');
+  const local = [text(district), shortCity]
+    .filter(Boolean)
+    .filter((part, index, parts) => parts.findIndex((other) => other.toLowerCase() === part.toLowerCase()) === index)
+    .join(', ');
+  const region = getProvinceName(province) || text(province);
+  const full = [text(district), text(city), text(province)].filter(Boolean).join(', ');
+  return { local, region, full };
+}

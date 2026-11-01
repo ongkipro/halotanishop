@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/button";
+import { ExportCsvButton } from "./ExportCsvButton";
 import { SHIPPING_STATUS_LABELS } from "@/lib/shipping-status";
 import { MengantarPickupFields } from "./MengantarPickupFields";
 import { defaultPickupSlot, mengantarPickupSlot } from "@/lib/mengantar-order";
@@ -38,6 +39,7 @@ import {
 } from "./AdminDateRangeFilter";
 import {
   matchesShippingQueue,
+  SHIPPING_QUEUE_IDS,
   type ShippingQueueId,
 } from "../../lib/shipping-queue";
 
@@ -224,7 +226,7 @@ function LoadingState() {
   );
 }
 
-export function ShippingOperations() {
+export function ShippingOperations({ initialQueue }: { initialQueue?: string } = {}) {
   const [data, setData] = useState<ShippingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -236,7 +238,11 @@ export function ShippingOperations() {
     start: "",
     end: "",
   });
-  const [activeQueue, setActiveQueue] = useState<ShippingQueueId>("all");
+  // A deep link (the dashboard's Mengantar queues) opens on its queue; read
+  // from the server-rendered prop so the first paint and hydration agree.
+  const [activeQueue, setActiveQueue] = useState<ShippingQueueId>(() =>
+    (SHIPPING_QUEUE_IDS as readonly string[]).includes(initialQueue ?? "") ? (initialQueue as ShippingQueueId) : "all",
+  );
   const [syncing, setSyncing] = useState(false);
   const [pickupOpen, setPickupOpen] = useState(false);
   // One-hour provider slot, 09.00–18.00 WIB, at least 90 minutes ahead.
@@ -732,6 +738,22 @@ export function ShippingOperations() {
             >
               <RotateCcw aria-hidden="true" /> Reset
             </Button>
+            {/* The export answers for the period: every shipment Mengantar holds
+                in it, whatever queue, courier or search narrows the list. */}
+            <ExportCsvButton
+              kind="shipping"
+              query={new URLSearchParams(
+                dateSelection.filter && dateSelection.filter !== "all"
+                  ? {
+                      date_filter: dateSelection.filter,
+                      ...(dateSelection.filter === ADMIN_CUSTOM_DATE_FILTER
+                        ? { date_start: dateSelection.start, date_end: dateSelection.end }
+                        : {}),
+                    }
+                  : {},
+              )}
+              title="Semua pengiriman pada periode ini"
+            />
           </FilterBar>
           <p className="mt-3 text-xs font-semibold text-slate-500" aria-live="polite">
             Menampilkan {filteredShipments.length} dari {data.shipments.length} pengiriman

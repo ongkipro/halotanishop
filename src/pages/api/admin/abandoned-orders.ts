@@ -3,11 +3,11 @@ import {
   AbandonedLeadError,
   assertAbandonedLeadExists,
   convertAbandonedLead,
-  LEAD_FOLLOW_UP_STATUSES,
   updateAbandonedLead,
   type LeadFollowUpStatus,
 } from "../../../lib/abandoned-lead.ts";
 import { jsonError, jsonOk } from "../../../lib/api.ts";
+import { abandonedListFilter } from "../../../lib/order-list-filter.ts";
 import { selectQuotedRate } from "../../../lib/courier-rules.ts";
 import { getRuntimeEnv } from "../../../lib/env.ts";
 import {
@@ -15,7 +15,6 @@ import {
   sourceFilterOptions,
   sourceLabelsFromRows,
   sourceLabelsStatement,
-  sourceSlugPredicate,
 } from "../../../lib/source-slug.ts";
 import {
   isCodBlockedForProvince,
@@ -28,7 +27,6 @@ import {
 
 export const prerender = false;
 
-const FOLLOW_UP_FILTERS = ["all", ...LEAD_FOLLOW_UP_STATUSES] as const;
 
 type AbandonedLeadListRow = {
   id: number;
@@ -83,9 +81,6 @@ export const GET: APIRoute = async ({ url, locals }) => {
   const database = databaseFrom(locals);
   if (!database) return jsonError("Database order belum tersedia.", 503);
 
-  const search = url.searchParams.get("search")?.trim().slice(0, 120) || "";
-  const followUpStatus =
-    url.searchParams.get("follow_up_status")?.trim().toLowerCase() || "all";
   const page = Math.max(
     Number.parseInt(url.searchParams.get("page") || "1", 10) || 1,
     1,
@@ -94,29 +89,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
     Math.max(Number.parseInt(url.searchParams.get("limit") || "25", 10) || 25, 1),
     100,
   );
-  if (!FOLLOW_UP_FILTERS.includes(followUpStatus as (typeof FOLLOW_UP_FILTERS)[number])) {
-    return jsonError("Filter follow-up tidak valid.", 400);
-  }
-
-  const conditions = ["o.shipping_status = 'abandoned'"];
-  const params: unknown[] = [];
-  if (search) {
-    conditions.push(
-      "(o.customer_name LIKE ? OR o.customer_phone LIKE ? OR o.order_number LIKE ? OR p.title LIKE ?)",
-    );
-    const term = `%${search}%`;
-    params.push(term, term, term, term);
-  }
-  if (followUpStatus !== "all") {
-    conditions.push("o.lead_follow_up_status = ?");
-    params.push(followUpStatus);
-  }
-  // The page the lead was captured on (PRD A36). A read filter only.
-  const sourceSlug = sourceSlugPredicate(url.searchParams.get("source_slug"), "o.source_slug");
-  if (sourceSlug) {
-    conditions.push(sourceSlug.sql);
-    params.push(...sourceSlug.params);
-  }
+  const filter = abandonedListFilter(url.searchParams);
+  if (!filter.ok) return jsonError(filter.error, filter.status);
+  const { conditions, params } = filter;
   const withSourceOptions = url.searchParams.get("source_options") === "1";
   const where = `WHERE ${conditions.join(" AND ")}`;
   const offset = (page - 1) * limit;
