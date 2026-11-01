@@ -30,10 +30,23 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
-    version: "1.8.7",
+    version: "1.8.8",
     date: "2 November 2026",
     releaseTag: "2026.10-ops",
     isLatest: true,
+    highlight: "Halaman landing native kini memberi Google data produk (harga dan ketersediaan).",
+    changes: [
+      {
+        title: "JSON-LD Product untuk landing page native",
+        description: "Landing page berbentuk file Astro tidak punya data terstruktur produk, sehingga Google tidak menerima harga dan ketersediaan dari halaman yang justru menjual. Kini halaman yang terdaftar di register native otomatis membawa blok Product dari produk yang dijualnya.",
+      },
+    ],
+  },
+  {
+    version: "1.8.7",
+    date: "2 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
     highlight: "Judul dan deskripsi beranda lebih rapi untuk hasil pencarian Google.",
     changes: [
       {

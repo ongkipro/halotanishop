@@ -14,6 +14,8 @@ import JsonLdSchema from '../components/storefront/seo/JsonLdSchema.astro';
 import SiteFooter from '../components/storefront/shared/SiteFooter.astro';
 import SiteHeader from '../components/storefront/shared/SiteHeader.astro';
 import { getStoreAdsConfig } from '../lib/store-ads';
+import { getStorefrontProduct } from '../lib/catalog';
+import { nativeLandingEntryForPath, nativeLandingProductJsonLd } from '../lib/native-landing-product';
 import '../styles/storefront.css';
 // The three Inter faces the pages draw above the fold. The stylesheet only
 // names them, so the browser found the files late (about 2 s on a slow phone),
@@ -91,6 +93,16 @@ const hasGoogleTag = Boolean(
   adsConfig.googleAdsConversionId
 );
 const canonical = canonicalProp ?? new URL(Astro.url.pathname, publicSiteUrl).toString();
+// A native landing page is a route file with no Product block of its own; the
+// register says which product it sells, so the layout supplies one (read from
+// the catalogue the page already loaded on `locals`). A page that passes its
+// own `product` keeps it.
+let productForSchema = product;
+if (!productForSchema) {
+  const nativeEntry = nativeLandingEntryForPath(Astro.url.pathname);
+  const nativeProduct = nativeEntry ? await getStorefrontProduct(Astro.locals, nativeEntry.productSlug) : undefined;
+  if (nativeProduct) productForSchema = nativeLandingProductJsonLd(nativeProduct, canonical);
+}
 // A store with no logo and a page with no image share the store's own icon,
 // never the page itself (an empty URL resolves to the page).
 const imageUrl = new URL(image || '/favicon-192.png', publicSiteUrl).toString();
@@ -200,7 +212,7 @@ const preloadImageUrls =
         description: Astro.locals.tenant.description,
         inLanguage: Astro.locals.tenant.locale,
       }}
-      product={product}
+      product={productForSchema}
       breadcrumbs={breadcrumbs}
       faqs={faqs}
       itemList={itemList}
