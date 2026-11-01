@@ -1,6 +1,6 @@
 # Release and Deployment — AdsBookCMS
 
-> Verified against disk: 2026-10-31 @ `338af18` + feat/storefront-breadcrumb working tree (§3 migration notes to 0078, §4 registry at 1.8.0, re-stamped 1.8.2 on feat/product-form-ux, 1.8.3 on feat/check-tabs; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `f53486c` (§4 registry at 1.8.8, baseline 1165; other sections retain their recorded evidence)
 
 This document is the single owner of how a change reaches production. It replaces the previous `VERSION.md` runbook and the deleted `AUTO_UPDATE_DEPLOY.md`, which between them described three mutually exclusive release models, none of which matched the one workflow that exists.
 
@@ -62,7 +62,7 @@ npm run check     # astro check && tsc --noEmit
 npm run build     # astro build
 ```
 
-Current verified working-tree baseline: **754 tests passing**, `tsc` clean, `astro check` 0 errors / 0 warnings / 0 hints, and the Cloudflare server build complete (2026-09-25, uncommitted audit working tree on `6e30950`). AGENTS.md §4 carries the same number and is the one to keep current.
+Current verified baseline: **1165 tests passing** (2026-11-02, 1.8.8), `npm run check` 0 errors / 0 warnings / 0 hints and `npm run build` complete. AGENTS.md §4 carries the figure that the next change must not lower.
 
 ### Current production-readiness assessment
 
@@ -204,10 +204,10 @@ Two registries, currently in step:
 
 | Source | Field | Value |
 | --- | --- | --- |
-| `src/lib/version.ts` | `version` | `1.8.6` |
+| `src/lib/version.ts` | `version` | `1.8.8` |
 | `src/lib/version.ts` | `releaseTag` | `2026.10-ops` |
 | `src/lib/version.ts` | `schemaVersion` | `80` |
-| `package.json` | `version` | `1.8.6` |
+| `package.json` | `version` | `1.8.8` |
 
 `src/lib/version.ts` is what the admin sidebar renders and is the value users
 see. Keep it and `package.json` in step when bumping.

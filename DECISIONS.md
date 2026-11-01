@@ -1,6 +1,6 @@
 # Architecture Decision Record — AdsBookCMS
 
-> Verified against disk: 2026-10-30 @ `cbcadbf` + fix/warehouse-primary-fallback working tree
+> Verified against disk: 2026-11-02 @ `f53486c` (ADR-033 added; earlier ADRs retain their recorded evidence)
 
 Append-only. One decision per entry. A decision is recorded here only when it constrains future work; implementation detail belongs in `ARCHITECTURE.md`, remaining work in `UNIMPLEMENTED_SPECS.md`.
 
@@ -1219,3 +1219,32 @@ already did for any price change. Point 4 is unchanged: a named warehouse
 (the admin re-quote and its preview) is never swapped, since the admin save
 compares no price with its preview. Point 5 is unchanged: headless checkout
 opts out (`noPrimaryFallback`) because it compares no submitted price.
+
+## ADR-033 — The layout supplies Product JSON-LD for native landing pages
+
+**Date:** 2026-11-02 · **Status:** Accepted. 1.8.8, `src/layouts/BaseLayout.astro`,
+`src/lib/native-landing-product.ts`.
+
+**Context.** A native landing page is a hand-written route file in each install
+(zvara.shop has about 55). None built a `Product` block, so from the pages that
+sell, Google received only `Organization` and `WebSite` (fleet audit
+2026-11-02). Fixing it in the files means one edit per page per install, repeated
+for every new page; permatamall's three `nutrilove-*` pages had written their
+own block, with a rating no data in the store backs.
+
+**Decision.** `BaseLayout` builds the block itself when the request path is an
+active slug of the native-landing register and the page passed no `product`
+prop. The product comes from the register entry's `productSlug` through the
+catalogue already loaded on `locals`; offers are one per variant at its D1
+price with `InStock`. A page that still supplies its own block must pass it as
+the `product` prop rather than a second script, and no rating or review count is
+written unless the data exists.
+
+**Consequences.** Registering a page is what gives it structured data. An
+install's own hand-written block would now double the layout's, so the pages that
+had one lost it in the 1.8.8 rollout (permatamall). Price and availability
+follow D1, not copy in a file.
+
+**Rejected alternatives.** *Editing every native page* (does not scale, drifts
+from the register). *Rewriting the HTML in middleware* (couples SEO to string
+surgery on every response).
