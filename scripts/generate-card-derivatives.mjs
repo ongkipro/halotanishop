@@ -8,12 +8,14 @@
 //
 // lazy: `sharp` is Astro's own image dependency, so it is not declared here; if
 // Astro ever drops it, add it as a devDependency.
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import sharp from "sharp";
 
 const EDGE = 480;
-const QUALITY = 74;
+// 66, not 74: on 12 real 600 px packshots 74 averaged 32 KB and 66 averaged 30 KB
+// with no visible loss at 182 CSS px; the originals averaged 52 KB.
+const QUALITY = 66;
 const root = process.cwd();
 const patterns = process.argv.slice(2).length ? process.argv.slice(2) : ["public/images/landing/*/hero-product.webp"];
 
@@ -55,7 +57,10 @@ for (const source of sources.sort()) {
 const manifest = join(root, "src/data/card-derivatives.ts");
 const current = readFileSync(manifest, "utf8");
 const previous = [...current.matchAll(/"(\/[^"]+)"/g)].map((match) => match[1]);
-const all = [...new Set([...previous, ...listed])].filter((path) => everything.includes("public" + path.replace(/(\.[a-z0-9]+)$/i, "-sm$1"))).sort();
+const twinOf = (path) => path.replace(/(\.[a-z0-9]+)$/i, "-sm$1");
+// Judged on disk after the loop: `everything` was read before the twins were
+// written, so filtering on it dropped every twin made in this very run.
+const all = [...new Set([...previous, ...listed])].filter((path) => existsSync(join(root, "public", twinOf(path)))).sort();
 const head = current.slice(0, current.indexOf("export const CARD_DERIVATIVES"));
 writeFileSync(
   manifest,

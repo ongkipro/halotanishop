@@ -8217,3 +8217,9 @@ No migration, no version bump. 1154 tests pass, `npm run check` 0/0/0.
   re-observes after each click; the button stays for keyboard and no-script
   use. Tested with a fake observer (`auto-load-more.test.ts`).
 - Server timing was *not* the problem: see `UNIMPLEMENTED_SPECS.md` PERF-1.
+- **Correction, same day:** the first `npm run card-images` wrote the twins but
+  listed none of them (it filtered the list against a directory snapshot taken
+  before the twins existed), so `cardImageSrc` would never have swapped. Fixed to
+  judge on disk, covered end to end by `card-images-script.test.ts`, which runs the
+  script in a temp folder. Quality 74 became 66 after measuring 12 real packshots
+  (52 KB originals, 32 KB at 74, 30 KB at 66, no visible loss at card size).
