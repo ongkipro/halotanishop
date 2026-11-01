@@ -30,10 +30,27 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.8.7",
+    date: "2 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: true,
+    highlight: "Judul dan deskripsi beranda lebih rapi untuk hasil pencarian Google.",
+    changes: [
+      {
+        title: "Judul beranda tidak lagi mengulang nama toko",
+        description: "Tagline yang sudah diawali nama toko tidak ditulis dua kali, dan judul dipotong di batas kata agar muat sekitar 60 karakter di hasil pencarian.",
+      },
+      {
+        title: "Deskripsi beranda yang terlalu pendek dilengkapi",
+        description: "Jika deskripsi toko kurang dari 70 karakter, meta description ditambah daftar kategori produk toko itu sendiri. Deskripsi yang sudah cukup panjang tidak diubah.",
+      },
+    ],
+  },
+  {
     version: "1.8.6",
     date: "1 November 2026",
     releaseTag: "2026.10-ops",
-    isLatest: true,
+    isLatest: false,
     highlight: "Atribusi Meta lebih lengkap, katalog lebih ringan, dan produk dimuat otomatis saat scroll.",
     changes: [
       {
