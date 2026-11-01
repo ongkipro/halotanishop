@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `be6ee6a` (Entry 243; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `43c6cb3` (Entry 244; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8435,3 +8435,17 @@ frame looked like the red error frame. `form-hybrid.css`: filled and valid field
 with `--sf-accent-ring` kept as the ring. The selected variant card, bullets, summary tint and
 the buttons keep the accent. 1167 tests. The zvara native landing page's own hero button
 (`bg-stone-950`, amber text) is that page's design and stays.
+
+### Entry 244: 1.9.2 rolled out to the fleet
+
+Eleven of twelve installs (skincarebpom excluded by instruction) run 1.9.2, canary zvara
+first. Live submit colours measured after the rollout are in `docs/FLEET.md`. What the
+rollout found: (1) revenleather's accent override sat inside the product's `form-hybrid.css`
+and was silently overwritten by the merge; restored in the install. (2) numaskin and
+beranda-tani scoped their accent to the form root, so standalone buttons would have gone
+orange; each gained a `:root` token block in its own stylesheet. (3) The first 1.9.1 canary
+showed peach filled fields and an orange focus frame that read like the red error frame;
+fixed as 1.9.2. UNIMPLEMENTED_SPECS REV-1 records the cleanup that stops the product file
+being edited per install. Process note: `pkill -f` and `pgrep -f` with a pattern matching the
+shell's own command line killed the calling shell twice (once in this session, once in an
+agent); stop servers by PID.
