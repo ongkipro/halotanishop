@@ -193,7 +193,7 @@ export function AppSidebar({
               <SidebarMenuButton
                 type="button"
                 onClick={onOpenChangelog}
-                tooltip={`Catatan rilis AdsBookCMS v${CMS_VERSION.version}`}
+                tooltip={`What's new · AdsBookCMS v${CMS_VERSION.version}`}
                 className="h-10 bg-white/55 ring-1 ring-slate-900/5 backdrop-blur-md hover:bg-white/75"
               >
                 <img src="/images/adsbook-icon.svg" alt="" width="18" height="18" className="shrink-0" />
@@ -206,14 +206,14 @@ export function AppSidebar({
           <button
             type="button"
             onClick={onOpenChangelog}
-            title="Buka catatan rilis AdsBookCMS"
+            title="Lihat yang baru di AdsBookCMS"
             className="group flex w-full items-center gap-2.5 rounded-xl border border-white/70 bg-white/55 px-2.5 py-2 text-left shadow-[0_8px_24px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 backdrop-blur-md backdrop-saturate-150 transition-[background-color,box-shadow] hover:bg-white/75 hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 group-data-[collapsible=icon]:hidden"
           >
             <img src="/images/adsbook-icon.svg" alt="" width="28" height="28" className="shrink-0" />
             <span className="min-w-0 flex-1">
               <span className="block text-[13px] font-semibold leading-4 text-slate-900">AdsBookCMS</span>
               <span className="mt-0.5 flex items-center gap-0.5 text-xs leading-4 text-slate-500 group-hover:text-slate-700">
-                Catatan rilis
+                What's new
                 <ChevronRight className="size-3" aria-hidden="true" />
               </span>
             </span>

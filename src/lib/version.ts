@@ -8,7 +8,8 @@ export type CmsVersionInfo = {
 };
 
 export const CMS_VERSION: CmsVersionInfo = {
-  version: "1.8.3",
+  version: "1.8.4",
+  // 1.8.4: dashboard layout (one toolbar; six KPI cards with deltas; revenue chart with the comparison drawn in it beside the payment mix; Action needed, funnel and top lists below); comparison modes (same weekday last week, same dates last month, previous period) cut at the same moment when the period runs to today; AOV, lead conversion, COD/prepaid revenue; Action needed aging (>24h) and one-minute refresh; English metric names on the dashboard and Analitik; "What's new" release notes with the running release in full and earlier ones collapsible. No migration.
   // 1.8.3: dashboard "Perlu tindakan" whose counts equal the lists they open (Mengantar push gate, shipping queues), period comparison and funnel; CSV export of orders, leads and shipments; "Belum dibayar" means online orders awaiting payment and an expired instruction is read from payment_transactions; storefront header/footer and checkout field states. No migration.
   // 1.8.2: Google product category picked from Google's own taxonomy and sent verbatim by the Google and Meta feeds (migration 0079); brand defaults to the store name; variant cards and a photo drop zone in the product form; the login wordmark links home.
   // 1.8.1: copy controls under the VA/account number on /payment; /thanks adds the fee line so its summary adds up and treats an unpaid order as a to-do; feed priced at the cheapest variant; admin edits category, brand and description; one Product JSON-LD builder; honest sitemap lastmod; /llms.txt.

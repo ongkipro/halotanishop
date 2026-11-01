@@ -6,7 +6,7 @@ export default function InsightsChart({ series, metric }: {
   series: Array<{ date: string; orders: number; leads: number; revenue: number }>;
   metric: 'orders' | 'leads' | 'revenue';
 }) {
-  const label = { orders: 'Pesanan', leads: 'Lead', revenue: 'Omset' }[metric];
+  const label = { orders: 'Orders', leads: 'Leads', revenue: 'Revenue' }[metric];
   return <ChartContainer config={{ [metric]: { label, color: 'var(--chart-1)' } }} className="h-64 w-full">
     <LineChart data={series} accessibilityLayer>
       <CartesianGrid vertical={false} />
