@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `17ac629` (Entry 237; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `8fd451f` (Entry 238; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8359,3 +8359,27 @@ No migration. 1163 and 1165 tests pass, `npm run check` 0/0/0.
 - Lesson: `git commit --amend` is refused by the hook and a version bump needs
   `npm run route-map` run after it, because the map carries the version; the
   test caught it, the order is what to remember.
+
+### Entry 238: visual check after the 1.8.8 rollout
+
+No product code changed. Playwright over all eleven stores at 390 and 1280 px
+(home, `/produk`, the first product page, `/payment?preview=1`; tracking
+requests blocked), then the screenshots opened: no horizontal overflow, no broken
+image, no page error, no blank page on any of the 88 renders. cekat.shop and
+klikinaja.shop show "Katalog sedang disiapkan" and have no product page, as
+expected. `/payment` is the product's neutral black-and-white layout on every
+store except revenleather (leather theme, 2026-11-02); it does not use a store's
+brand colour (numaskin is teal), an open design choice, not a defect.
+
+Found and fixed in revenleather only: the `Cormorant Garamond` font files named in
+`thanks.astro` (regular and italic) returned 404 from `fonts.gstatic.com`, so the
+headline had been falling back to Georgia; `/payment` had copied one of them. Both
+pages now use the current `v21` files (revenleather `main`, Worker `40652b92`),
+`document.fonts` reports `loaded` on `/payment`. `/thanks` itself needs a real order
+to render and was checked by fetching the two URLs (200), not by a page view.
+Lesson: a font URL pasted into a page is never tested by the build; the browser's
+`requestfailed` event is what shows it.
+
+Not done and not possible from here: Purchase on a fresh order (a production
+write), Event Match Quality and Search Console (accounts), the `fbp` re-measure
+(due about 2026-11-11, UNIMPLEMENTED_SPECS TRK-1).
