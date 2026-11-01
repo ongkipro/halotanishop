@@ -8,7 +8,7 @@
 //
 // lazy: `sharp` is Astro's own image dependency, so it is not declared here; if
 // Astro ever drops it, add it as a devDependency.
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import sharp from "sharp";
 
@@ -32,6 +32,7 @@ const sources = everything.filter(
 );
 
 const listed = [];
+const retired = new Set();
 let written = 0;
 for (const source of sources.sort()) {
   const twin = source.replace(/(\.[a-z0-9]+)$/i, "-sm$1");
@@ -44,8 +45,14 @@ for (const source of sources.sort()) {
   })();
   if (!fresh) {
     const meta = await sharp(source).metadata();
-    // Never enlarge: an image already at card size is its own twin.
-    if (Math.max(meta.width ?? 0, meta.height ?? 0) <= EDGE) continue;
+    // Never enlarge: an image already at card size is its own twin. If the
+    // source was replaced by a smaller image, the old twin shows the PREVIOUS
+    // picture, so it goes (the wrong-product-content class in AGENTS.md §3).
+    if (Math.max(meta.width ?? 0, meta.height ?? 0) <= EDGE) {
+      if (existsSync(twin)) unlinkSync(twin);
+      retired.add("/" + source.replace(/^public\//, ""));
+      continue;
+    }
     await sharp(source).resize({ width: EDGE, height: EDGE, fit: "inside" }).webp({ quality: QUALITY, effort: 6 }).toFile(twin);
     written++;
   }
@@ -60,7 +67,10 @@ const previous = [...current.matchAll(/"(\/[^"]+)"/g)].map((match) => match[1]);
 const twinOf = (path) => path.replace(/(\.[a-z0-9]+)$/i, "-sm$1");
 // Judged on disk after the loop: `everything` was read before the twins were
 // written, so filtering on it dropped every twin made in this very run.
-const all = [...new Set([...previous, ...listed])].filter((path) => existsSync(join(root, "public", twinOf(path)))).sort();
+// lazy: freshness is mtime (twin >= source). A checkout rewrites every mtime, so the
+// twins are re-encoded once to identical bytes; a source restored with `cp -p` can
+// look older than a stale twin. Upgrade path: store a source hash beside the list.
+const all = [...new Set([...previous, ...listed])].filter((path) => !retired.has(path) && existsSync(join(root, "public", twinOf(path)))).sort();
 const head = current.slice(0, current.indexOf("export const CARD_DERIVATIVES"));
 writeFileSync(
   manifest,

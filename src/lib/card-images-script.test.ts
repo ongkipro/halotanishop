@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -36,6 +36,15 @@ test("npm run card-images writes the twins, lists exactly those, skips small ima
 
     assert.match(run(), /0 written, 1 listed/);
     assert.equal(readFileSync(manifest, "utf8"), listed);
+
+    // The source is replaced by a card-sized image: the old twin would show the
+    // previous picture, so it is deleted and unlisted.
+    const later = new Date(Date.now() + 5000);
+    writeFileSync(join(big, "hero-product.webp"), await photo(300));
+    utimesSync(join(big, "hero-product.webp"), later, later);
+    assert.match(run(), /0 written, 0 listed/);
+    assert.equal(existsSync(join(big, "hero-product-sm.webp")), false);
+    assert.doesNotMatch(readFileSync(manifest, "utf8"), /landing\/a/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

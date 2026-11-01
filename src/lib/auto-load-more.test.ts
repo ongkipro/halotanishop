@@ -34,6 +34,7 @@ function harness(opts: { visible?: boolean } = {}) {
     win,
     Observer: FakeObserver as unknown as typeof IntersectionObserver,
     fire: (isIntersecting: boolean) => callback([{ isIntersecting }]),
+    fireBatch: (...flags: boolean[]) => callback(flags.map((isIntersecting) => ({ isIntersecting }))),
     touch: () => listeners.get("scroll")?.(),
     clicks: () => clicks,
     observed: () => observed,
@@ -80,4 +81,33 @@ test("without a button or IntersectionObserver it does nothing and the button ke
   const h = harness();
   assert.equal(autoLoadMore(null, h.win, h.Observer), undefined);
   assert.equal(autoLoadMore(h.button, h.win, undefined), undefined);
+});
+
+test("a quick flick that queues [visible, hidden] does not load for a button already past", () => {
+  const h = harness();
+  autoLoadMore(h.button, h.win, h.Observer);
+  h.touch();
+  h.fireBatch(true, false);
+  assert.equal(h.clicks(), 0, "the newest report says the button is gone");
+  h.fireBatch(false, true);
+  assert.equal(h.clicks(), 1);
+});
+
+test("one page per gesture: a second sighting without a new scroll or touch does not click again", () => {
+  const h = harness();
+  autoLoadMore(h.button, h.win, h.Observer);
+  h.touch();
+  h.fire(true);
+  h.fire(true);
+  assert.equal(h.clicks(), 1, "a tall screen must not chain pages until the catalogue is drained");
+  h.touch();
+  h.fire(true);
+  assert.equal(h.clicks(), 2);
+});
+
+test("Data Saver turns the automatic path off and leaves the button as the only one", () => {
+  const h = harness();
+  const stop = autoLoadMore(h.button, h.win, h.Observer, true);
+  assert.equal(stop, undefined);
+  assert.equal(h.listenerCount(), 0);
 });

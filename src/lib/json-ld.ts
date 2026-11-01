@@ -150,7 +150,7 @@ export function buildProductJsonLd({
     url: absoluteUrl(product.url, siteUrl),
     brand: {
       "@type": "Brand",
-      name: product.brand ?? (defaultBrand?.trim() || organization.name),
+      name: product.brand?.trim() || defaultBrand?.trim() || organization.name,
     },
     ...(product.sku ? { sku: product.sku } : {}),
     ...(product.category ? { category: product.category } : {}),

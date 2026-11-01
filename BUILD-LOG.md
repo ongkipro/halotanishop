@@ -8269,3 +8269,34 @@ view costs about the same, and revenleather already used 12. With the
 scroll-triggered load the step is barely felt. Paduka asked for it as the default
 (2026-11-01). Install-owned pages that carry their own count (revenleather
 `produk/index.astro`) are unchanged.
+
+### Entry 234: independent review of the 1.8.5 -> main changes, and its fixes
+
+A read-only reviewer with no stake in the code went through `git diff 7a207a0..HEAD`
+(`_fbp`, default brand, card twins, scroll load, page size, the flaky-test fix).
+No blocker or high finding; tests 1155 and check 0/0/0 re-run independently, and
+the Meta invariants held (one `fbq('init')`, event ids untouched, no per-visitor
+value in cached HTML, the minted cookie matches `FB_BROWSER_ID_PATTERN` and
+`FB_COOKIE_PATTERN` exactly). Fixed here:
+
+- **medium** `generate-card-derivatives.mjs`: a source replaced by a card-sized
+  image left its old twin on disk and in the list, so a card showed the previous
+  picture. The twin is now deleted and unlisted (tested). Freshness by mtime is a
+  marked `// lazy:` ceiling.
+- `autoLoadMore`: the newest observer report decides (a flick queuing
+  [visible, hidden] no longer loads), one page per gesture (a tall screen no longer
+  drains the catalogue), and Data Saver leaves only the button. The status lines
+  are `aria-live="polite"`.
+- Product JSON-LD trims the brand like the feeds do; two stale comments and the
+  file count in AGENTS.md corrected.
+- Left as they are, on purpose: revenleather's absolute-URL variant of
+  `cardImageSrc` (core emits no absolute upload URLs, so it is a missed saving, and
+  a port must compare `new URL().origin`, never `startsWith`); focus handling when
+  the focused button hides. A future consent banner must also gate the `_fbp`
+  write in the pixel bootstrap.
+- **Another timing-sensitive test, seen once:** `dev-providers.test.ts` "the
+  receiver-history stand-in parses into every risk band" failed in 1 of 4 full runs
+  while two other agents were running browsers and builds on the same machine, then
+  passed alone (3 of 3) and in two further full runs at load average ~11.8. It starts
+  a dev HTTP server on a random port and calls it with a client; not reproduced, not
+  changed. If it shows up in CI, read its error before retrying.

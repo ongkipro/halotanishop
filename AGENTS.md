@@ -123,7 +123,7 @@ can reach it.
 
 On a fresh clone, run `npm run check` rather than bare `npx tsc --noEmit`. `astro check` generates `.astro/types.d.ts` first; without it `tsc` reports phantom errors such as `Property 'env' does not exist on type 'ImportMeta'`.
 
-Current verified baseline: **1155 passing** (0 skipped, 2026-11-01, `feat/load-twelve`, 1.8.5), 0 type errors, `astro check` 0 errors / 0 warnings / 0 hints (572 files). A change that reduces this baseline is not done.
+Current verified baseline: **1155 passing** (0 skipped, 2026-11-01, `feat/load-twelve`, 1.8.5), 0 type errors, `astro check` 0 errors / 0 warnings / 0 hints (574 files). A change that reduces this baseline is not done.
 
 New non-trivial logic — a branch, a parser, a money or auth path — leaves one runnable check behind. Trivial one-liners do not need a test.
 

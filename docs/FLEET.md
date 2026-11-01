@@ -1,6 +1,6 @@
 # AdsBookCMS install fleet
 
-> Verified against disk: 2026-11-01 @ `0dd1dc3` (versions, sync, distance, deploy time and schema read with `npm run fleet:status` over the local clones that evening; "Version" is the working tree, so "in tree" means merged locally, not necessarily pushed or deployed)
+> Verified against disk: 2026-11-01 @ `453d3e9` (versions, sync, distance, deploy time and schema read with `npm run fleet:status` over every local clone late that evening; "Version" is the working tree, so "in tree" means merged locally, not necessarily pushed or deployed; the "Behind product" count grows with every product commit and is a snapshot)
 
 Every store that runs AdsBookCMS: one install = one repository = one Worker
 = one store (`AGENTS.md`). This file is the registry of which installs exist,
@@ -15,18 +15,18 @@ distance behind the product, last deploy and schema for each local clone.
 
 | # | Store (domain) | Repository | Branch | Version | Behind product | Schema (applied/expected) | Last deploy |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.5** | 0 | 93/93 | 2026-11-01 |
-| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.4** | 11 | 80/80 | 2026-11-01 |
-| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.4** | 11 | 80/80 | 2026-11-01 |
-| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.4** | 11 | 80/80 | 2026-11-01 |
-| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | 1.8.5 in tree, +8 unpushed | 4 | 80/80 | 2026-11-01 |
-| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | 1.8.5 in tree, +8 unpushed | 4 | 80/80 | 2026-11-01 |
-| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.4** | 11 | 80/80 | 2026-11-01 |
-| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.5** | 0 | 80/80 | 2026-11-01 |
-| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | 1.8.5 in tree, 318 uncommitted files | 139 | 67/80 | 2026-10-24 |
-| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | 1.8.5 in tree, +181 unpushed | 4 | 62/80 | 2026-10-18 |
-| 11 | skincarebpom.shop | `ongkipro/skincarebpom` | `install/skincarebpom` | 1.5.11 | — (no local clone) | — | — |
-| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | 1.8.5 in tree, +24 unpushed | 4 | 79/80 | 2026-10-31 |
+| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.5** + 2026-11-01 evening work | 0 | 93/93 | 2026-11-01 15:08 |
+| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.4** | 29 | 80/80 | 2026-11-01 |
+| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.4** | 29 | 80/80 | 2026-11-01 |
+| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.4** | 29 | 80/80 | 2026-11-01 |
+| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | 1.8.5 in tree, +8 unpushed | 22 | 80/80 | 2026-11-01 |
+| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | 1.8.5 in tree, +8 unpushed | 22 | 80/80 | 2026-11-01 |
+| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.4** | 29 | 80/80 | 2026-11-01 |
+| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.5** + 2026-11-01 evening work | 2 (shared page-size constant only) | 80/80 | 2026-11-01 15:01 |
+| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | 1.8.5 in tree, 318 uncommitted files | 157 | 67/80 | 2026-10-24 |
+| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | 1.8.5 in tree, +181 unpushed | 22 | 62/80 | 2026-10-18 |
+| 11 | skincarebpom.shop | `ongkipro/skincarebpom` | `install/skincarebpom` | 1.8.5 in tree, 371 uncommitted files | 201 | 62/80 | 2026-10-18 |
+| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | 1.8.5 in tree, +24 unpushed | 22 | 79/80 | 2026-10-31 |
 
 All twelve repositories and the product (`ongkipro/adsbookcms`) are
 **public** since 2026-11-01, after a full-history scan found no secret or
@@ -48,9 +48,10 @@ deploy" column is the clone's own record, which can predate the merge):
 | cekat-shop | 1.8.5 in tree, 24 commits ahead of origin; schema 79/80 | same; read why 79/80 first |
 | klikinaja | 1.8.5 in tree, **181 commits ahead of origin**, schema 62/80, last deploy 2026-10-18 | find out what the 181 commits are before pushing; 18 migrations pending |
 | beranda-tani | 1.8.5 in tree with **318 uncommitted files**, 139 behind product, schema 67/80, last deploy 2026-10-24 | looks like a merge in progress: inspect `git status` and `MERGE_HEAD` before touching it |
-| permatamall, agritani-shop, taniniaga, numaskin-adbook | still 1.8.4, 11 behind product | merge `product/main`, then ship |
+| skincarebpom | 1.8.5 in tree, **371 uncommitted files**, schema 62/80, last deploy 2026-10-18 | same caution as beranda-tani: inspect before touching |
+| permatamall, agritani-shop, taniniaga, numaskin-adbook | still 1.8.4, 29 behind product | merge `product/main`, then ship |
 
-The installs that are 4 behind product on 1.8.5 are missing only the 2026-11-01
+The installs that are 22 behind product on 1.8.5 are missing the 2026-11-01
 evening work: `PUBLIC_DEFAULT_BRAND` (PR #131) and the early `_fbp` (PR #132,
 `TRACKING_SPECS.md` §16.1b), plus docs.
 
