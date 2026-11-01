@@ -40,8 +40,8 @@ const { slides } = Astro.props;
               src={slide.image}
               alt={`${slide.alt} - ${Astro.locals.tenant.name}`}
               width="600"
-              height="480"
-              class="aspect-[5/4] w-full object-cover object-center"
+              height="600"
+              class="aspect-square w-full object-cover object-center"
               loading={index === 0 ? 'eager' : 'lazy'}
               decoding={index === 0 ? 'sync' : 'async'}
               fetchpriority={index === 0 ? 'high' : undefined}

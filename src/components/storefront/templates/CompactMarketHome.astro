@@ -1,7 +1,6 @@
 ---
 import HeroSection from '../home/HeroSection.astro';
 import ProductsSection from '../home/ProductsSection.astro';
-import LandingPagesSection from '../home/LandingPagesSection.astro';
 import type { TenantHomeContent } from '../../../lib/tenant-content';
 
 interface ProductCard {
@@ -43,7 +42,10 @@ const { content, products, heroSlides, sections } = Astro.props;
   <div id="home" class="flex w-full flex-col">
     {sections.hero && <HeroSection slides={heroSlides} highlights={content.heroHighlights} content={content.hero} />}
     {sections.catalog && <ProductsSection products={products} heading={content.catalog} />}
-    {sections.landingPages !== false && <LandingPagesSection pages={content.solutions} heading={content.solutionsHeading} />}
+    {/* Landing pages are not listed on the home page (Paduka, 2026-11-01):
+        they live on /landing-page, reached from the header and footer
+        "Halaman" link. `sections.landingPages` still parses for saved
+        templates and no longer renders anything. */}
   </div>
 </main>
 

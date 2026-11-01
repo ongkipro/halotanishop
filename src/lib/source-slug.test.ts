@@ -340,3 +340,213 @@ test("the order and lead lists filter by source; an unknown slug returns no rows
   assert.deepEqual(leads.source_options, [{ value: "promo-b", label: "promo-b", count: 1 }]);
   assert.equal((await call(listLeads, "source_slug=promo-a")).data.length, 0);
 });
+
+test("the CSV export holds the rows each list shows, under the same filters", async () => {
+  const { GET: exportOrders } = await import("../pages/api/admin/orders/export.ts");
+  const sqlite = migratedSqlite();
+  seedLeadStore(sqlite);
+  sqlite.exec(`
+    INSERT INTO products (id, store_id, title, slug, created_at) VALUES (1, 1, 'Pupuk Kojien', 'kojien', '2026-10-01');
+    INSERT INTO product_variants (id, product_id, sku, title, price, weight_grams) VALUES (11, 1, 'K1', '1 kg', 50000, 1000), (12, 1, 'K5', '5 kg', 200000, 5000);
+  `);
+  const insert = sqlite.prepare(`INSERT INTO orders (id, order_number, store_id, customer_name, customer_phone, address,
+    province, city, district, total_amount, created_at, source_page_path, shipping_status, provider_order_id)
+    VALUES (?, ?, 1, ?, '6281200000000', 'Jl. Mawar, 1', 'Jawa Barat', 'Bandung', 'Coblong', 250000, '2026-10-01T00:00:00.000Z', ?, ?, ?)`);
+  insert.run(1, "INV-1", "Budi", "/promo-a", "pending", null);
+  insert.run(2, "INV-2", "Sari", "/promo-b", "shipped", "MGT-2");
+  insert.run(3, "ABN-3", "=cmd", "/promo-b", "abandoned", null);
+  sqlite.exec(`
+    INSERT INTO order_items (order_id, variant_id, quantity, unit_price) VALUES (1, 11, 1, 50000), (1, 12, 1, 200000), (2, 11, 1, 50000), (3, 11, 1, 50000);
+  `);
+  const database = d1(sqlite);
+  const csv = async (query: string) => {
+    const response = await exportOrders({
+      url: new URL(`https://toko.test/api/admin/orders/export?${query}`),
+      locals: { runtimeEnv: { OMS_DB: database } },
+    } as unknown as Parameters<typeof exportOrders>[0]);
+    return { status: response.status, type: response.headers.get("content-type"), lines: (await response.text()).slice(1).trimEnd().split("\r\n") };
+  };
+
+  const orders = await csv("kind=orders");
+  assert.equal(orders.status, 200);
+  assert.equal(orders.type, "text/csv; charset=utf-8");
+  // INV-2 then INV-1's two items; never the lead.
+  assert.deepEqual(orders.lines.slice(1).map((line) => line.split(",")[0]), ["INV-2", "INV-1", "INV-1"]);
+  assert.deepEqual((await csv("kind=orders&source_slug=promo-a")).lines.length, 3);
+  assert.deepEqual((await csv("kind=orders&shipping_status=shipped")).lines.slice(1).map((line) => line.split(",")[0]), ["INV-2"]);
+  const shipping = await csv("kind=shipping");
+  assert.deepEqual(shipping.lines.slice(1).map((line) => line.split(",")[0]), ["INV-2"]);
+  const leads = await csv("kind=abandoned&search=Kojien");
+  assert.equal(leads.lines.length, 2);
+  assert.ok(leads.lines[1].includes("'=cmd"), "a formula-like name is defused");
+  assert.equal((await csv("kind=bukan")).status, 400);
+  assert.equal((await csv("kind=orders&payment_status=hilang")).status, 400);
+});
+
+/*
+ * The dashboard's "Perlu tindakan" and analytics read the same migrated
+ * schema as the list routes above, so they are pinned here against those
+ * routes: a count must equal the rows the linked list returns.
+ */
+test("Perlu tindakan counts what the linked lists show, under the Mengantar push gate", async () => {
+  const { readOrderAttention } = await import("./order-attention.ts");
+  const { GET: listOrders } = await import("../pages/api/admin/orders/index.ts");
+  const { GET: listLeads } = await import("../pages/api/admin/abandoned-orders.ts");
+  const sqlite = migratedSqlite();
+  seedLeadStore(sqlite);
+  sqlite.exec(`
+    INSERT INTO warehouses (id, store_id, name, origin_area_id, pickup_address_id, address, city, province)
+      VALUES (1, 1, 'Gudang', 'AREA-0', 'PICK-1', 'Jl', 'Bandung', 'Jawa Barat'), (2, 1, 'Tanpa pickup', 'AREA-0', '', 'Jl', 'Bandung', 'Jawa Barat');
+  `);
+  const insert = sqlite.prepare(`INSERT INTO orders (order_number, store_id, warehouse_id, customer_name, customer_phone, address,
+    province, city, district, total_amount, created_at, payment_method, payment_status, shipping_status,
+    destination_area_id, courier_code, provider_order_id, provider_dispatch_error, cnote_no, mengantar_handover, stock_restored_at, lead_follow_up_status)
+    VALUES (?, 1, ?, 'Budi', '6281200000000', 'Jl', 'Jawa Barat', 'Bandung', 'Coblong', 1000, '2026-10-01T00:00:00.000Z',
+      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  const row = (n: string, o: Record<string, unknown>) =>
+    insert.run(n, (o.wh ?? 1) as number, (o.pm ?? "cod") as string, (o.ps ?? "unpaid") as string, (o.ss ?? "pending") as string,
+      ("area" in o ? o.area : "AREA-1") as string | null, ("courier" in o ? o.courier : "jne") as string | null, (o.pid ?? null) as string | null,
+      (o.err ?? null) as string | null, (o.awb ?? null) as string | null, (o.handover ?? null) as string | null,
+      (o.void ?? null) as string | null, (o.lead ?? "new") as string);
+  row("INV-READY", {});                                         // COD, complete: ready to push
+  row("INV-NOAREA", { area: null });                             // waiting, not ready
+  row("INV-NOPICK", { wh: 2 });                                  // warehouse without pickup: not ready
+  row("INV-QRIS", { pm: "qris", ps: "pending" });                // online unpaid: waiting, not ready
+  row("INV-PAID", { pm: "qris", ps: "paid" });                   // online paid: ready
+  row("INV-REFUSED", { err: "Alamat ditolak kurir" });           // refused at Mengantar: problem, still ready by the gate
+  row("INV-UNKNOWN", { err: "DISPATCH_UNKNOWN: timeout" });      // unknown outcome: problem, never ready
+  row("INV-VOID", { pm: "qris", ps: "cancelled", void: "2026-10-02" }); // void: shown as Batal, not waiting
+  row("INV-WAYBILL", { ss: "processing", pid: "M-1" });
+  row("INV-PICKUP", { ss: "processing", pid: "M-2", awb: "AWB-2", handover: "pickup" });
+  row("INV-DROP", { ss: "processing", pid: "M-3", awb: "AWB-3", handover: "drop_off" });
+  row("ABN-NEW", { ss: "abandoned" });
+  row("ABN-CALLED", { ss: "abandoned", lead: "contacted" });
+  const database = d1(sqlite);
+
+  const { items } = await readOrderAttention(database);
+  const count = Object.fromEntries(items.map((item) => [item.key, item.count]));
+  assert.deepEqual(count, {
+    confirm: 7,
+    ready_push: 3,
+    push_problem: 2,
+    awaiting_payment: 1,
+    leads_new: 1,
+    needs_waybill: 1,
+    needs_pickup: 1,
+    needs_drop_off: 1,
+  });
+
+  const call = async (handler: typeof listOrders, query: string) => {
+    const response = await handler({
+      url: new URL(`https://toko.test/api/admin/x?${query}`),
+      locals: { runtimeEnv: { OMS_DB: database } },
+      request: new Request("https://toko.test/api/admin/x"),
+    } as unknown as Parameters<typeof listOrders>[0]);
+    assert.equal(response.status, 200);
+    return response.json() as Promise<{ data: Array<{ order_number: string; dispatch_eligible?: boolean }>; summary?: { unpaid_count: number } }>;
+  };
+  // Each count equals the rows its link opens.
+  const waiting = await call(listOrders, "shipping_status=pending&limit=100");
+  assert.equal(waiting.data.length, count.confirm);
+  assert.equal(waiting.data.filter((order) => order.dispatch_eligible).length, count.ready_push);
+  const unpaid = await call(listOrders, "payment_status=unpaid&limit=100");
+  assert.deepEqual(unpaid.data.map((order) => order.order_number), ["INV-QRIS"]);
+  assert.equal(unpaid.summary?.unpaid_count, 1, "the card counts online orders awaiting payment, not COD");
+  const leads = await call(listLeads, "follow_up_status=new");
+  assert.deepEqual(leads.data.map((order) => order.order_number), ["ABN-NEW"]);
+
+  // The env fallback pickup makes the warehouse without one ready, as the list does.
+  const withFallback = await readOrderAttention(database, { fallbackPickupAddressId: "PICK-ENV" });
+  assert.equal(withFallback.items.find((item) => item.key === "ready_push")?.count, 4);
+});
+
+test("the dashboard summary carries the funnel and the period before it", async () => {
+  const { GET: analytics } = await import("../pages/api/admin/analytics.ts");
+  const sqlite = migratedSqlite();
+  seedLeadStore(sqlite);
+  const insert = sqlite.prepare(`INSERT INTO orders (order_number, store_id, customer_name, customer_phone, address,
+    province, city, district, total_amount, created_at, payment_method, payment_status, shipping_status, provider_order_id)
+    VALUES (?, 1, 'Budi', '6281200000000', 'Jl', 'Jawa Barat', 'Bandung', 'Coblong', ?, ?, 'cod', 'unpaid', ?, ?)`);
+  // Period 2026-10-08..14; the period before is 10-01..07.
+  insert.run("INV-1", 100000, "2026-10-09T03:00:00.000Z", "delivered", "M-1");
+  insert.run("INV-2", 50000, "2026-10-10T03:00:00.000Z", "returned", "M-2");
+  insert.run("INV-3", 70000, "2026-10-11T03:00:00.000Z", "pending", null);
+  insert.run("ABN-4", 0, "2026-10-12T03:00:00.000Z", "abandoned", null);
+  insert.run("INV-OLD", 40000, "2026-10-03T03:00:00.000Z", "pending", null);
+  const response = await analytics({
+    url: new URL("https://toko.test/api/admin/analytics?startDate=2026-10-08&endDate=2026-10-14"),
+    locals: { runtimeEnv: { OMS_DB: d1(sqlite) } },
+  } as unknown as Parameters<typeof analytics>[0]);
+  const body = (await response.json()) as { data: { funnel: Record<string, number>; previous: Record<string, unknown>; total_revenue: number } };
+  assert.deepEqual(body.data.funnel, { leads: 1, orders: 3, handed_over: 2, delivered: 1, returned: 1 });
+  assert.equal(body.data.total_revenue, 170000, "the returned order is not revenue");
+  assert.equal(body.data.previous.start_date, "2026-10-01");
+  assert.equal(body.data.previous.end_date, "2026-10-07");
+  assert.equal(body.data.previous.total_revenue, 40000);
+  assert.equal(body.data.previous.live_orders, 1);
+});
+
+test("a lapsed QRIS/VA is not 'Belum dibayar'; it is what 'Kedaluwarsa' finds", async () => {
+  const { readOrderAttention } = await import("./order-attention.ts");
+  const { GET: listOrders } = await import("../pages/api/admin/orders/index.ts");
+  const sqlite = migratedSqlite();
+  seedLeadStore(sqlite);
+  const insert = sqlite.prepare(`INSERT INTO orders (id, order_number, store_id, customer_name, customer_phone, address,
+    province, city, district, total_amount, created_at, payment_method, payment_status, shipping_status)
+    VALUES (?, ?, 1, 'Budi', '6281200000000', 'Jl', 'Jawa Barat', 'Bandung', 'Coblong', 1000, '2026-10-01T00:00:00.000Z', 'qris', 'pending', 'pending')`);
+  insert.run(1, "INV-OPEN");
+  insert.run(2, "INV-LAPSED");     // pending past expires_at
+  insert.run(3, "INV-EXPIRED");    // marked expired by the sweep
+  const tx = sqlite.prepare(`INSERT INTO payment_transactions (order_id, reference_id, public_token, channel_code, status, amount, total_amount, expires_at, created_at, updated_at)
+    VALUES (?, ?, ?, 'QRIS', ?, 1000, 1000, ?, '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')`);
+  tx.run(1, "R1", "T1", "pending", "2999-01-01T00:00:00.000Z");
+  tx.run(2, "R2", "T2", "pending", "2026-10-01T01:00:00.000Z");
+  tx.run(3, "R3", "T3", "expired", "2026-10-01T01:00:00.000Z");
+  const database = d1(sqlite);
+  const list = async (query: string) => {
+    const response = await listOrders({
+      url: new URL(`https://toko.test/api/admin/x?${query}`),
+      locals: { runtimeEnv: { OMS_DB: database } },
+      request: new Request("https://toko.test/x"),
+    } as unknown as Parameters<typeof listOrders>[0]);
+    return ((await response.json()) as { data: Array<{ order_number: string }> }).data.map((row) => row.order_number).sort();
+  };
+  assert.deepEqual(await list("payment_status=unpaid"), ["INV-OPEN"]);
+  assert.deepEqual(await list("payment_status=expired"), ["INV-EXPIRED", "INV-LAPSED"]);
+  const { items } = await readOrderAttention(database);
+  assert.equal(items.find((item) => item.key === "awaiting_payment")?.count, 1);
+});
+
+test("a cut export ends on a whole order and says how many rows it kept", async () => {
+  const { GET: exportOrders } = await import("../pages/api/admin/orders/export.ts");
+  const { ORDER_EXPORT_ROW_LIMIT } = await import("./order-export.ts");
+  const sqlite = migratedSqlite();
+  seedLeadStore(sqlite);
+  sqlite.exec(`
+    INSERT INTO products (id, store_id, title, slug, created_at) VALUES (1, 1, 'Pupuk', 'pupuk', '2026-10-01');
+    INSERT INTO product_variants (id, product_id, sku, title, price, weight_grams) VALUES (11, 1, 'P1', '1 kg', 1000, 1000);
+  `);
+  // One order of three items, then single-item orders filling past the limit.
+  // Newest first, so the three-item order (the oldest) straddles the cut.
+  const order = sqlite.prepare(`INSERT INTO orders (id, order_number, store_id, customer_name, customer_phone, address,
+    province, city, district, total_amount, created_at, shipping_status)
+    VALUES (?, ?, 1, 'Budi', '6281200000000', 'Jl', 'Jawa Barat', 'Bandung', 'Coblong', 1000, '2026-10-01T00:00:00.000Z', 'pending')`);
+  const item = sqlite.prepare("INSERT INTO order_items (order_id, variant_id, quantity, unit_price) VALUES (?, 11, 1, 1000)");
+  sqlite.exec("BEGIN");
+  order.run(1, "INV-BIG");
+  for (let i = 0; i < 3; i += 1) item.run(1);
+  for (let id = 2; id <= ORDER_EXPORT_ROW_LIMIT; id += 1) {
+    order.run(id, `INV-${id}`);
+    item.run(id);
+  }
+  sqlite.exec("COMMIT");
+  const response = await exportOrders({
+    url: new URL("https://toko.test/api/admin/orders/export?kind=orders"),
+    locals: { runtimeEnv: { OMS_DB: d1(sqlite) } },
+  } as unknown as Parameters<typeof exportOrders>[0]);
+  const lines = (await response.text()).trimEnd().split("\r\n").slice(1);
+  // 9 999 single-item rows fit; INV-BIG's three would straddle the limit, so none of them ship.
+  assert.equal(lines.length, ORDER_EXPORT_ROW_LIMIT - 1);
+  assert.ok(!lines.some((line) => line.startsWith("INV-BIG,")));
+  assert.equal(response.headers.get("x-export-truncated"), String(ORDER_EXPORT_ROW_LIMIT - 1));
+});

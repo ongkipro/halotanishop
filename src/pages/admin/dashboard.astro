@@ -10,6 +10,7 @@ export const prerender = false;
 const adminRole = Astro.locals.admin?.role ?? 'customer_service';
 const mayManageOrders = canAccessAdminRoute(adminRole, '/admin/orders');
 const mayManagePayments = canAccessAdminRoute(adminRole, '/admin/payments');
+const mayReadInsights = canAccessAdminRoute(adminRole, '/api/admin/insights');
 // First steps after /install. Owner/admin only — they are the roles that can
 // complete them. The checklist itself lives on /admin/status (A39); the
 // dashboard keeps one line while a required step is left.
@@ -19,6 +20,8 @@ const setupFacts = maySetUp
   : null;
 const setupSteps = setupFacts ? buildSetupChecklist(setupFacts) : [];
 const setupRequiredLeft = setupSteps.filter((step) => step.required && !step.done).length;
+// Named, so the line says what is missing rather than only how much.
+const setupMissing = setupSteps.filter((step) => step.required && !step.done).map((step) => step.label).join(', ');
 const primaryActions = mayManageOrders
   ? [
       { href: '/admin/orders', label: 'Kelola order', primary: false },
@@ -48,10 +51,10 @@ const primaryActions = mayManageOrders
         href="/admin/status"
         class="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
       >
-        <span class="min-w-0"><span class="font-medium">Siapkan toko:</span> {setupRequiredLeft} langkah wajib lagi sebelum toko bisa menerima pesanan.</span>
+        <span class="min-w-0"><span class="font-medium">Siapkan toko:</span> {setupRequiredLeft} langkah wajib lagi sebelum toko bisa menerima pesanan — {setupMissing}.</span>
         <span class="shrink-0 font-medium" aria-hidden="true">Lihat status →</span>
       </a>
     )}
-    <AnalyticsDashboard client:only="react" showPaymentsLink={mayManagePayments} />
+    <AnalyticsDashboard client:only="react" showPaymentsLink={mayManagePayments} showAttention={mayManageOrders} showInsights={mayReadInsights} />
   </div>
 </AdminLayout>
