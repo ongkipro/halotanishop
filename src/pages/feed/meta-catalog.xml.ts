@@ -12,7 +12,7 @@ export const GET: APIRoute = async ({ locals }) => {
 
   try {
     const products = await getStorefrontProducts(locals);
-    const xml = generateMetaCatalogXml(products, origin, siteTitle, siteDescription);
+    const xml = generateMetaCatalogXml(products, origin, siteTitle, siteDescription, tenantConfig.defaultBrand);
 
     return new Response(xml, {
       status: 200,

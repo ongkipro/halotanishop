@@ -116,6 +116,7 @@ const canonical = `${Astro.locals.tenant.siteUrl}${canonicalPath}`;
 const productSchema = buildProductJsonLd({
   siteUrl: Astro.locals.tenant.siteUrl,
   organization: { name: Astro.locals.tenant.name },
+  defaultBrand: Astro.locals.tenant.defaultBrand,
   product: {
     name: product.productName,
     description: product.description || metaDescription,

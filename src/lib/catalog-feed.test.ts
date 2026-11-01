@@ -214,3 +214,19 @@ test("feeds link the JPEG sibling of an uploaded WebP, since Meta takes JPEG or 
   assert.ok(generateMetaCatalogXml([product], "https://toko-uji.example").includes(jpg));
   assert.ok(generateGoogleCatalogXml([product], "https://toko-uji.example").includes(jpg));
 });
+
+test("a product with no brand of its own takes the store's default brand, then the store name", () => {
+  const product: CatalogProduct = {
+    productId: 14002,
+    slug: "tanpa-merek",
+    productName: "Tanpa Merek",
+    category: "Rumah",
+    heroImage: "/images/hero.jpg",
+    variants: [{ id: 1, label: "Standar", price: 50000 }],
+  };
+  const own = { ...product, productId: 14003, slug: "bermerek", brand: "Milik Sendiri" };
+  const xml = generateGoogleCatalogXml([product, own], "https://toko.test", "Toko Test", "d", "Zvara");
+  assert.match(xml, /<g:brand>Zvara<\/g:brand>/);
+  assert.match(xml, /<g:brand>Milik Sendiri<\/g:brand>/);
+  assert.match(generateMetaCatalogXml([product], "https://toko.test", "Toko Test", "d"), /<g:brand>Toko Test<\/g:brand>/);
+});

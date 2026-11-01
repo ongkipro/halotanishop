@@ -20,6 +20,7 @@ interface SharedEnvVars {
   PUBLIC_SITE_BRAND_MARK?: string;
   PUBLIC_SITE_NOINDEX?: string;
   PUBLIC_SITE_TAGLINE?: string;
+  PUBLIC_DEFAULT_BRAND?: string;
   PUBLIC_SITE_THEME_COLOR?: string;
   PUBLIC_SITE_LOCALE?: string;
   PUBLIC_STOREFRONT_TEMPLATE?: string;

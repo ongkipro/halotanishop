@@ -122,6 +122,9 @@
     // every unconfigured store's <title>, which is how a fresh install came to
     // announce itself as "Toko Anda — Belum Dikonfigurasi".
     "PUBLIC_SITE_TAGLINE": "",
+    // Brand reported to Google and Meta for a product with none of its own.
+    // Empty means the store name.
+    "PUBLIC_DEFAULT_BRAND": "",
     "PUBLIC_ADMIN_NAME": "AdsBookCMS Admin",
     "PUBLIC_EMBED_ALLOWED_ORIGINS": "",
 
