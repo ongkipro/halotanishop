@@ -1,6 +1,6 @@
 # AdsBookCMS Meta Pixel, CAPI, GTM, and Google Ads Specification
 
-> Verified against disk: 2026-11-02 @ `eb0ced6` (§16.1c early-`_fbp` measurement and 1.8.6 browser re-check added; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `0b6a44d` (§16.1c follow-up on nine installs; other sections retain their recorded evidence)
 
 This document owns the technical tracking contract for AdsBookCMS-rendered and headless storefronts. It covers event semantics, identity, browser/server boundaries, deduplication, durable delivery, store configuration, and verification. It does not claim attribution certainty, legal compliance, consent applicability, or live provider acceptance.
 
@@ -928,6 +928,12 @@ post only the server PageView (AUD-T-L L-5). On taniniaga.shop `/produk/kojien`
 renders the native landing page of another slug, and its ViewContent `eid`
 carries that landing slug; the Pixel and CAPI ids still match, so deduplication
 is intact.
+
+**Follow-up 2026-11-02, nine installs.** The hourly read repeated on every install with a
+Pixel: the step from 19-49% to 95-100% `fbp` happens in the first full hour after each
+install's own deploy (agritani 49 to 100 at 16h UTC, taniniaga 55 to 100, bavenshop
+82 to 100, numaskin 0 to 96, beranda-tani 44 to 76 to 100 around its 18:24 deploy). All rows
+`sent`. This closes TRK-1; the sample is hours, so the optional look in a week stays.
 
 ### 16.2 "Purchases are missing in Ads Manager": measure before changing code (2026-10-24)
 
