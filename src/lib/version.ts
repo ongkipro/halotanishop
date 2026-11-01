@@ -8,7 +8,8 @@ export type CmsVersionInfo = {
 };
 
 export const CMS_VERSION: CmsVersionInfo = {
-  version: "1.8.7",
+  version: "1.8.8",
+  // 1.8.8: a native Astro landing page now carries its product's Product JSON-LD (price, availability per variant), supplied by BaseLayout from the native-landing register instead of written into each page. No migration.
   // 1.8.7: the home page <title> no longer repeats the store name and stays within 60 characters, and a store description under 70 characters is extended with the store's own categories for the meta description. No migration.
   // 1.8.6: `_fbp` is written before the deferred pixel so first-visit server events carry it; PUBLIC_DEFAULT_BRAND is the brand for a product with none; `npm run card-images` makes 480 px twins for static images; the home grid and /produk load 12, then 12 more as the button nears the screen. No migration.
   // 1.8.5: the hourly cron drains up to three Meta CAPI outbox batches (30 events) and stops at the first refusal, so a quiet store clears a backlog in hours instead of a day. No migration.
