@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `407af14` (Entry 242; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `be6ee6a` (Entry 243; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8425,3 +8425,13 @@ or red. Measured against white text: `#c2410c` 5.18:1 (chosen, hover `#9a3412` 7
 3.6:1 (below AA). Same tokens and the same seven call-site fallbacks as 1.9.0, new values;
 ADR-019's amendment rewritten to the final choice, with the rejected options. The discount
 pill stays `#334FB4`. 1167 tests, check 0/0/0.
+
+### Entry 243: 1.9.2, form states under the orange accent
+
+Found on the live zvara canary (1.9.1): with the filled-field tint following `--sf-accent-soft`
+the name and phone fields turned peach beside their green tick, and the focused field's orange
+frame looked like the red error frame. `form-hybrid.css`: filled and valid fields take
+`--sf-surface-alt` (neutral), and a new `--sf-focus-frame: #1a1a1a` is the frame while typing,
+with `--sf-accent-ring` kept as the ring. The selected variant card, bullets, summary tint and
+the buttons keep the accent. 1167 tests. The zvara native landing page's own hero button
+(`bg-stone-950`, amber text) is that page's design and stays.
