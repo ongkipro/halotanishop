@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-10-31 @ `7a8f26e` + fix/stack-review-2026-10-31 working tree (Entry 206; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `e21d975` (Entry 236; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8308,3 +8308,29 @@ entry for the 2026-11-01 evening work, so the fleet has one number to compare:
 early `_fbp` (entry 229), `PUBLIC_DEFAULT_BRAND` (228), card twins (230, fixed in
 234), 12-per-page with scroll load (233). zvarashop and revenleather already run this
 code on their own 1.8.5 headers; they take the number with their next merge.
+
+### Entry 236: 1.8.6 rolled out to the fleet
+
+No product code changed. Every install with a local clone now runs 1.8.6
+(`npm run fleet:status` and live `/hello` agree); skincarebpom has no clone and
+stays on 1.5.11. Registry and per-install notes: `docs/FLEET.md`.
+
+- Shipped 2026-11-02: zvarashop, numaskin-adbook, klikinaja (schema 62 to 80,
+  additive migrations only), revenleather, beranda-tani (schema 67 to 80). The
+  other six went out on 2026-11-01. Each deploy used `npm run deploy` with no
+  `ALLOW_*` override; checks 0/0/0, tests 1157-1170 passing with 1 skipped.
+- revenleather's engraving flow was kept: no line changed in the 20 files under
+  `src` that mention grafir, and the two catalogue files that conflicted kept the
+  install's version.
+- beranda-tani's "318 uncommitted files" were an unfinished 1.8.5 merge, closed
+  and followed by the 1.8.6 merge; its theme keeps its own product grid. A D1
+  export was taken first and kept outside the repository.
+- klikinaja gained Smart Placement (ADR-030); all eleven D1 databases are in APAC.
+  Cloudflare has no Indonesia region, so Singapore is the closest available.
+- Server leg: with the early `_fbp`, `fbp` on PageView/ViewContent is 100% on
+  zvara and revenleather after the deploy (`TRACKING_SPECS.md` 16.1c). The sample
+  is sixteen hours; TRK-1 stays open for the ten-day re-measure.
+- Not verified: Purchase on a fresh order, Event Match Quality, admin and checkout
+  on the installs shipped today, an engraving order end to end.
+- Process note: a sub-agent mistyped `git config core.filemode core.autocrlf`
+  in beranda-tani and restored it at once; repository state was unchanged.
