@@ -515,7 +515,7 @@ Class-variance-authority variants for storefront primitives live in `src/lib/ui-
 
 ### 7.1 `src/components/ui/` — shadcn primitives
 
-The directory holds the shadcn primitives used by admin React islands (`input-group.tsx`, `popover.tsx` and `combobox.tsx` came back with A-295). Treat it as shared admin infrastructure; extend an existing primitive before introducing another component system.
+The directory holds the shadcn primitives used by admin React islands (`input-group.tsx` and `combobox.tsx` came back with A-295; `popover.tsx` came with them and was removed again in 1.8.3, still unimported; `tabs.tsx` arrived with `/admin/check` in 1.8.3). Treat it as shared admin infrastructure; extend an existing primitive before introducing another component system.
 
 **Admin control contract (A-307).** The primitive owns a form control's
 geometry; a caller never does.
@@ -615,10 +615,11 @@ icon payload `Icon.astro` reads.
 
 ### 7.3 Other storefront directories
 
-- `home/` — `HeroSection.astro`, `LandingPagesSection.astro`,
-  `ProductsSection.astro`. `ProofsSection.astro` was deleted; this section
-  listed it, §2.1 cited a line inside it, and §3 sourced its shadow rule from
-  it.
+- `home/` — `HeroSection.astro`, `ProductsSection.astro`.
+  `ProofsSection.astro` was deleted; this section listed it, §2.1 cited a line
+  inside it, and §3 sourced its shadow rule from it. `LandingPagesSection.astro`
+  was deleted in 1.8.3: the home page no longer lists landing pages, which
+  live on `/landing-page` behind the footer's "Halaman" link.
 - `templates/` — `CompactMarketHome.astro` only (§1.2).
 - `forms/`, `seo/`, `landing-pages/`, `tracking/`, `shared/` — the remaining
   directories. `TRACKING_SPECS.md` owns the tracking contract; nothing about it

@@ -8039,9 +8039,9 @@ and an audit of the feeds and structured data.
   engines and AI answer agents stay named; training crawlers fall to `*`,
   which still allows them where the zone has no managed file.
 
-### Entry 225: Dashboard "Perlu tindakan", CSV export, checkout fields, storefront chrome
+### Entry 225: 1.8.3 — Dashboard "Perlu tindakan", CSV export, checkout fields, storefront chrome
 
-Unreleased; on `feat/check-tabs`. 1139 tests pass, `npm run check` 0/0/0,
+Released as 1.8.3 (no migration); built on `feat/check-tabs`. 1139 tests pass, `npm run check` 0/0/0,
 `npm run build` succeeds; every admin page opened in a browser with no script
 error and no failed request.
 
@@ -8092,3 +8092,6 @@ error and no failed request.
   one marked block at the end of `form-hybrid.css`.
 - **Admin chrome.** The sidebar's product card floats as frosted glass; the
   phone menu no longer carries Keluar (the account menu does).
+- **Removed.** `home/LandingPagesSection.astro` (nothing renders it since the
+  home page stopped listing landing pages; an install that kept its own home
+  template keeps its own copy) and `ui/popover.tsx` (imported by nothing).

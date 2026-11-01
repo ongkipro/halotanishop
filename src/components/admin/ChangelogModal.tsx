@@ -29,10 +29,39 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.8.3",
+    date: "1 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: true,
+    highlight: "Dashboard yang menunjukkan pekerjaan hari ini, export CSV, dan tampilan toko yang lebih bersih.",
+    changes: [
+      {
+        title: "Perlu tindakan",
+        description: "Dashboard kini menampilkan order yang menunggu konfirmasi, siap push ke Mengantar, push bermasalah, menunggu pembayaran online, lead belum dihubungi, serta antrean resi, pickup, dan drop-off. Angkanya sama dengan daftar yang dibuka, memakai syarat push Mengantar yang sama.",
+      },
+      {
+        title: "Perbandingan, corong, dan teratas",
+        description: "Setiap kartu menunjukkan naik/turun dibanding periode sebelumnya (dipotong di jam yang sama bila periode berjalan sampai hari ini), corong lead sampai paket diterima, dan 5 produk serta landing page teratas.",
+      },
+      {
+        title: "Export CSV",
+        description: "Pesanan, Pesanan tertinggal, dan Pengiriman bisa diunduh sebagai CSV sesuai filter yang aktif: satu baris per produk, setiap data satu kolom (nama, WhatsApp, alamat, kecamatan, kota, provinsi, produk, varian, harga, dan lainnya).",
+      },
+      {
+        title: "Belum dibayar yang benar",
+        description: "Filter dan kartu Belum dibayar kini menghitung order online (QRIS/VA/transfer) yang menunggu pembayaran, bukan COD. Pembayaran yang kedaluwarsa pindah ke filter Kedaluwarsa.",
+      },
+      {
+        title: "Tampilan toko",
+        description: "Header berisi nama toko di tengah dengan Official Store, footer menjadi navigasi dengan watermark nama toko, beranda tanpa daftar landing page, dan form checkout dengan tanda fokus serta centang saat isian benar.",
+      },
+    ],
+  },
+  {
     version: "1.8.2",
     date: "31 Oktober 2026",
     releaseTag: "2026.10-ops",
-    isLatest: true,
+    isLatest: false,
     highlight: "Kategori Google resmi untuk setiap produk, form produk yang lebih rapi, dan logo login yang kembali ke beranda.",
     changes: [
       {

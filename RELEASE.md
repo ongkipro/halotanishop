@@ -1,6 +1,6 @@
 # Release and Deployment — AdsBookCMS
 
-> Verified against disk: 2026-10-31 @ `338af18` + feat/storefront-breadcrumb working tree (§3 migration notes to 0078, §4 registry at 1.8.0, re-stamped 1.8.2 on feat/product-form-ux; other sections retain their recorded evidence)
+> Verified against disk: 2026-10-31 @ `338af18` + feat/storefront-breadcrumb working tree (§3 migration notes to 0078, §4 registry at 1.8.0, re-stamped 1.8.2 on feat/product-form-ux, 1.8.3 on feat/check-tabs; other sections retain their recorded evidence)
 
 This document is the single owner of how a change reaches production. It replaces the previous `VERSION.md` runbook and the deleted `AUTO_UPDATE_DEPLOY.md`, which between them described three mutually exclusive release models, none of which matched the one workflow that exists.
 
@@ -194,7 +194,7 @@ Migration-specific notes:
   `stores.business_address`, both nullable, edited in Pengaturan › Store and
   read by the legal and contact pages. Additive, no backfill.
 
-`1.8.0` (2026-10-31) is the first release that carries `0067`–`0078`; `1.8.2` carries `0079` (a product's Google category id and path).
+`1.8.0` (2026-10-31) is the first release that carries `0067`–`0078`; `1.8.2` carries `0079` (a product's Google category id and path); `1.8.3` adds no migration.
 
 ---
 
@@ -204,10 +204,10 @@ Two registries, currently in step:
 
 | Source | Field | Value |
 | --- | --- | --- |
-| `src/lib/version.ts` | `version` | `1.8.2` |
+| `src/lib/version.ts` | `version` | `1.8.3` |
 | `src/lib/version.ts` | `releaseTag` | `2026.10-ops` |
 | `src/lib/version.ts` | `schemaVersion` | `80` |
-| `package.json` | `version` | `1.8.2` |
+| `package.json` | `version` | `1.8.3` |
 
 `src/lib/version.ts` is what the admin sidebar renders and is the value users
 see. Keep it and `package.json` in step when bumping.
