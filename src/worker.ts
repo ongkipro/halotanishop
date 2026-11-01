@@ -20,7 +20,7 @@ import {
 } from "./lib/autolaris-payment.ts";
 import { enqueuePurchaseForPaidOrder } from "./lib/paid-order-purchase.ts";
 import { envTenantConfig } from "./lib/tenant.ts";
-import { drainCapiOutbox, purgeExpiredCapiOutboxEvents } from "./lib/capi-outbox.ts";
+import { drainCapiOutboxBacklog, purgeExpiredCapiOutboxEvents } from "./lib/capi-outbox.ts";
 import { getStoreAdsConfig } from "./lib/store-ads.ts";
 import { runPluginCron } from "./plugins/registry.ts";
 import {
@@ -137,7 +137,7 @@ async function runScheduledMaintenance(
   const drainedCapiEvents = await housekeeping("scheduled-capi-drain-failed", async () => {
     const ads = await getStoreAdsConfig({ runtimeEnv: env } as unknown as App.Locals);
     return ads.metaPixelId && ads.metaCapiToken
-      ? drainCapiOutbox(env.OMS_DB, ads.metaPixelId, ads.metaCapiToken)
+      ? drainCapiOutboxBacklog(env.OMS_DB, ads.metaPixelId, ads.metaCapiToken, new Date(scheduledTime))
       : 0;
   });
   const googleAdsOffline = readGoogleAdsOfflineConfig(env);

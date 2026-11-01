@@ -9,6 +9,7 @@ import {
   decideRetry,
   deliverCapiEvent,
   drainCapiOutbox,
+  drainCapiOutboxBacklog,
   enqueueCapiEvent,
   purgeExpiredCapiOutboxEvents,
   requeueRecoverableEvents,
@@ -272,4 +273,37 @@ test("immediate delivery and a concurrent drain transmit an event once, with its
   assert.equal(bodies[0].data[0].event_time, 1_780_000_000, "a retry never restamps the event as now");
   const row = sqlite.prepare("SELECT status, attempts FROM capi_event_outbox").get() as { status: string; attempts: number };
   assert.deepEqual({ ...row }, { status: "sent", attempts: 0 });
+});
+
+test("the cron drains a backlog in several batches and stops at the first refusal", async () => {
+  const now = new Date("2026-09-04T04:00:00.000Z");
+  const seed = (count: number) =>
+    `INSERT INTO capi_event_outbox VALUES ${Array.from({ length: count }, (_, i) =>
+      `(${i + 1},'e-${i + 1}','PageView','${pageView(`e-${i + 1}`)}','pending',0,5,NULL,'2026-09-04T03:00:00.000Z','2026-09-04T03:00:00.000Z','t')`,
+    ).join(",")};`;
+  const originalFetch = globalThis.fetch;
+  try {
+    const backlog = outboxDatabase(seed(35));
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ events_received: 1 }), { status: 200 });
+    }) as typeof fetch;
+    assert.equal(await drainCapiOutboxBacklog(backlog.database, "1234567890", "token", now), 30);
+    assert.equal(calls, 30, "bounded at three batches so the cron keeps inside its subrequest budget");
+
+    const short = outboxDatabase(seed(12));
+    assert.equal(await drainCapiOutboxBacklog(short.database, "1234567890", "token", now), 12);
+
+    const refused = outboxDatabase(seed(25));
+    calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ error: { code: 1, message: "down" } }), { status: 500 });
+    }) as typeof fetch;
+    assert.equal(await drainCapiOutboxBacklog(refused.database, "1234567890", "token", now), 0);
+    assert.equal(calls, 10, "a refused batch ends the run instead of spending more rows' budgets");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
