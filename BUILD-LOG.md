@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `de910e1` (Entry 240; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `156a214` (Entry 241; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8404,3 +8404,15 @@ change: with a VA state placed in `sessionStorage`, "Salin Nomor VA" computes
 zvara, and the three renders were opened and compared. revenleather keeps its own
 themed page, so two of the product's payment-accent tests are skipped there. Not verified:
 a payment with a real provider payload.
+
+### Entry 241: released as 1.9.0, CTA blue by default
+
+No migration, 1167 tests, check 0/0/0. `form-hybrid.css` token defaults: accent `#2563eb`,
+strong `#1d4ed8`, soft `#eff6ff`, ring `rgba(37,99,235,.28)`. Seven hard-coded ink buttons
+(sticky "Pesan sekarang" in `produk/[slug].astro`, three in `thanks.astro`, `404`,
+`testimoni`, `landing-page/index`) now use `var(--sf-accent, #2563EB)`/`--sf-accent-strong`
+with a blue fallback because those pages sit outside the form root that defines the tokens.
+Proof: the local build rendered through Playwright (390 px) shows the buttons, the selected
+variant card, the order summary and the payment CTA in `rgb(37,99,235)`, no page error.
+Admin screens and install-owned native landing pages are untouched. Decision and rejected
+alternatives: ADR-019 amendment 2026-11-02. Not rolled out: Paduka decides when.
