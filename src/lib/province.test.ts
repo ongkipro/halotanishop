@@ -5,6 +5,7 @@ import { indonesiaDistricts } from "../data/indonesia-districts.ts";
 import {
   DEFAULT_COD_DISABLED_PROVINCE_CODES,
   INDONESIAN_PROVINCES,
+  buyerAreaLines,
   getProvinceName,
   isProvinceExcluded,
   normalizeProvince,
@@ -131,4 +132,19 @@ test("an operator's exclusion list is validated before it is stored", () => {
     success: false,
     invalidCodes: ["Jawa Barat"],
   });
+});
+
+test("buyerAreaLines: short district/city line, catalogue province, full text kept", () => {
+  assert.deepEqual(buyerAreaLines("Tebet", "Administrasi Jakarta Selatan", "Daerah Khusus Ibukota Jakarta"), {
+    local: "Tebet, Jakarta Selatan",
+    region: "DKI Jakarta",
+    full: "Tebet, Administrasi Jakarta Selatan, Daerah Khusus Ibukota Jakarta",
+  });
+  assert.equal(buyerAreaLines("Depok", "Sleman", "Daerah Istimewa Yogyakarta").region, "DI Yogyakarta");
+  assert.equal(buyerAreaLines("", "", "ID-JK").region, "DKI Jakarta");
+  // A district named like its city is shown once.
+  assert.equal(buyerAreaLines("Bandung", "bandung", "Jawa Barat").local, "Bandung");
+  // An unknown province spelling stays as typed rather than being guessed.
+  assert.equal(buyerAreaLines("X", "Y", "Provinsi Antah").region, "Provinsi Antah");
+  assert.deepEqual(buyerAreaLines(null, undefined, ""), { local: "", region: "", full: "" });
 });

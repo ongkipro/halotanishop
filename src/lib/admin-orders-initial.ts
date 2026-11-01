@@ -23,7 +23,7 @@ export function initialOrderListFilters(pageQuery: URLSearchParams): OrderListFi
   return {
     search: pageQuery.get("search") || "",
     shippingFilter: pageQuery.get("status") || pageQuery.get("shipping_status") || "all",
-    paymentFilter: "all",
+    paymentFilter: pageQuery.get("payment_status") || "all",
     dateSelection: adminDateSelectionFromQuery(pageQuery),
     sourceFilter: "all",
     sourceSlugFilter: pageQuery.get("source_slug") || "all",

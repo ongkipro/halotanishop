@@ -1,47 +1,29 @@
 ---
 import SiteBrand from './SiteBrand.astro';
-import Icon from './Icon.astro';
 
-// One announcement line and one bar (DESIGN-SYSTEM §3). The line carries the
-// store's "Official Store" badge; the bar the wordmark (or uploaded logo) and
-// one icon to the catalogue. It scrolls away with the page; a hairline that
-// fades at both ends closes it.
-const path = Astro.url.pathname;
-// The list is the current page; a product under it is the current location
-// ("true"), so a screen reader does not announce the link as this page. No
-// drawn state: a filled circle behind one icon read as a frame (owner,
-// 2026-10-31); the icon stays bare and only dims on hover.
-const catalogCurrent = path === '/produk' ? 'page' : path.startsWith('/produk/') ? 'true' : undefined;
+// One bar (DESIGN-SYSTEM §3): the wordmark (or uploaded logo), centred, and
+// under it the store's "Official Store" line (Paduka, 2026-11-01; it was an
+// announcement bar above the header). The catalogue, the landing pages and the
+// policies are reached from the footer. It scrolls away with the page; a
+// hairline that fades at both ends closes it.
 ---
-
-<!-- Announcement bar: the store's own site is its official store (owner
-     decision 2026-10-31, reversing the v2 removal). A solid blue badge-check,
-     drawn inline: the icon subset is for line icons. -->
-<p class="flex items-center justify-center gap-1.5 bg-[#F3F3F3] px-4 py-1.5 text-xs font-semibold leading-5 text-[#111111]">
-  <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" aria-hidden="true">
-    <path fill="#1D6FEB" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
-    <path fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="m8.5 12.2 2.4 2.4 4.6-4.9"/>
-  </svg>
-  Official Store
-</p>
 
 <!-- Not sticky: the column is short-form commerce and the PDP's own sticky buy
      bar is the action that follows the reader. The rule under the bar fades
      out toward both edges instead of cutting the column. -->
 <header class="relative bg-white">
-  <div class="flex h-14 items-center justify-between gap-3 pl-3 pr-1.5">
+  <div class="flex flex-col items-center justify-center px-4 pb-2.5 pt-2">
     <SiteBrand href="/" />
-    <nav aria-label="Navigasi utama" class="flex items-center">
-      <a
-        href="/produk"
-        aria-current={catalogCurrent}
-        aria-label="Produk"
-        title="Produk"
-        class="inline-flex size-11 items-center justify-center rounded-full text-[#111111] transition-opacity hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
-      >
-        <Icon name="lucide:package" class="h-[22px] w-[22px]" aria-hidden="true" />
-      </a>
-    </nav>
+    {/* The store's own site is its official store (owner decision
+        2026-10-31). A solid blue badge-check, drawn inline: the icon subset is
+        for line icons. */}
+    <p class="-mt-1.5 flex items-center gap-1 text-[11px] font-semibold leading-4 text-[#555555]">
+      <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0" aria-hidden="true">
+        <path fill="#1D6FEB" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
+        <path fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="m8.5 12.2 2.4 2.4 4.6-4.9"/>
+      </svg>
+      Official Store
+    </p>
   </div>
   <div
     aria-hidden="true"

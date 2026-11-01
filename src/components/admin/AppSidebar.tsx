@@ -74,7 +74,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-2 pb-20 group-data-[collapsible=icon]:pb-14">
         {restricted && (
           <SidebarGroup className="py-1">
             <SidebarGroupLabel className="mb-0.5 h-6 px-2 text-xs font-medium uppercase tracking-wider text-slate-400">
@@ -183,8 +183,10 @@ export function AppSidebar({
 
       {/* The product card: who made this admin and what changed. Keluar moved
           to the account menu in the top bar. Collapsed (icon rail) it is the
-          product icon alone. */}
-      <SidebarFooter className="border-t border-slate-200/70 p-2">
+          product icon alone. It floats over the menu's last rows as frosted
+          glass (Paduka, 2026-11-01); the menu's bottom padding keeps its last
+          item reachable above it. */}
+      <SidebarFooter className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-2 *:pointer-events-auto">
         {onOpenChangelog && (
           <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
             <SidebarMenuItem>
@@ -192,7 +194,7 @@ export function AppSidebar({
                 type="button"
                 onClick={onOpenChangelog}
                 tooltip={`Catatan rilis AdsBookCMS v${CMS_VERSION.version}`}
-                className="h-10 hover:bg-slate-100"
+                className="h-10 bg-white/55 ring-1 ring-slate-900/5 backdrop-blur-md hover:bg-white/75"
               >
                 <img src="/images/adsbook-icon.svg" alt="" width="18" height="18" className="shrink-0" />
                 <span>v{CMS_VERSION.version}</span>
@@ -205,7 +207,7 @@ export function AppSidebar({
             type="button"
             onClick={onOpenChangelog}
             title="Buka catatan rilis AdsBookCMS"
-            className="group flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-2.5 py-2 text-left shadow-xs transition-[border-color,box-shadow] hover:border-slate-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 group-data-[collapsible=icon]:hidden"
+            className="group flex w-full items-center gap-2.5 rounded-xl border border-white/70 bg-white/55 px-2.5 py-2 text-left shadow-[0_8px_24px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 backdrop-blur-md backdrop-saturate-150 transition-[background-color,box-shadow] hover:bg-white/75 hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 group-data-[collapsible=icon]:hidden"
           >
             <img src="/images/adsbook-icon.svg" alt="" width="28" height="28" className="shrink-0" />
             <span className="min-w-0 flex-1">
@@ -220,7 +222,7 @@ export function AppSidebar({
             </span>
           </button>
         ) : (
-          <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 group-data-[collapsible=icon]:hidden">
+          <div className="flex items-center gap-2.5 rounded-xl border border-white/70 bg-white/55 px-2.5 py-2 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 backdrop-blur-md backdrop-saturate-150 group-data-[collapsible=icon]:hidden">
             <img src="/images/adsbook-icon.svg" alt="" width="28" height="28" className="shrink-0" />
             <span className="min-w-0 flex-1 text-[13px] font-semibold text-slate-900">AdsBookCMS</span>
             <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 font-mono text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/15">

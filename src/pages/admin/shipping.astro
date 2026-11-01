@@ -6,5 +6,5 @@ export const prerender = false;
 ---
 
 <AdminLayout title="Pengiriman" activeMenu="shipping">
-  <ShippingOperations client:load />
+  <ShippingOperations client:load initialQueue={Astro.url.searchParams.get('queue') ?? undefined} />
 </AdminLayout>

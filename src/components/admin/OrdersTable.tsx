@@ -16,11 +16,13 @@ import {
 import { initialOrderListFilters, orderListQuery } from "../../lib/admin-orders-initial";
 import { providerDispatchErrorText } from "../../lib/payment-dispatch-policy";
 import { SOURCE_SLUG_NONE_FILTER, SOURCE_SLUG_NONE_LABEL } from "../../lib/source-slug";
+import { buyerAreaLines } from "../../lib/province";
 import {
   AdminDateRangeFilter,
   type AdminDateSelection,
 } from "./AdminDateRangeFilter";
 import { Button } from "../ui/button";
+import { ExportCsvButton } from "./ExportCsvButton";
 import { SHIPPING_STATUS_LABELS } from "@/lib/shipping-status";
 import { FilterBar, FilterField, FilterSelect, SearchInput, type FilterOption } from "./filter-bar";
 import { Checkbox } from "../ui/checkbox";
@@ -407,7 +409,7 @@ const SHIPPING_FILTER_OPTIONS: FilterOption<string>[] = [
 ] as const;
 const PAYMENT_FILTER_OPTIONS: FilterOption<string>[] = [
   { value: "all", label: "Semua status" },
-  { value: "unpaid", label: "Belum dibayar" },
+  { value: "unpaid", label: "Belum dibayar (online)" },
   { value: "paid", label: "Lunas" },
   { value: "expired", label: "Kedaluwarsa" },
   { value: "failed", label: "Gagal" },
@@ -585,15 +587,34 @@ function deliveryStatus(order: OrderItem) {
 }
 
 /** Where the order came from: traffic source and page, plain small text. */
+/**
+ * The traffic source under the invoice. The landing page an order came from
+ * (A36) is its tooltip, not a visible line: on a store whose landing pages are
+ * named after their products it repeated the Produk column on every row
+ * (Paduka, 2026-11-01). The "Halaman sumber" filter and the order detail still
+ * show it.
+ */
 function OrderSourceLine({ order, className = "" }: { order: OrderItem; className?: string }) {
+  const page = order.sourceLabel
+    ? `Halaman sumber: ${order.sourceLabel}${order.sourcePath ? ` (${order.sourcePath})` : ""}`
+    : undefined;
   return (
-    <div className={`flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-slate-500 ${className}`}>
+    <div className={`flex min-w-0 items-center text-xs text-slate-500 ${className}`} title={page}>
       <TrafficSourceBadge adClickIds={order.adClickIds} plain className="shrink-0" />
-      {order.sourceLabel && (
-        <span className="min-w-0 truncate" title={order.sourcePath ? `${order.sourceLabel} — ${order.sourcePath}` : order.sourceLabel}>
-          · {order.sourceLabel}
-        </span>
-      )}
+    </div>
+  );
+}
+
+/** Name, WhatsApp, then the area on two lines: "district, city" and the province. */
+function BuyerArea({ order, className = "" }: { order: OrderItem; className?: string }) {
+  const area = buyerAreaLines(order.district, order.city, order.province);
+  if (!area.local && !area.region) {
+    return <p className={`text-xs text-slate-400 ${className}`}>Alamat belum lengkap</p>;
+  }
+  return (
+    <div className={`min-w-0 text-xs leading-5 ${className}`} title={area.full}>
+      {area.local && <p className="truncate text-slate-600">{area.local}</p>}
+      {area.region && <p className="truncate text-slate-400">{area.region}</p>}
     </div>
   );
 }
@@ -613,7 +634,7 @@ export function OrdersTable({
   const [orders, setOrders] = useState<OrderItem[]>(initialOrders || []);
   const [searchTerm, setSearchTerm] = useState(initialFilters.search);
   const [shippingFilter, setShippingFilter] = useState(initialFilters.shippingFilter);
-  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [paymentFilter, setPaymentFilter] = useState(initialFilters.paymentFilter);
   const [dateSelection, setDateSelection] = useState<AdminDateSelection>(initialFilters.dateSelection);
   const [sourceFilter, setSourceFilter] = useState("all");
   // The landing page filter (PRD A36). Opened from Analitik with
@@ -1145,7 +1166,7 @@ export function OrdersTable({
             {summary.unpaidCount}
           </p>
           <p className="mt-1 hidden text-xs text-slate-500 sm:block">
-            Perlu tindak lanjut pembayaran.
+            Order online (QRIS/VA/transfer) menunggu pembayaran.
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
@@ -1378,6 +1399,13 @@ export function OrdersTable({
             <Button variant="outline" onClick={resetFilters} disabled={!hasFilters}>
               <RotateCcw aria-hidden="true" /> Reset
             </Button>
+            <ExportCsvButton
+              kind="orders"
+              query={new URLSearchParams(
+                orderListQuery({ search: searchTerm, shippingFilter, paymentFilter, dateSelection, sourceFilter, sourceSlugFilter }, 1, false),
+              )}
+              title="Semua order dengan filter ini, satu baris per produk"
+            />
           </FilterBar>
           <p
             className="mt-3 text-xs font-semibold text-slate-500"
@@ -1465,9 +1493,7 @@ export function OrdersTable({
                     </a>
                     <span className="shrink-0 font-mono text-xs text-slate-500">{order.customerPhone}</span>
                   </p>
-                  <p className="truncate text-xs text-slate-500">
-                    {[order.district, order.city, order.province].filter(Boolean).join(", ") || "Alamat belum lengkap"}
-                  </p>
+                  <BuyerArea order={order} className="mt-0.5" />
                   <p className="mt-2 flex min-w-0 items-baseline justify-between gap-2">
                     <span className="min-w-0 truncate text-xs text-slate-700">
                       {[order.productName, order.variantName].filter(Boolean).join(" · ") || "Produk"}
@@ -1591,11 +1617,7 @@ export function OrdersTable({
                       <p className="mt-1 font-mono text-xs text-slate-500">
                         {order.customerPhone}
                       </p>
-                      <p className="mt-1 truncate text-xs text-slate-400">
-                        {[order.district, order.city, order.province]
-                          .filter(Boolean)
-                          .join(", ") || "Alamat belum lengkap"}
-                      </p>
+                      <BuyerArea order={order} className="mt-1" />
                     </TableCell>
                     <TableCell className="px-4 py-4">
                       <RiskBadge

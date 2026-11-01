@@ -14,6 +14,14 @@ export const LEAD_FOLLOW_UP_STATUSES = [
 
 export type LeadFollowUpStatus = (typeof LEAD_FOLLOW_UP_STATUSES)[number];
 
+/** The words the lead list and its CSV export use for each status. */
+export const LEAD_FOLLOW_UP_LABELS: Record<LeadFollowUpStatus, string> = {
+  new: "Belum dihubungi",
+  contacted: "Sudah dihubungi",
+  qualified: "Berminat",
+  not_interested: "Tidak berminat",
+};
+
 export class AbandonedLeadError extends Error {
   readonly status: number;
 

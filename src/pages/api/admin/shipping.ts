@@ -16,11 +16,7 @@ import {
   OrderLifecycleError,
 } from "../../../lib/order-lifecycle";
 import type { AdminShippingStatus } from "../../../lib/order-lifecycle";
-import {
-  ADMIN_CUSTOM_DATE_FILTER,
-  isAdminDateFilter,
-  parseAdminDateSelection,
-} from "../../../lib/admin-date-filter";
+import { shippingListFilter } from "../../../lib/order-list-filter.ts";
 
 export const prerender = false;
 
@@ -92,15 +88,13 @@ type ProviderSyncResult = {
 };
 
 export const GET: APIRoute = async ({ locals, url }) => {
-  const dateFilter = String(url.searchParams.get("date_filter") || "all")
-    .trim()
-    .toLowerCase();
   const database = getRuntimeEnv(locals)?.OMS_DB;
   if (!database || typeof database !== "object") {
     return jsonError("Database pengiriman belum tersedia.", 503);
   }
-  if (dateFilter !== ADMIN_CUSTOM_DATE_FILTER && !isAdminDateFilter(dateFilter)) {
-    return jsonError("Filter periode order tidak valid.", 400);
+  const filter = shippingListFilter(url.searchParams);
+  if (!filter.ok) {
+    return jsonError(filter.error, filter.status, filter.code ? { code: filter.code } : undefined);
   }
 
   const shipmentLimit = Math.min(
@@ -113,23 +107,14 @@ export const GET: APIRoute = async ({ locals, url }) => {
 
   try {
     const db = database as D1Database;
-    let dateClause = " WHERE o.shipping_status IN ('processing', 'shipped', 'delivered', 'returned') AND o.provider_order_id IS NOT NULL ";
-    const dateParams: string[] = [];
-    if (dateFilter !== "all") {
-      // Refuses an unresolvable period instead of answering for a different
-      // one; see the same note in the order list route.
-      const { resolution } = parseAdminDateSelection(url.searchParams);
-      if (!resolution.ok) {
-        return jsonError(resolution.reason, 422, { code: "DATE_RANGE_INVALID" });
-      }
-      dateClause += " AND date(o.created_at, '+7 hours') BETWEEN ? AND ? ";
-      dateParams.push(resolution.start, resolution.end);
-    }
+    const dateClause = ` WHERE ${filter.conditions.join(" AND ")} `;
+    const dateParams = filter.params;
 
     const [shipmentResult, pickupResult, warehouseResult] = await db.batch([
       db
         .prepare(
           `
+        SELECT * FROM (
         SELECT
           o.id,
           o.order_number AS orderNumber,
@@ -164,8 +149,13 @@ export const GET: APIRoute = async ({ locals, url }) => {
         LEFT JOIN pickup_schedules ps ON o.pickup_schedule_id = ps.id
         LEFT JOIN warehouses w ON o.warehouse_id = w.id
         ${dateClause}
-        ORDER BY o.id DESC
+        -- Open work first when the window is full: a parcel still waiting on a
+        -- waybill, pickup or drop-off must be listed however many newer ones
+        -- have shipped, or its queue tab reads 0 while the dashboard counts it
+        -- (review 2026-11-01). The page still shows newest first.
+        ORDER BY (o.shipping_status = 'processing') DESC, o.id DESC
         LIMIT ?
+        ) ORDER BY id DESC
       `,
         )
         .bind(...dateParams, shipmentLimit),

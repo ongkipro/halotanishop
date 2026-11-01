@@ -30,6 +30,7 @@ import { etaLabel } from "@/lib/rate-check";
 import { groupLocationResults } from "@/lib/location-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ExportCsvButton } from "@/components/admin/ExportCsvButton";
 import { FilterBar, FilterField, FilterSelect, SearchInput } from "@/components/admin/filter-bar";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -574,7 +575,11 @@ export function AbandonedOrders({ initialQuery = "" }: { initialQuery?: string }
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState(() => initialParams.get("search") || "");
-  const [status, setStatus] = useState<FollowUpStatus | "all">("all");
+  // A deep link (the dashboard's "Lead belum dihubungi") opens the list on its status.
+  const [status, setStatus] = useState<FollowUpStatus | "all">(() => {
+    const value = initialParams.get("follow_up_status");
+    return value && Object.hasOwn(followUpLabels, value) ? (value as FollowUpStatus) : "all";
+  });
   const [sourceSlug, setSourceSlug] = useState(() => initialParams.get("source_slug") || "all");
   const [sourceOptions, setSourceOptions] = useState<Array<{ value: string; label: string }> | null>(null);
   const [page, setPage] = useState(1);
@@ -700,6 +705,15 @@ export function AbandonedOrders({ initialQuery = "" }: { initialQuery?: string }
                 ]}
               />
             </FilterField>
+            <ExportCsvButton
+              kind="abandoned"
+              query={new URLSearchParams({
+                follow_up_status: status,
+                ...(search.trim() ? { search: search.trim() } : {}),
+                ...(sourceSlug !== "all" ? { source_slug: sourceSlug } : {}),
+              })}
+              title="Semua pesanan tertinggal dengan filter ini"
+            />
             {/* The count sits on the row's trailing edge, which is otherwise blank. */}
             <p className="w-full text-xs font-medium text-muted-foreground sm:ml-auto sm:w-auto sm:pb-2.5" role="status" aria-live="polite">
               {refreshing ? "Memperbarui pesanan tertinggal…" : `${pagination.totalItems} pesanan tertinggal`}

@@ -27,6 +27,8 @@ const defaultOrigin = warehouse?.origin_area_id
     }
   : null;
 const initialPhone = Astro.url.searchParams.get('search')?.trim() || '';
+// A `?search=` phone always opens the WA check, whatever `tab` says.
+const initialTab = !initialPhone && Astro.url.searchParams.get('tab') === 'ongkir' ? 'ongkir' : 'wa';
 ---
 <AdminLayout title="Cek WA & Ongkir" activeMenu="scoring">
   <div class="space-y-6">
@@ -39,6 +41,7 @@ const initialPhone = Astro.url.searchParams.get('search')?.trim() || '';
       defaultOrigin={defaultOrigin}
       warehouseName={warehouse?.name || ''}
       initialPhone={initialPhone}
+      initialTab={initialTab}
     />
   </div>
 </AdminLayout>
