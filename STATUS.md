@@ -1,12 +1,30 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `eb0ced6` (1.8.6 released and deployed to every install with a local clone; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `17ac629` (1.8.8 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+
+## 2026-11-02 — 1.8.8: SEO pass and fleet rollout
+
+`main` is `17ac629`, version 1.8.8, schema 80, no migration. Eleven of the twelve installs run it (`docs/FLEET.md`, "Rollout of 1.8.7 and 1.8.8").
+
+Lighthouse mobile over every live store (local run; PageSpeed's API quota was
+spent): performance 98 without a pixel (cekat, klikinaja) and 67-90 with Meta
+Pixel and gtag, whose 270 KB and 170 KB account for the 300-1 270 ms of
+blocking time (PERF-1 stands: loading them on interaction costs ad signal);
+accessibility 100 everywhere; CLS 0. SEO 92 on four stores is Cloudflare's
+managed `Content-Signal` line in `robots.txt`, which Lighthouse does not know
+yet; it is a zone setting, not product code. Done: every store is indexable,
+the home title no longer repeats the store name, short meta descriptions gain
+the store's categories, native landing pages carry `Product` JSON-LD.
+
+Open: Purchase on a fresh order and Event Match Quality; a visual pass over
+the pages shipped today; the `fbp` re-measure on about 2026-11-11 (TRK-1);
+page.revenleather.com and revenleather.com now index the same catalogue, so
+watch Search Console for cannibalisation before touching canonicals.
 
 ## 2026-11-02 — 1.8.6 rolled out to the fleet
 
-`main` is `eb0ced6` (PR #143), version 1.8.6, schema 80. All eleven installs
-with a local clone are on 1.8.6 (see `docs/FLEET.md`); skincarebpom has no clone
-and stays on 1.5.11. Live check on each domain: `/hello` shows v1.8.6; the new
+`main` is `eb0ced6` (PR #143), version 1.8.6, schema 80. Eleven of the twelve installs are on 1.8.6 (see `docs/FLEET.md`); skincarebpom was left out by instruction
+(1.8.5 in its clone, 371 uncommitted files, last deployed 2026-10-18). Live check on each domain: `/hello` shows v1.8.6; the new
 rollouts also passed `/` and `/produk`. Gates in each install: check 0/0/0,
 tests 1157–1170 pass with 1 skipped, build.
 

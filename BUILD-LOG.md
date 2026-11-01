@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `e21d975` (Entry 236; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `17ac629` (Entry 237; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8311,9 +8311,9 @@ code on their own 1.8.5 headers; they take the number with their next merge.
 
 ### Entry 236: 1.8.6 rolled out to the fleet
 
-No product code changed. Every install with a local clone now runs 1.8.6
-(`npm run fleet:status` and live `/hello` agree); skincarebpom has no clone and
-stays on 1.5.11. Registry and per-install notes: `docs/FLEET.md`.
+No product code changed. Eleven of the twelve installs now run 1.8.6
+(`npm run fleet:status` and live `/hello` agree); skincarebpom was left out by instruction (clone
+on 1.8.5 with 371 uncommitted files, last deployed 2026-10-18). Registry and per-install notes: `docs/FLEET.md`.
 
 - Shipped 2026-11-02: zvarashop, numaskin-adbook, klikinaja (schema 62 to 80,
   additive migrations only), revenleather, beranda-tani (schema 67 to 80). The
@@ -8334,3 +8334,28 @@ stays on 1.5.11. Registry and per-install notes: `docs/FLEET.md`.
   on the installs shipped today, an engraving order end to end.
 - Process note: a sub-agent mistyped `git config core.filemode core.autocrlf`
   in beranda-tani and restored it at once; repository state was unchanged.
+
+### Entry 237: 1.8.7 and 1.8.8, SEO pass
+
+No migration. 1163 and 1165 tests pass, `npm run check` 0/0/0.
+
+- **1.8.7** `src/lib/home-seo.ts`: `homeTitle()` never repeats the store name and
+  cuts at a word to 60 characters; `homeDescription()` extends a description
+  under 70 characters with the store's own categories (deduplicated, at most
+  five) and trims one over 160. Wired into `src/pages/index.astro`. Found by a
+  fleet audit: zvara's title was "Zvara Shop — Zvara Shop, toko online ..." at
+  131 characters and four stores had descriptions of 28-47.
+- **1.8.8** `src/lib/native-landing-product.ts`: a request whose path is an
+  active native register slug gets a `Product` block from `BaseLayout`,
+  built from the catalogue product named by `productSlug`. A page that passes
+  its own `product` keeps it. Native pages are hand-written route files per
+  install (zvara has about 55), so doing it in the layout was one change
+  instead of an edit per page. The blocks the pages wrote themselves must go:
+  permatamall's three `nutrilove-*` pages had one each and would have shown
+  two; removed there. Spec: `docs/NATIVE_LANDING_PAGE_SPEC.md`.
+- Both versions went to all eleven installs the same day; per-install result,
+  Worker ids and the JSON-LD proof are in `docs/FLEET.md`.
+- Lighthouse and robots findings (not changed, with reasons) are in STATUS.md.
+- Lesson: `git commit --amend` is refused by the hook and a version bump needs
+  `npm run route-map` run after it, because the map carries the version; the
+  test caught it, the order is what to remember.
