@@ -630,7 +630,7 @@ On a successful send the `attempts` counter is not incremented and `last_error` 
 Two ways, and it needs both:
 
 - **Opportunistically**, on the back of later storefront traffic, scheduled through `waitUntil()` by `/api/meta-event` and `/api/v1/tracking/events`.
-- **On the hour**, from `runScheduledMaintenance` in `src/worker.ts`, which reads the store ads config and calls `drainCapiOutbox` directly.
+- **On the hour**, from `runScheduledMaintenance` in `src/worker.ts`, which reads the store ads config and calls `drainCapiOutboxBacklog`: up to `CAPI_CRON_DRAIN_BATCHES` (3) batches of ten, stopping at the first batch that does not land in full — an empty backlog or a refusing Meta. A storefront request still drains one batch. Three batches keep the cron inside the Free plan's 50 subrequests next to its other fetches; one batch an hour would need ten hours to land a 107-row requeue on a quiet store.
 
 This section used to say there was no cron, and for a while that was true. It was also the bug: backoff caps at an hour, which quietly assumes a visitor arrives within the hour. A store between campaigns has no such visitor, so a failed event simply sat there — while the health check counted it as overdue with nothing acting on it. The scheduled handler now owns the clock; opportunistic draining remains because it delivers sooner when there *is* traffic.
 
