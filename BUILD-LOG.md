@@ -8258,3 +8258,14 @@ the floor replaced by the cheap compare the test still fails (3 of 3), the
 property it guards (LOGIN-13) is untouched, and over 30 000 samples under 12 busy
 loops on 8 cores a single sample crossed the limit 2 times against 0 of 3 333
 median-of-9 groups. The CI failure rate was not reproduced locally.
+
+### Entry 233: the catalogue loads 12, then 12 more (default)
+
+The home grid and `/produk` revealed ten products at a time through seven
+hard-coded `10`s. They now share `CATALOG_PAGE_SIZE = 12` (`lib/catalog-page-size.ts`).
+The grid is two columns on a phone, so 10 and 12 both fill rows, but 12 also
+divides into 3 and 4 columns, the cards below the fold are lazy so the first
+view costs about the same, and revenleather already used 12. With the
+scroll-triggered load the step is barely felt. Paduka asked for it as the default
+(2026-11-01). Install-owned pages that carry their own count (revenleather
+`produk/index.astro`) are unchanged.

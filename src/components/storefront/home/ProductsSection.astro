@@ -5,6 +5,7 @@
 // hooks the filter script reads - the card has no business knowing them.
 import ProductListItem from '../shared/ProductListItem.astro';
 import Icon from '../shared/Icon.astro';
+import { CATALOG_PAGE_SIZE } from '../../../lib/catalog-page-size';
 
 interface Product {
   slug: string;
@@ -92,7 +93,7 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
     {
       products.map((product, idx) => (
         <div
-          class:list={['product-card', idx >= 10 && 'hidden']}
+          class:list={['product-card', idx >= CATALOG_PAGE_SIZE && 'hidden']}
           data-category={product.category}
           data-search={`${product.name} ${product.category} ${product.description}`.toLowerCase()}
           data-index={idx}
@@ -120,10 +121,10 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
     hidden={products.length === 0}
   >
     <p id="catalog-status" class="text-xs text-[#555555]">
-      Menampilkan <span id="product-visible-count">{Math.min(10, products.length)}</span> dari <span id="product-total-count">{products.length}</span> produk
+      Menampilkan <span id="product-visible-count">{Math.min(CATALOG_PAGE_SIZE, products.length)}</span> dari <span id="product-total-count">{products.length}</span> produk
     </p>
     {
-      products.length > 10 && (
+      products.length > CATALOG_PAGE_SIZE && (
         <button
           type="button"
           id="load-more-btn"
@@ -139,6 +140,7 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
 
 <script>
   import { autoLoadMore } from '../../../lib/auto-load-more';
+  import { CATALOG_PAGE_SIZE } from '../../../lib/catalog-page-size';
 
   function initProductCatalog() {
     const searchInput = document.getElementById('catalog-search') as HTMLInputElement | null;
@@ -152,7 +154,7 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
     const chips = document.querySelectorAll<HTMLButtonElement>('.catalog-chip');
     let currentSearch = '';
     let currentCategory = '';
-    let visibleLimit = 10;
+    let visibleLimit = CATALOG_PAGE_SIZE;
 
     function filterAndRender() {
       let matchedCount = 0;
@@ -192,7 +194,7 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
 
     searchInput?.addEventListener('input', (e) => {
       currentSearch = (e.target as HTMLInputElement).value.trim().toLowerCase();
-      visibleLimit = 10;
+      visibleLimit = CATALOG_PAGE_SIZE;
       filterAndRender();
     });
 
@@ -200,13 +202,13 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
       chip.addEventListener('click', () => {
         currentCategory = chip.dataset.category ?? '';
         chips.forEach((other) => other.setAttribute('aria-pressed', String(other === chip)));
-        visibleLimit = 10;
+        visibleLimit = CATALOG_PAGE_SIZE;
         filterAndRender();
       }),
     );
 
     loadMoreBtn?.addEventListener('click', () => {
-      visibleLimit += 10;
+      visibleLimit += CATALOG_PAGE_SIZE;
       filterAndRender();
     });
 
