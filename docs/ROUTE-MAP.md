@@ -24,7 +24,7 @@ The [Modules](#modules) section is the same book read from the other side.
 | `/404` | GET | public | — | `src/pages/404.astro` | `catalog` `image-derivative` | `product_variants` `products` | `catalog.test.ts` `image-derivative.test.ts` |
 | `/llms.txt` | GET | public | — | `src/pages/llms.txt.ts` | `catalog` `llms-txt` | `product_variants` `products` | `catalog.test.ts` `llms-txt.test.ts` |
 | `/payment` | GET | public | — | `src/pages/payment.astro` | `format-idr` `payment-brand` `payment-display` | — | `format-idr.test.ts` `payment-brand.test.ts` `payment-display.test.ts` |
-| `/produk` | GET | public | — | `src/pages/produk/index.astro` | `auto-load-more` `catalog` `format-idr` | `product_variants` `products` | `auto-load-more.test.ts` `catalog.test.ts` `format-idr.test.ts` |
+| `/produk` | GET | public | — | `src/pages/produk/index.astro` | `auto-load-more` `catalog` `catalog-page-size` `format-idr` | `product_variants` `products` | `auto-load-more.test.ts` `catalog.test.ts` `format-idr.test.ts` |
 | `/produk/[slug]` | GET | public | — | `src/pages/produk/[slug].astro` | `catalog` `catalog-feed` `env` `form-mode` `geo` `json-ld` `landing-pages` `social-proof` | `landing_pages` `landing_sections` `orders` `product_variants` `products` `stores` | `catalog.test.ts` `catalog-feed.test.ts` `env.test.ts` `form-mode.test.ts` `geo.test.ts` `json-ld.test.ts` `landing-pages.test.ts` |
 | `/thanks` | GET | public | — | `src/pages/thanks.astro` | `catalog` `payment-brand` `payment-display` `public-store` `thanks-whatsapp` | `product_variants` `products` `stores` | `catalog.test.ts` `payment-brand.test.ts` `payment-display.test.ts` `public-store.test.ts` `thanks-whatsapp.test.ts` |
 
@@ -219,7 +219,7 @@ The [Modules](#modules) section is the same book read from the other side.
 
 ## Modules
 
-137 modules under `src/lib`; 13 without a sibling test.
+138 modules under `src/lib`; 14 without a sibling test.
 `used by` lists routes importing the module directly — a module used by nothing
 is either transitive (imported by another lib) or dead, and only reading tells which.
 
@@ -245,6 +245,7 @@ is either transitive (imported by another lib) or dead, and only reading tells w
 | `capi-outbox` | 20 | `capi_event_outbox` | ✓ | `/api/meta-event` `/api/v1/tracking/events` `/api/admin/ads` |
 | `catalog-data` | 4 | — | ✓ | `/api/admin/products` |
 | `catalog-feed` | 10 | — | ✓ | `/produk/[slug]` `/[slug]` `/contoh-landing` `/full-form` `/geoipform` `/hybrid-form` `/middle-form` `/feed/google-catalog.xml` `/feed/meta-catalog.xml` `/api/form-config` `/api/v1/products` `/api/v1/products/[slug]` |
+| `catalog-page-size` | 1 | — | **none** | `/produk` |
 | `catalog` | 2 | `product_variants` `products` | ✓ | `/` `/404` `/llms.txt` `/produk` `/produk/[slug]` `/thanks` `/sitemap` `/[slug]` `/contoh-landing` `/embed/form` `/full-form` `/geoipform` `/hybrid-form` `/middle-form` `/feed/google-catalog.xml` `/feed/meta-catalog.xml` `/sitemap.xml` `/api/form-config` `/api/v1/products` `/api/v1/products/[slug]` `/admin/ads/utm` |
 | `checkout-navigation` | 2 | — | ✓ | — |
 | `click-ids` | 17 | — | ✓ | `/api/meta-event` `/api/submit-middle-order` `/api/submit-order` `/api/v1/checkout` `/api/v1/tracking/events` |

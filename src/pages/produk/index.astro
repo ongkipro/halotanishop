@@ -7,7 +7,8 @@ import { formatIdr } from '../../lib/format-idr';
 import { getStorefrontProducts } from '../../lib/catalog';
 
 const products = await getStorefrontProducts(Astro.locals);
-const INITIAL_COUNT = 10;
+import { CATALOG_PAGE_SIZE } from '../../lib/catalog-page-size';
+const INITIAL_COUNT = CATALOG_PAGE_SIZE;
 ---
 
 <BaseLayout
@@ -69,9 +70,10 @@ const INITIAL_COUNT = 10;
 
   <script>
     import { autoLoadMore } from '../../lib/auto-load-more';
+    import { CATALOG_PAGE_SIZE } from '../../lib/catalog-page-size';
 
-    const INITIAL_COUNT = 10;
-    const STEP = 10;
+    const INITIAL_COUNT = CATALOG_PAGE_SIZE;
+    const STEP = CATALOG_PAGE_SIZE;
     let visibleCount = INITIAL_COUNT;
 
     const items = document.querySelectorAll<HTMLElement>('.product-card-item');
