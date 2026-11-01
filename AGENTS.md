@@ -31,6 +31,7 @@ Exactly one document owns each subject. Do not restate another document's truth;
 | `OBSERVABILITY.md` | Logging, failure visibility, what to enable |
 | `INSTALLATION.md` | Standing up a new install |
 | `STATUS.md` | Current state of the running system |
+| `docs/FLEET.md` | The install fleet: which stores run AdsBookCMS, their version, repository, visibility, infrastructure and per-install merge rules |
 | `UNIMPLEMENTED_SPECS.md` | Remaining work and external blockers |
 | `PRD.md` | Product requirements |
 | `TASKS.md` | Execution log |

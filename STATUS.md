@@ -1,6 +1,21 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-01 @ `d0ea0d2` (1.8.3 released and deployed to seven installs; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-01 @ `fbcb8ba` (1.8.4 released and deployed to seven installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+
+## 2026-11-01 — 1.8.4 released and deployed
+
+`main` is `fbcb8ba` (PR #127), version 1.8.4, schema 80, no migration.
+BUILD-LOG Entry 226: dashboard layout with comparisons drawn in the chart,
+AOV / lead conversion / COD vs non-COD, Action needed aging, English metric
+names, "What's new". Deployed the same day to zvarashop (93/93), permatamall,
+agritani-shop, taniniaga, halotanishop, bavenshop and numaskin-adbook (80/80);
+each live domain answers 200 on `/` and `/produk`, `/hello` shows v1.8.4 and
+`/api/admin/orders/attention` answers 401 without a session.
+
+The install fleet — versions, repositories, visibility, infrastructure,
+per-install merge rules — is registered in `docs/FLEET.md`. All store
+repositories and the product are public since 2026-11-01. carukesi and
+zanobyshop were decommissioned on 2026-11-01.
 
 ## 2026-11-01 — 1.8.3 released and deployed
 
@@ -18,9 +33,9 @@ domain: `/` and `/produk` 200, `/hello` shows v1.8.3, the new admin endpoints
 answer 401 without a session. numaskin keeps its own header, footer and home
 template; permatamall keeps its `/meta-ads` footer link.
 
-Not on 1.8.3: revenleather, beranda-tani, klikinaja, carukesi, skincarebpom,
-zanobyshop — each behind and with install-specific changes; they take their
-own merge.
+Not on 1.8.3: revenleather, beranda-tani, klikinaja, skincarebpom (and
+cekat-shop on 1.8.0) — each behind and with install-specific changes; they take
+their own merge. (carukesi and zanobyshop were decommissioned on 2026-11-01.)
 
 Evidence: `npm test` 1139 pass, `npm run check` 0/0/0, `npm run build`; all 35
 admin pages opened in a browser with no script error or failed request; the
