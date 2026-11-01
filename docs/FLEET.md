@@ -44,7 +44,7 @@ agree) except **skincarebpom**, which has no local clone and stays on 1.5.11.
   schema 67 → 80) were shipped on 2026-11-02; the other six were deployed on
   2026-11-01. Each deploy went through `npm run deploy`, no `ALLOW_*` override.
 - **revenleather** keeps its engraving ("grafir") flow: the diff against the
-  pre-merge head is empty for all 19 grafir files, and the two conflicting
+  pre-merge head is empty for all 20 files under `src` that mention grafir, and the two conflicting
   catalogue files kept the install's version. The live product page still
   renders `grafir_text`. An order carrying an engraving was not placed.
 - **beranda-tani**: the "318 uncommitted files" were an unfinished merge of
