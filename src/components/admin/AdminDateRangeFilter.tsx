@@ -144,6 +144,8 @@ export function AdminDateRangeFilter({
   className = "",
 }: Props) {
   const [open, setOpen] = React.useState(false);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
+  const [align, setAlign] = React.useState<"start" | "end">("start");
   const [draftStart, setDraftStart] = React.useState(value.start);
   const [draftEnd, setDraftEnd] = React.useState(value.end);
   const [hover, setHover] = React.useState("");
@@ -231,9 +233,24 @@ export function AdminDateRangeFilter({
   };
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => {
+        // Open rightward from the trigger's left edge when the panel fits;
+        // otherwise line its right edge up with the trigger. Where neither
+        // fits (a phone), Radix shifts it inside the 16px collision gutter.
+        // 704 is the panel's 44rem cap below.
+        const trigger = triggerRef.current?.getBoundingClientRect();
+        if (next && trigger) {
+          const width = Math.min(704, window.innerWidth - 32);
+          setAlign(trigger.left + width <= window.innerWidth - 16 ? "start" : "end");
+        }
+        setOpen(next);
+      }}
+    >
       <DropdownMenuTrigger asChild disabled={disabled}>
         <button
+          ref={triggerRef}
           type="button"
           disabled={disabled}
           className={`${FILTER_TRIGGER_CLASS} ${className}`}
@@ -244,8 +261,9 @@ export function AdminDateRangeFilter({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="end"
-        className="w-[min(44rem,calc(100vw-1.5rem))] p-0"
+        align={align}
+        collisionPadding={16}
+        className="w-[min(44rem,calc(100vw-2rem))] p-0"
       >
         <div className="grid grid-cols-1 gap-0 sm:grid-cols-[11rem_1fr]">
           <div className="max-h-56 overflow-y-auto border-b border-slate-200 p-1.5 sm:max-h-none sm:border-b-0 sm:border-r">

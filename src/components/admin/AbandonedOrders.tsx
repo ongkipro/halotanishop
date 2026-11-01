@@ -19,7 +19,10 @@ import {
   RefreshCw,
   UserRoundPlus,
   ListChecks,
+  PanelsTopLeft,
 } from "lucide-react";
+import { SOURCE_SLUG_NONE_FILTER, SOURCE_SLUG_NONE_LABEL } from "@/lib/source-slug";
+import { SourceSlugChip } from "@/components/admin/SourceSlugChip";
 import { buildWaUrl } from "@/lib/crm-template";
 import { formatIdr } from "@/lib/format-idr";
 import { courierServiceLabel } from "@/lib/courier-names";
@@ -27,8 +30,7 @@ import { etaLabel } from "@/lib/rate-check";
 import { groupLocationResults } from "@/lib/location-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SearchInput } from "@/components/admin/filter-bar";
-import { FilterSelect } from "@/components/admin/filter-bar";
+import { FilterBar, FilterField, FilterSelect, SearchInput } from "@/components/admin/filter-bar";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
@@ -72,6 +74,8 @@ type Lead = {
   followedUpAt: string | null;
   followedUpBy: string;
   createdAt: string;
+  sourcePath: string | null;
+  sourceLabel: string | null;
 };
 
 type Product = {
@@ -157,6 +161,8 @@ function normalizeLead(row: Record<string, unknown>): Lead {
       String(row.followed_up_at ?? row.lead_followed_up_at ?? "") || null,
     followedUpBy: String(row.followed_up_by ?? row.lead_followed_up_by ?? ""),
     createdAt: String(row.created_at ?? row.createdAt ?? ""),
+    sourcePath: typeof row.source_page_path === "string" ? row.source_page_path : null,
+    sourceLabel: typeof row.source_label === "string" ? row.source_label : null,
   };
 }
 
@@ -172,6 +178,8 @@ const leadRequest = {
   async list(input: {
     search: string;
     status: FollowUpStatus | "all";
+    sourceSlug: string;
+    withSourceOptions: boolean;
     page: number;
     signal?: AbortSignal;
   }) {
@@ -181,6 +189,8 @@ const leadRequest = {
       follow_up_status: input.status,
     });
     if (input.search.trim()) query.set("search", input.search.trim());
+    if (input.sourceSlug !== "all") query.set("source_slug", input.sourceSlug);
+    if (input.withSourceOptions) query.set("source_options", "1");
     const payload = await readJson(
       await fetch(`/api/admin/abandoned-orders?${query}`, {
         headers: { Accept: "application/json" },
@@ -222,6 +232,12 @@ const leadRequest = {
     const products = [...productsById.values()];
     return {
       leads: rows.map((row: Record<string, unknown>) => normalizeLead(row)),
+      sourceOptions: Array.isArray(payload.source_options)
+        ? (payload.source_options as Array<{ value: string; label: string; count: number }>).map((option) => ({
+            value: String(option.value),
+            label: `${option.label} (${Number(option.count) || 0})`,
+          }))
+        : null,
       products,
       pagination: {
         page: Number(payload.pagination?.page) || input.page,
@@ -325,6 +341,8 @@ function ConversionDialog({
       variant_id: form.variantId,
       quantity: form.quantity || "1",
     });
+    // The warehouse follows the buyer's province, as the conversion does (PRD A42).
+    if (form.province) params.set("province", form.province);
     setRatesLoading(true);
     void fetch(`/api/shipping-rates?${params}`, {
         headers: { Accept: "application/json" },
@@ -345,7 +363,7 @@ function ConversionDialog({
         if (!controller.signal.aborted) setRatesLoading(false);
       });
     return () => controller.abort();
-  }, [form.destinationAreaId, form.quantity, form.variantId, lead]);
+  }, [form.destinationAreaId, form.province, form.quantity, form.variantId, lead]);
 
   const selectedRate = rates.find(
     (rate) => String(rate.courier_service_id) === form.courierServiceId,
@@ -544,19 +562,21 @@ function ConversionDialog({
   );
 }
 
-export function AbandonedOrders() {
+// `initialQuery` is the page's own query string, from `Astro.url.search`:
+// filters start from it rather than `window.location`, so the server-rendered
+// first paint and the hydrating client agree (a mismatch is React error #418).
+export function AbandonedOrders({ initialQuery = "" }: { initialQuery?: string } = {}) {
+  const [initialParams] = useState(() => new URLSearchParams(initialQuery));
   const [leads, setLeads] = useState<Lead[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [search, setSearch] = useState(() =>
-    typeof window === "undefined"
-      ? ""
-      : new URLSearchParams(window.location.search).get("search") || "",
-  );
+  const [search, setSearch] = useState(() => initialParams.get("search") || "");
   const [status, setStatus] = useState<FollowUpStatus | "all">("all");
+  const [sourceSlug, setSourceSlug] = useState(() => initialParams.get("source_slug") || "all");
+  const [sourceOptions, setSourceOptions] = useState<Array<{ value: string; label: string }> | null>(null);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ page: 1, totalItems: 0, totalPages: 0 });
   const [updatingId, setUpdatingId] = useState<number | null>(null);
@@ -567,7 +587,15 @@ export function AbandonedOrders() {
     setRefreshing(true);
     setError("");
     try {
-      const result = await leadRequest.list({ search, status, page, signal });
+      const result = await leadRequest.list({
+        search,
+        status,
+        sourceSlug,
+        withSourceOptions: !sourceOptions,
+        page,
+        signal,
+      });
+      if (result.sourceOptions) setSourceOptions(result.sourceOptions);
       setLeads(result.leads);
       setProducts(result.products);
       setPagination(result.pagination);
@@ -591,7 +619,7 @@ export function AbandonedOrders() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [page, search, status]);
+  }, [page, search, status, sourceSlug]);
 
   const followUp = async (lead: Lead) => {
     setUpdatingId(lead.id);
@@ -639,37 +667,46 @@ export function AbandonedOrders() {
       {/* No card title here: the page header above already names this screen and
           describes it, so a second heading only cost vertical space. */}
       <Card size="sm">
-        <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          {/* Both controls are the same shape now - a div wrapping a label and
-              the field. The search used to be a <label> with flex-1, which
-              stretched it to 871px on a 1440px screen and sat its baseline 6px
-              below the select despite items-end. */}
-          <div className="flex w-full flex-col gap-1.5 sm:w-72">
-            <label htmlFor="abandoned-search" className="text-sm font-medium">Cari lead</label>
-            <SearchInput id="abandoned-search" value={search} onValueChange={(value) => { setSearch(value); setPage(1); }} placeholder="Produk, nama, WhatsApp, atau ABN" />
-          </div>
-          {/* gap, not space-y. Tailwind v4 puts space-y's margin on
-              :not(:last-child), and Base UI's Select renders a hidden input as
-              the last child - so the trigger picked up a 6px bottom margin that
-              nothing occupied and sat 6px above the search field's baseline.
-              gap ignores the out-of-flow input. */}
-          <div className="flex w-full flex-col gap-1.5 sm:w-52">
-            <label htmlFor="follow-up-filter" className="text-sm font-medium">Status follow-up</label>
-            <FilterSelect
-              id="follow-up-filter"
-              icon={ListChecks}
-              value={status}
-              onValueChange={(value) => { setStatus(value as FollowUpStatus | "all"); setPage(1); }}
-              options={[{ value: "all", label: "Semua status" }, ...Object.entries(followUpLabels).map(([value, label]) => ({ value, label }))]}
-            />
-          </div>
-            {/* The count used to float under the card. On the row's trailing
-                edge it fills space that was simply blank. */}
-            <p className="text-xs font-medium text-muted-foreground sm:ml-auto sm:pb-2.5" role="status" aria-live="polite">
+        <CardContent>
+          {/* FilterBar/FilterField (DESIGN-SYSTEM.md §7.1), the same row as
+              OrdersTable: one label style, widths from `size`, and the row
+              wraps instead of overlapping. */}
+          <FilterBar>
+            <FilterField label="Cari lead" htmlFor="abandoned-search" size="lg">
+              <SearchInput id="abandoned-search" value={search} onValueChange={(value) => { setSearch(value); setPage(1); }} placeholder="Produk, nama, WhatsApp, atau ABN" />
+            </FilterField>
+            <FilterField label="Status follow-up" htmlFor="follow-up-filter" size="md">
+              <FilterSelect
+                id="follow-up-filter"
+                icon={ListChecks}
+                value={status}
+                onValueChange={(value) => { setStatus(value as FollowUpStatus | "all"); setPage(1); }}
+                options={[{ value: "all", label: "Semua status" }, ...Object.entries(followUpLabels).map(([value, label]) => ({ value, label }))]}
+              />
+            </FilterField>
+            <FilterField label="Halaman sumber" htmlFor="source-page-filter" size="md">
+              <FilterSelect
+                id="source-page-filter"
+                icon={PanelsTopLeft}
+                value={sourceSlug}
+                onValueChange={(value) => { setSourceSlug(value); setPage(1); }}
+                options={[
+                  { value: "all", label: "Semua halaman" },
+                  ...(sourceOptions ?? []),
+                  ...(sourceSlug !== "all" && sourceSlug !== SOURCE_SLUG_NONE_FILTER && !(sourceOptions ?? []).some((option) => option.value === sourceSlug)
+                    ? [{ value: sourceSlug, label: sourceSlug }]
+                    : []),
+                  { value: SOURCE_SLUG_NONE_FILTER, label: SOURCE_SLUG_NONE_LABEL },
+                ]}
+              />
+            </FilterField>
+            {/* The count sits on the row's trailing edge, which is otherwise blank. */}
+            <p className="w-full text-xs font-medium text-muted-foreground sm:ml-auto sm:w-auto sm:pb-2.5" role="status" aria-live="polite">
               {refreshing ? "Memperbarui pesanan tertinggal…" : `${pagination.totalItems} pesanan tertinggal`}
             </p>
-          </CardContent>
-        </Card>
+          </FilterBar>
+        </CardContent>
+      </Card>
       {notice && (
         <Card size="sm" role="status" aria-live="polite" className="bg-muted/40">
           <CardContent className="text-muted-foreground">{notice}</CardContent>
@@ -679,8 +716,8 @@ export function AbandonedOrders() {
         <Card className="border-dashed">
           <CardContent className="py-10 text-center">
             <PackageSearch className="mx-auto size-9 text-muted-foreground" aria-hidden="true" />
-            <h2 className="mt-3 font-semibold">{search.trim() || status !== "all" ? "Tidak ada hasil yang cocok" : "Belum ada pesanan tertinggal"}</h2>
-            <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">{search.trim() || status !== "all" ? "Ubah pencarian atau filter follow-up." : "Lead akan muncul ketika pembeli sudah mengisi nama dan WhatsApp tetapi belum menyelesaikan order."}</p>
+            <h2 className="mt-3 font-semibold">{search.trim() || status !== "all" || sourceSlug !== "all" ? "Tidak ada hasil yang cocok" : "Belum ada pesanan tertinggal"}</h2>
+            <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">{search.trim() || status !== "all" || sourceSlug !== "all" ? "Ubah pencarian atau filter." : "Lead akan muncul ketika pembeli sudah mengisi nama dan WhatsApp tetapi belum menyelesaikan order."}</p>
           </CardContent>
         </Card>
       ) : (
@@ -714,7 +751,10 @@ export function AbandonedOrders() {
                     <p className="truncate font-mono text-xs text-muted-foreground">{lead.customerPhone}</p>
                   </div>
                   <div className="min-w-0">
-                    <Badge variant={followUpVariants[lead.followUpStatus]}><FollowUpIcon aria-hidden="true" />{followUpLabels[lead.followUpStatus]}</Badge>
+                    <div className="flex min-w-0 flex-wrap items-center gap-1">
+                      <Badge variant={followUpVariants[lead.followUpStatus]} className="shrink-0"><FollowUpIcon aria-hidden="true" />{followUpLabels[lead.followUpStatus]}</Badge>
+                      <SourceSlugChip label={lead.sourceLabel} path={lead.sourcePath} />
+                    </div>
                     {/* Only when there is something to report. "Belum ada follow-up
                         tercatat" repeated on every untouched lead, restating the
                         badge beside it. */}
@@ -725,10 +765,10 @@ export function AbandonedOrders() {
                     </p>
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
-                    <Button type="button" variant="outline" size="lg" className="w-full sm:w-auto" disabled={updatingId === lead.id} onClick={() => {
+                    <Button type="button" variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => {
                       window.open(buildWaUrl(phone, message), "_blank", "noopener,noreferrer");
-                      void followUp(lead);
-                    }}><ExternalLink />{updatingId === lead.id ? "Mencatat…" : "Follow up WA"}</Button>
+                    }}><ExternalLink />Buka WhatsApp</Button>
+                    {lead.followUpStatus === 'new' && <Button type="button" variant="outline" size="lg" className="w-full sm:w-auto" disabled={updatingId === lead.id} onClick={() => void followUp(lead)}>{updatingId === lead.id ? 'Mencatat…' : 'Tandai sudah dihubungi'}</Button>}
                     <Button type="button" size="lg" className="w-full sm:w-auto" onClick={() => setSelectedLead(lead)}><UserRoundPlus />Jadikan order</Button>
                   </div>
                 </div>

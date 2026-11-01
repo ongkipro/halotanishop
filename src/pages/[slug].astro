@@ -14,6 +14,7 @@ import '../styles/landing-pages/landing.css';
 import { defaultCatalogContentId } from '../lib/catalog-feed';
 import SocialProofToast from '../components/storefront/shared/SocialProofToast.astro';
 import { recentOrderCount } from '../lib/social-proof';
+import { buildProductJsonLd } from '../lib/json-ld';
 
 export const prerender = false;
 
@@ -110,32 +111,27 @@ const metaDescription = rawDesc.replace(/\s*landing\s*page\s*/gi, ' ').trim();
 const canonicalPath = page.is_product_page ? productPagePath : `/${page.slug}`;
 const canonical = `${Astro.locals.tenant.siteUrl}${canonicalPath}`;
 
-const productSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Product',
-  name: product.productName,
-  description: metaDescription,
-  image: [new URL(product.heroImage, Astro.locals.tenant.siteUrl).toString()],
-  sku: product.productId,
-  category: product.category,
-  brand: {
-    '@type': 'Brand',
-    name: Astro.locals.tenant.name,
-  },
-  offers: product.variants.map((variant) => ({
-    '@type': 'Offer',
+// Same builder as the product page (lib/json-ld.ts), so both describe the
+// product identically — including its own brand, not the store's name.
+const productSchema = buildProductJsonLd({
+  siteUrl: Astro.locals.tenant.siteUrl,
+  organization: { name: Astro.locals.tenant.name },
+  product: {
+    name: product.productName,
+    description: product.description || metaDescription,
+    image: product.heroImage,
     url: canonical,
-    priceCurrency: 'IDR',
-    price: String(variant.price),
-    availability: 'https://schema.org/InStock',
-    itemCondition: 'https://schema.org/NewCondition',
-    name: variant.label,
-    seller: {
-      '@type': 'Organization',
-      name: Astro.locals.tenant.name,
-    },
-  })),
-};
+    sku: product.productId,
+    category: product.category,
+    ...(product.brand ? { brand: product.brand } : {}),
+    offers: product.variants.map((variant) => ({
+      price: variant.price,
+      availability: 'InStock',
+      name: variant.label,
+      ...(variant.sku ? { sku: variant.sku } : {}),
+    })),
+  },
+});
 const productSchemaJson = JSON.stringify(productSchema).replace(/</g, '\\u003c');
 ---
 

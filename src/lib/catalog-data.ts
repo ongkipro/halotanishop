@@ -1,4 +1,5 @@
 import type { Product } from "../data/products";
+import { formatIdr } from "./format-idr.ts";
 
 export interface CatalogProductRow {
   id: number;
@@ -6,6 +7,9 @@ export interface CatalogProductRow {
   slug: string;
   category?: string | null;
   brand?: string | null;
+  description?: string | null;
+  google_category_id?: number | null;
+  google_category_path?: string | null;
   image_url?: string | null;
   is_active?: number | null;
   created_at?: string | null;
@@ -115,10 +119,21 @@ export function mergeStorefrontCatalog(
     const image = product.image_url!.trim();
     const categoryLabel = product.category?.trim() || "Produk";
     const brand = product.brand?.trim();
+    const ownDescription = product.description?.trim() || "";
     const presentation = presentationsByProductId.get(productId);
+    // With no published content the product still describes itself — from its
+    // own fields only (AGENTS.md §3): brand, category and variant names. The
+    // old sentence described the page ("detail mengikuti data katalog toko"),
+    // which told a buyer, Google and Meta nothing about the product.
+    const variantNames = availableVariants.map((variant) => variant.title.trim());
+    const variantSummary =
+      variantNames.length > 1
+        ? `Tersedia ${variantNames.length} pilihan: ${variantNames.slice(0, 6).join(", ")}${variantNames.length > 6 ? ", dan lainnya" : ""}.`
+        : `Varian: ${variantNames[0]}.`;
+    const generatedDescription = `${productName}${brand ? ` dari ${brand}` : ""}, kategori ${categoryLabel}. ${variantSummary}`;
     const details = {
       subheadline: `Pilih varian ${productName} berdasarkan opsi dan harga yang tersedia.`,
-      description: `${productName} tercantum dalam kategori ${categoryLabel}. Detail yang ditampilkan mengikuti data katalog toko.`,
+      description: ownDescription || generatedDescription,
       benefits: [],
       keyPoints: [],
       idealFor: [],
@@ -158,7 +173,8 @@ export function mergeStorefrontCatalog(
         seoTitle: presentation?.seoTitle || productName,
         seoDescription:
           presentation?.seoDescription ||
-          `Lihat pilihan varian, harga, dan ketersediaan ${productName}. Detail mengikuti informasi katalog toko.`,
+          clampSentence(ownDescription, 155) ||
+          clampSentence(`${generatedDescription} Mulai ${formatIdr(fromVariant.price)}.`, 155),
         price: fromVariant.price,
         ...(fromVariant.comparePrice
           ? { comparePrice: fromVariant.comparePrice }
@@ -179,6 +195,15 @@ export function mergeStorefrontCatalog(
           ? { relatedTags: presentation.relatedTags }
           : {}),
         description: presentation?.description || details.description,
+        // The product's own description, kept apart from `description` (which
+        // may be landing copy) so the feeds can prefer the merchant's facts.
+        ...(ownDescription ? { catalogDescription: ownDescription } : {}),
+        ...(Number.isSafeInteger(product.google_category_id) && Number(product.google_category_id) > 0
+          ? {
+              googleCategoryId: Number(product.google_category_id),
+              googleCategoryPath: product.google_category_path?.trim() || "",
+            }
+          : {}),
         benefits: presentation?.benefits || details.benefits,
         keyPoints: presentation?.keyPoints || details.keyPoints,
         idealFor: presentation?.idealFor || details.idealFor,
@@ -199,4 +224,11 @@ export function mergeStorefrontCatalog(
     });
   }
   return catalog;
+}
+/** Cut at a word boundary under `max` characters, with an ellipsis when cut. */
+function clampSentence(text: string, max: number): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max - 1);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), max - 20)).replace(/[\s,.;:]+$/, "")}…`;
 }

@@ -1,6 +1,6 @@
 # Observability — AdsBookCMS
 
-> Verified against disk: 2026-09-26 @ `fc4015f` + alert-webhook working tree
+> Verified against disk: 2026-10-29 @ A-419 integration (`feat/a35-a40-analytics-fit`)
 
 This document describes what an operator can observe and what AdsBookCMS now alerts on for one running install. Cross-install aggregation and an external uptime probe remain separate decisions.
 
@@ -69,7 +69,7 @@ These are the paths where the system degrades without telling anyone. Each is a 
 | Stock trigger rejection | Inert since ADR-023: nothing writes stock, so `INSUFFICIENT_STOCK` cannot be raised | — |
 | Landing pages fail to load on the homepage | `catch {}` swallowed it; the solutions grid silently loses every CMS landing page | Now logged as `home-landing-pages-load` |
 | Support WhatsApp lookup finds no store row | returned `""`, identical to "number simply not saved" | Now logged as `storefront-support-whatsapp-no-store-row`, which distinguishes an unseeded database from an unconfigured one |
-| Applied schema behind the code | nothing compared them; `schemaVersion` was read by nothing and drifted from 34 to 36 unnoticed | Now compared on `/admin/dashboard` and reported through the `schema` alert (`schema-database-behind` and siblings); a test reads the migration directory so adding one without bumping the constant fails CI |
+| Applied schema behind the code | nothing compared them; `schemaVersion` was read by nothing and drifted from 34 to 36 unnoticed | Now compared on `/admin/status` (the build line, applied/expected schema from the last snapshot; `/admin/dashboard` no longer shows it since A39) and reported through the `schema` alert (`schema-database-behind` and siblings); a test reads the migration directory so adding one without bumping the constant fails CI |
 
 The pattern across all of them: the system is **correctly defensive** and **completely silent**. Defensive degradation without telemetry converts an outage into a slow-burning content or revenue bug.
 
@@ -90,8 +90,17 @@ Ordered by value per unit of effort.
    would ship telemetry off an install and therefore requires an explicit privacy
    and operating-model decision.
 
-**Done since this list was written:** provider health in `/admin` and scheduled
-schema, CAPI outbox and Google Ads outbox alerting. `operational-health.ts`
+**Done since this list was written:** provider health on `/admin/status`
+(Status operasional), a status icon on every admin page that reads the one-row
+`ops_health_snapshot` instead of collecting health per page view (A39), and
+scheduled schema, CAPI outbox and Google Ads outbox alerting. The icon calls the
+hourly maintenance stopped when the scheduler heartbeat
+(`ops_health_snapshot.scheduler_ran_at`, written only by the cron) is older than
+two hours; an operator's **Periksa ulang** refreshes the snapshot but never that
+heartbeat, so it cannot hide a dead cron. It also reads red ("status tidak
+diperbarui") when the snapshot itself (`taken_at`) is older than two hours, so a
+snapshot write that keeps failing behind a fresh heartbeat cannot pass old
+signals off as current. `operational-health.ts`
 classifies Mengantar dispatch, Mengantar Receiver Score access, AutoLaris, both
 conversion outboxes and whether alerting
 is configured; `operational-alerts.ts` owns transition state and
@@ -148,8 +157,10 @@ npx wrangler d1 execute OMS_DB --remote --command "…" # read-only inspection (
 curl -s -o /dev/null -w '%{http_code} %{time_total}' https://<domain>/
 ```
 
-`/admin/dashboard` gives live business state computed directly from D1. It is not
-an alert console: it shows the present and keeps no alert history.
+`/admin/dashboard` gives live business state computed directly from D1.
+`/admin/status` gives operational state from the last hourly snapshot, with a
+rate-limited manual re-check. Neither is an alert console: they show the
+present and keep no alert history.
 For alert delivery failures, query Workers Logs for
 `operational-alert-notification-failed`; for transitions, use
 `operational-alert-firing` and `operational-alert-recovered`.
@@ -161,13 +172,16 @@ client address, username, or order payload:
 | --- | --- |
 | `rate-limit-store-failed` | The `rate_limits` D1 write or read threw; the request was allowed through (fail open). `bucket` names the limit |
 | `admin-session-read-failed` | The `admin_sessions` join threw; the request was treated as signed out |
-| `location-cache-read-failed` / `location-cache-write-failed` | KV location cache unavailable — typically `KV put() limit exceeded for the day`; the lookup still answers from the provider or catalogue |
+| `mengantar-area-read-failed` / `mengantar-area-write-failed` | The `mengantar_areas` D1 read or write threw on a kecamatan resolve (PRD A43); the lookup still answers from Mengantar, it just is not remembered. Replaces the KV `location-cache-*` labels |
 | `public-location-search-failed` | `/api/locations` answered 500. Previously a silent catch: the 2026-08-27 fleet outage was invisible in logs because of it |
 | `public-order-status-failed` / `public-payment-retry-failed` | `/api/order-status` failed, or a buyer-requested payment regeneration did |
 | `autolaris-fee-mismatch` | The provider billed a total other than the one computed from `payment-fee-policy.ts`; the fee table needs updating |
 | `autolaris-callback-recorded` / `autolaris-callback-store-failed` | A provider callback was stored in `autolaris_callbacks` (with the `reff_id`/`trx_id` it carried), or could not be. Read the table with `wrangler d1 execute`; nothing acts on it (ADR-022) |
 | `paid-order-purchase-failed` | A manual paid confirmation succeeded but the server Meta Purchase could not be enqueued; the confirmation stands |
 | `scheduled-*-failed` (`abandoned-order-purge`, `rate-limit-purge`, `payment-expiry`, `callback-purge`, `notification-purge`, `capi-outbox-purge`, `capi-drain`, `google-ads-reconcile`, `google-ads-drain`, `autolaris-advice`) | One step of the hourly cron threw; every later step still ran. `operational-health-scheduled` reports `-1` for that step |
+| `scheduled-heartbeat-failed` | The cron could not stamp `ops_health_snapshot.scheduler_ran_at`; the run went on. Once the last stamp is more than 120 minutes old (two missed slots), the status icon reads the maintenance as stopped until a later stamp lands |
+| `scheduled-health-snapshot-failed` | The last cron step could not write the `ops_health_snapshot` row; the previous snapshot stays, and every earlier step already ran. Once that snapshot is more than 120 minutes old, the status icon turns red ("status tidak diperbarui") even though the heartbeat is fresh |
+| `health-snapshot-unreadable` / `operational-health-scheduler-unreadable` | The snapshot row or the heartbeat column could not be read; the icon reads neutral (unknown) and the `scheduler` signal `unreadable`, never healthy |
 | `scheduled-google-ads-purge-failed` | The 30-day retention purge of settled/failed Google rows threw; nothing else was affected |
 | `google-ads-offline-access-denied` | The Ads API answered 401/403 for the account; the batch stopped with rows left pending for the next run |
 | `autolaris-callback-rate-limited` | A callback was refused by the per-address (30/min) or store-wide (600/h) ceiling; `global: true` names the latter |

@@ -14,7 +14,7 @@ import { catalogProductIdOrNull } from "./catalog-feed.ts";
 async function loadCatalogRows(database: D1Database) {
   const [products, variants] = await database.batch([
     database.prepare(`
-      SELECT id, title, slug, category, brand, description, image_url, is_active, created_at
+      SELECT id, title, slug, category, brand, description, google_category_id, google_category_path, image_url, is_active, created_at
       FROM products
       ORDER BY created_at DESC, id DESC
     `),
@@ -40,7 +40,7 @@ async function loadLocalDevCatalogRows() {
     if (!dbPath) return { products: [], variants: [] };
     const db = new DatabaseSync(dbPath);
     const products = db.prepare(`
-      SELECT id, title, slug, category, brand, description, image_url, is_active, created_at
+      SELECT id, title, slug, category, brand, description, google_category_id, google_category_path, image_url, is_active, created_at
       FROM products
       ORDER BY created_at DESC, id DESC
     `).all() as unknown as CatalogProductRow[];

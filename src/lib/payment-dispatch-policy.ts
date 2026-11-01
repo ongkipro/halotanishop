@@ -50,11 +50,58 @@ export function canDispatchOrderToMengantar(
   );
 }
 
+/**
+ * `orders.provider_dispatch_error` prefix for a push whose outcome is unknown
+ * (audit 2026-10-31 M-1). The order stays out of every push until an operator
+ * has checked Mengantar and released it (`releaseUnknownMengantarDispatch`).
+ */
+export const DISPATCH_UNKNOWN_PREFIX = "DISPATCH_UNKNOWN:";
+
+export const isDispatchOutcomeUnknown = (error: string | null | undefined) =>
+  Boolean(error?.startsWith(DISPATCH_UNKNOWN_PREFIX));
+
+/**
+ * Follows the unknown-outcome prefix when Mengantar accepted the shipment and
+ * this store failed to record it: `DISPATCH_UNKNOWN: Mengantar menerima <id>: …`.
+ * Such an order is never released for a second push, only linked to its id
+ * (`linkAcceptedMengantarShipment`).
+ */
+export const ACCEPTED_MARKER = "Mengantar menerima";
+
+/** The Mengantar id an unknown-outcome marker carries, if the shipment was accepted. */
+export function acceptedShipmentId(error: string | null | undefined) {
+  if (!isDispatchOutcomeUnknown(error)) return null;
+  const rest = String(error).slice(DISPATCH_UNKNOWN_PREFIX.length).trim();
+  if (!rest.startsWith(`${ACCEPTED_MARKER} `)) return null;
+  const match = /^(\S+): /.exec(rest.slice(ACCEPTED_MARKER.length + 1));
+  return match ? match[1] : null;
+}
+
+/**
+ * `provider_dispatch_error` as an operator reads it. The two internal markers
+ * (a claim in flight, an unknown outcome) are words, not codes; a provider's
+ * own refusal is shown as given.
+ */
+export function providerDispatchErrorText(error: string | null | undefined) {
+  if (!error) return null;
+  if (error === "DISPATCHING") return "Sedang dikirim ke Mengantar.";
+  const accepted = acceptedShipmentId(error);
+  if (accepted) return `Mengantar sudah menerima paket (ID ${accepted}); hasilnya belum tersimpan. Jangan push ulang.`;
+  if (isDispatchOutcomeUnknown(error)) return "Hasil push belum pasti. Cek di Mengantar dulu sebelum push ulang.";
+  return error;
+}
+
 export function getMengantarDispatchEligibility(
   input: MengantarDispatchEligibilityInput,
 ): MengantarDispatchEligibility {
   if (input.providerOrderId?.trim()) {
     return { eligible: false, reason: "Shipment Mengantar sudah dibuat." };
+  }
+  if (isDispatchOutcomeUnknown(input.providerDispatchError)) {
+    return {
+      eligible: false,
+      reason: "Hasil push sebelumnya belum pasti. Cek di Mengantar dulu, lalu izinkan push ulang.",
+    };
   }
   if (input.providerDispatchError === "DISPATCHING") {
     const claimedAt = Date.parse(input.providerDispatchClaimedAt || "");

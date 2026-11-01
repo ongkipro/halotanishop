@@ -1,6 +1,4 @@
 ---
-import { cn } from '../../../lib/cn';
-import { badgeVariants, introSectionClass, textVariants } from '../../../lib/ui-variants';
 import Breadcrumb from './Breadcrumb.astro';
 
 interface BreadcrumbItem {
@@ -9,25 +7,22 @@ interface BreadcrumbItem {
 }
 
 interface Props {
-  badge: string;
+  badge?: string;
   title: string;
   description: string;
   breadcrumbs?: BreadcrumbItem[];
 }
 
-const { badge, title, description, breadcrumbs = [] } = Astro.props;
-const rail = 'max-w-[480px]';
+// `badge` is still accepted so the six callers keep compiling, and no longer
+// drawn: a small-capitals label above every title was the template's habit,
+// not the reader's need (DESIGN-SYSTEM §2.3).
+const { title, description, breadcrumbs = [] } = Astro.props;
 ---
 
 {breadcrumbs.length > 0 && <Breadcrumb items={breadcrumbs} />}
-<section class={introSectionClass}>
-  <div class={cn('mx-auto', rail)}>
-    <span class={badgeVariants()}>{badge}</span>
-    <h1
-      class={cn('mt-3 text-[28px] font-bold leading-[1.18] tracking-[-0.02em]', textVariants({ tone: 'heading' }))}
-    >
-      {title}
-    </h1>
-    <p class={cn('mt-3 max-w-[32rem] text-sm leading-6', textVariants({ tone: 'soft' }))}>{description}</p>
+<section class="bg-white px-4 pb-2 pt-4">
+  <div class="mx-auto max-w-[480px]">
+    <h1 class="text-2xl font-bold leading-tight tracking-[-0.02em] text-[#111111]">{title}</h1>
+    <p class="mt-1.5 max-w-[32rem] text-sm leading-6 text-[#555555]">{description}</p>
   </div>
 </section>

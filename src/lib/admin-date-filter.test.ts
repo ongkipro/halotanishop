@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  adminDateSelectionFromQuery,
   adminMonthGrid,
   adminMonthLabel,
   adminMonthOf,
@@ -194,4 +195,13 @@ test("range membership is inclusive and order-insensitive", () => {
   assert.equal(isWithinAdminRange("2026-08-15", "2026-08-10", ""), false);
   // Same value backwards still works while the user is mid-drag.
   assert.equal(isWithinAdminRange("2026-08-15", "2026-08-20", "2026-08-10"), true);
+});
+
+test("audit M4: a list opens on the period its URL names, and on all time otherwise", () => {
+  const read = (query: string) => adminDateSelectionFromQuery(new URLSearchParams(query));
+  assert.deepEqual(read("date_filter=this_month&source_slug=__none__"), { filter: "this_month", start: "", end: "" });
+  assert.deepEqual(read("date_filter=custom&date_start=2026-10-01&date_end=2026-10-07"), { filter: "custom", start: "2026-10-01", end: "2026-10-07" });
+  assert.deepEqual(read(""), { filter: "all", start: "", end: "" });
+  assert.deepEqual(read("date_filter=forever"), { filter: "all", start: "", end: "" }, "an unknown period is ignored, not sent");
+  assert.deepEqual(read("date_filter=custom&date_start=2026-10-07&date_end=2026-10-01"), { filter: "all", start: "", end: "" });
 });

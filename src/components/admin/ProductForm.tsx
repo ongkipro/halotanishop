@@ -1,6 +1,14 @@
-import { useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
+import { ImagePlus, LoaderCircle, RefreshCw, Trash2 } from "lucide-react";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "../ui/input-group";
+import { Textarea } from "../ui/textarea";
+import { DistrictCombobox, type DistrictOption } from "./DistrictCombobox";
+import { searchTaxonomy, suggestGoogleCategories, taxonomyLeaf, type TaxonomyRow } from "../../lib/google-taxonomy";
 import { catalogProductIdOrNull } from "../../lib/catalog-feed";
+import { formatKg } from "../../lib/weight";
 import {
   CARD_IMAGE_EDGE,
   MAX_ENCODED_BYTES,
@@ -21,6 +29,10 @@ type ProductPayload = {
   title: string;
   slug: string;
   category: string;
+  brand: string;
+  description: string;
+  google_category_id: number | null;
+  google_category_path: string;
   image_url: string;
   is_active: boolean;
   variants: Array<{
@@ -29,7 +41,9 @@ type ProductPayload = {
     title: string;
     price: number;
     compare_price?: number;
-    weight_grams: number;
+    // Null only when the operator left it empty; the server refuses that for a
+    // new variant and keeps the stored weight for an existing one.
+    weight_grams: number | null;
     stock: number;
   }>;
 };
@@ -47,6 +61,10 @@ type ProductResponse = {
   title: string;
   slug: string;
   category: string | null;
+  brand?: string | null;
+  description?: string | null;
+  google_category_id?: number | null;
+  google_category_path?: string | null;
   image_url: string | null;
   is_active: number | boolean;
   variants: ProductVariantResponse[];
@@ -57,7 +75,9 @@ const emptyVariant = (key: string): Variant => ({
   title: "",
   price: "",
   compare_price: "",
-  weight_grams: "1000",
+  // Empty, not 1000: the weight sets the Mengantar shipping cost, so a new
+  // variant must state it (PRD A41, REQ-231).
+  weight_grams: "",
   stock: "1000",
 });
 const slugify = (value: string) =>
@@ -68,19 +88,75 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
 
-export function ProductForm({ productId }: { productId?: string }) {
+// Google's taxonomy (~5,600 rows) is fetched once, on the first search, from
+// the static asset scripts/generate-google-taxonomy.mjs writes.
+let taxonomyRows: Promise<TaxonomyRow[]> | null = null;
+const loadTaxonomy = () =>
+  (taxonomyRows ??= fetch("/data/google-product-taxonomy.json")
+    .then((response) => {
+      if (!response.ok) throw new Error("Daftar kategori Google gagal dimuat.");
+      return response.json() as Promise<{ categories: TaxonomyRow[] }>;
+    })
+    .then((data) => data.categories)
+    .catch((error) => {
+      taxonomyRows = null;
+      throw error;
+    }));
+const taxonomyOption = ([id, path]: TaxonomyRow): DistrictOption => ({
+  id: String(id),
+  label: taxonomyLeaf(path),
+  detail: `${id} · ${path}`,
+});
+const searchGoogleCategory = async (query: string) =>
+  searchTaxonomy(await loadTaxonomy(), query).map(taxonomyOption);
+
+export function ProductForm({ productId, storeName = "" }: { productId?: string; storeName?: string }) {
   const editing = Boolean(productId);
   const nextVariantKey = useRef(1);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
-  const category = "Umum";
+  // Category, brand and description used to have no field at all: every
+  // product was "Umum", the feeds named the store as every product's brand, and
+  // the product page described itself from its own title.
+  const [category, setCategory] = useState("Umum");
+  const [brand, setBrand] = useState("");
+  const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(editing);
+  const [googleCategory, setGoogleCategory] = useState<DistrictOption | null>(null);
+  // "auto": picked by the form from the product's own name and label, and
+  // re-picked as they change. "manual": chosen or cleared by the operator, or
+  // saved before — never overwritten.
+  const [categorySource, setCategorySource] = useState<"auto" | "manual" | null>(null);
+  const [taxonomy, setTaxonomy] = useState<TaxonomyRow[] | null>(null);
+  useEffect(() => {
+    loadTaxonomy().then(setTaxonomy).catch(() => setTaxonomy(null));
+  }, []);
+  const suggestions = useMemo(
+    () => (taxonomy ? suggestGoogleCategories(taxonomy, { title, category, description }) : []),
+    [taxonomy, title, category, description],
+  );
+  useEffect(() => {
+    if (loading || categorySource === "manual" || !suggestions.length) return;
+    const top = taxonomyOption(suggestions[0]);
+    if (top.id === googleCategory?.id) return;
+    setGoogleCategory(top);
+    setCategorySource("auto");
+  }, [suggestions, loading, categorySource, googleCategory?.id]);
+  const chooseCategory = (option: DistrictOption | null) => {
+    setGoogleCategory(option);
+    setCategorySource("manual");
+    // The store's own label follows the first pick; an edited label is the
+    // merchant's and is left alone.
+    if (option && (!category.trim() || category.trim() === "Umum")) setCategory(option.label);
+  };
   const [active, setActive] = useState(!editing);
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [variants, setVariants] = useState<Variant[]>(() => [
     emptyVariant("new-0"),
   ]);
-  const [loading, setLoading] = useState(editing);
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
@@ -104,6 +180,13 @@ export function ProductForm({ productId }: { productId?: string }) {
       .then((product) => {
         setTitle(product.title || "");
         setSlug(product.slug || "");
+        setCategory(product.category || "Umum");
+        setBrand(product.brand || "");
+        setDescription(product.description || "");
+        if (product.google_category_id && product.google_category_path) {
+          setGoogleCategory(taxonomyOption([Number(product.google_category_id), product.google_category_path]));
+          setCategorySource("manual");
+        }
         setImageUrl(product.image_url || "");
         setActive(product.is_active !== undefined ? Boolean(product.is_active) : true);
         setVariants(
@@ -211,6 +294,13 @@ export function ProductForm({ productId }: { productId?: string }) {
   ) => {
     event.preventDefault();
     const form = event.currentTarget;
+    const missingWeight = variants.find((variant) => !variant.weight_grams.trim());
+    if (missingWeight) {
+      setStatusTone("error");
+      setStatus(
+        `Berat varian ${missingWeight.sku.trim().toUpperCase() || "baru"} wajib diisi (gram).`,
+      );
+    }
     if (!form.reportValidity()) return;
     setSaving(true);
     setStatusTone("idle");
@@ -223,7 +313,9 @@ export function ProductForm({ productId }: { productId?: string }) {
       ...(variant.compare_price
         ? { compare_price: Number(variant.compare_price) }
         : {}),
-      weight_grams: Number(variant.weight_grams),
+      weight_grams: variant.weight_grams.trim()
+        ? Number(variant.weight_grams)
+        : null,
       stock: Number(variant.stock),
     }));
 
@@ -239,7 +331,11 @@ export function ProductForm({ productId }: { productId?: string }) {
       ...(productId ? { id: productId } : {}),
       title: title.trim(),
       slug: slug.trim(),
-      category: category.trim(),
+      category: category.trim() || "Umum",
+      brand: brand.trim(),
+      description: description.trim(),
+      google_category_id: googleCategory ? Number(googleCategory.id) : null,
+      google_category_path: googleCategory?.detail?.replace(/^\d+ · /, "") ?? "",
       image_url: imageUrl,
       is_active: active,
       variants: payloadVariants,
@@ -340,14 +436,129 @@ export function ProductForm({ productId }: { productId?: string }) {
               </span>
             </label>
             <div className="md:col-span-2">
-              <label
-                htmlFor="product-image"
+              <div className="mb-1.5 flex items-center gap-2">
+                <label htmlFor="google-category" className="text-xs font-semibold text-slate-700">
+                  Kategori Google
+                </label>
+                {googleCategory && categorySource === "auto" && <Badge variant="secondary">Otomatis</Badge>}
+                {googleCategory && categorySource === "manual" && <Badge variant="outline">Manual</Badge>}
+              </div>
+              <DistrictCombobox
+                id="google-category"
+                value={googleCategory}
+                onChange={chooseCategory}
+                search={searchGoogleCategory}
+                minChars={2}
+                placeholder="Cari: sabun, serum wajah, cuka, lampu… atau ID"
+                searchingText="Mencari kategori…"
+                emptyText="Kategori tidak ditemukan. Coba kata lain atau istilah Inggris."
+                describedBy="google-category-hint"
+              />
+              <span id="google-category-hint" className="mt-1 block text-xs text-slate-500">
+                {googleCategory?.detail
+                  ? categorySource === "auto"
+                    ? `Dipilih otomatis dari nama produk: ${googleCategory.detail}. Periksa, lalu ganti bila kurang tepat.`
+                    : googleCategory.detail
+                  : "Taksonomi resmi Google. ID-nya dikirim apa adanya ke feed Google Merchant dan katalog Meta."}
+              </span>
+              {suggestions.some(([id]) => String(id) !== googleCategory?.id) && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-slate-500">Saran lain:</span>
+                  {suggestions
+                    .filter(([id]) => String(id) !== googleCategory?.id)
+                    .map((row) => (
+                      <Button
+                        key={row[0]}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        title={`${row[0]} · ${row[1]}`}
+                        onClick={() => chooseCategory(taxonomyOption(row))}
+                      >
+                        {taxonomyLeaf(row[1])}
+                      </Button>
+                    ))}
+                </div>
+              )}
+            </div>
+            <label>
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Label kategori di toko
+              </span>
+              <Input
+                maxLength={120}
+                value={category}
+                placeholder="Contoh: Perawatan Wajah"
+                onChange={(event) => setCategory(event.target.value)}
+                className="admin-input-flat focus-visible:border-emerald-700 focus-visible:ring-emerald-700/20"
+              />
+              <span className="mt-1 block text-xs text-slate-500">
+                Nama yang dilihat pembeli di breadcrumb dan kartu produk.
+              </span>
+            </label>
+            <label>
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Merek
+              </span>
+              <Input
+                maxLength={70}
+                value={brand}
+                placeholder={storeName ? `Default: ${storeName}` : "Default: nama toko"}
+                onChange={(event) => setBrand(event.target.value)}
+                className="admin-input-flat focus-visible:border-emerald-700 focus-visible:ring-emerald-700/20"
+              />
+              <span className="mt-1 block text-xs text-slate-500">
+                Kosong = nama toko. Isi merek pabrikan bila produk punya merek sendiri.
+              </span>
+            </label>
+            <label className="md:col-span-2">
+              <span className="mb-1.5 block text-xs font-semibold text-slate-700">
+                Deskripsi produk
+              </span>
+              <Textarea
+                maxLength={5000}
+                rows={5}
+                value={description}
+                placeholder="Bahan, ukuran, cara pakai, isi paket. Tulis fakta produk, bukan ajakan beli."
+                onChange={(event) => setDescription(event.target.value)}
+                className="admin-input-flat min-h-36 focus-visible:border-emerald-700 focus-visible:ring-emerald-700/20"
+              />
+              <span className="mt-1 block text-xs text-slate-500">
+                Tampil di halaman produk dan dikirim ke feed Google/Meta. {description.trim().length}/5000
+              </span>
+            </label>
+            <div className="md:col-span-2">
+              <span
+                id="product-image-label"
                 className="mb-1.5 block text-xs font-semibold text-slate-700"
               >
                 Foto produk
-              </label>
-              <div className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 p-4 sm:grid-cols-[112px_1fr] sm:items-center">
-                <div className="flex aspect-square items-center justify-center overflow-hidden bg-slate-50">
+              </span>
+              {/* One drop target for drag-and-drop and click. The native file
+                  input stays in the DOM, visually hidden, so keyboard and
+                  screen-reader users reach it through the buttons below. */}
+              <div
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  if (!uploading) setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setDragOver(false);
+                  const file = event.dataTransfer.files?.[0];
+                  if (file && !uploading) void uploadImage(file);
+                }}
+                data-drag={dragOver ? "true" : undefined}
+                className="grid grid-cols-1 gap-4 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-4 transition-colors data-[drag=true]:border-emerald-600 data-[drag=true]:bg-emerald-50 sm:grid-cols-[136px_1fr] sm:items-center"
+              >
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  disabled={uploading}
+                  aria-label={imageUrl ? "Ganti foto produk" : "Pilih foto produk"}
+                  className="relative flex aspect-square w-full max-w-[136px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white"
+                >
                   {imageUrl ? (
                     <img
                       src={imageUrl}
@@ -355,14 +566,60 @@ export function ProductForm({ productId }: { productId?: string }) {
                       className="h-full w-full object-contain"
                     />
                   ) : (
-                    <span className="px-2 text-center text-xs font-semibold text-slate-400">
+                    <span className="flex flex-col items-center gap-1.5 px-2 text-center text-xs font-medium text-slate-500">
+                      <ImagePlus className="size-6 text-slate-400" aria-hidden="true" />
                       Belum ada foto
                     </span>
                   )}
-                </div>
-                <div>
-                  <Input
+                  {uploading && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-white/80">
+                      <LoaderCircle className="size-6 animate-spin text-emerald-700" aria-hidden="true" />
+                    </span>
+                  )}
+                </button>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-800">
+                    {uploading
+                      ? "Mengunggah foto…"
+                      : imageUrl
+                        ? "Foto tersimpan di produk"
+                        : "Tarik foto ke sini, atau pilih dari perangkat"}
+                  </p>
+                  <p
+                    id="product-image-hint"
+                    className="mt-1 text-xs leading-5 text-slate-500"
+                  >
+                    JPG, PNG, WebP, AVIF atau GIF, maksimal 2 MB. Otomatis dikonversi ke WebP.
+                    Disarankan persegi 1:1, minimal 800×800 px, latar polos — dipakai juga oleh
+                    feed Google dan Meta.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploading}
+                      onClick={() => fileInput.current?.click()}
+                    >
+                      {imageUrl ? <RefreshCw aria-hidden="true" /> : <ImagePlus aria-hidden="true" />}
+                      {imageUrl ? "Ganti foto" : "Pilih foto"}
+                    </Button>
+                    {imageUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={uploading}
+                        onClick={() => setImageUrl("")}
+                        className="text-rose-700 hover:text-rose-800"
+                      >
+                        <Trash2 aria-hidden="true" />
+                        Hapus foto
+                      </Button>
+                    )}
+                  </div>
+                  <input
+                    ref={fileInput}
                     id="product-image"
+                    aria-labelledby="product-image-label"
                     aria-describedby="product-image-hint"
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
@@ -372,23 +629,8 @@ export function ProductForm({ productId }: { productId?: string }) {
                       if (file) void uploadImage(file);
                       event.target.value = "";
                     }}
-                    className="block w-full text-slate-700 focus-visible:border-emerald-700 focus-visible:ring-emerald-700/20 file:mr-3 file:min-h-11 file:rounded-lg file:border-0 file:bg-emerald-700 file:px-4 file:text-xs file:font-semibold file:text-white file:hover:bg-emerald-800"
+                    className="sr-only"
                   />
-                  <p
-                    id="product-image-hint"
-                    className="mt-2 text-xs leading-5 text-slate-500"
-                  >
-                    Format WebP (ototmatis dikonversi & dibuang file originalnya). Maksimal 2 MB.
-                  </p>
-                  {imageUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setImageUrl("")}
-                      className="mt-2 min-h-11 text-xs font-semibold text-rose-700 hover:underline"
-                    >
-                      Hapus foto dari produk
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -401,7 +643,7 @@ export function ProductForm({ productId }: { productId?: string }) {
                 Varian produk
               </h2>
               <p className="mt-1 text-xs text-slate-500">
-                Variant ID dibuat otomatis; kelola SKU, harga IDR, dan berat.
+                ID varian dibuat otomatis saat disimpan; atur nama, SKU, harga, dan berat.
               </p>
             </div>
             <button
@@ -421,36 +663,65 @@ export function ProductForm({ productId }: { productId?: string }) {
             {variants.map((variant, index) => (
               <fieldset
                 key={variant.key}
-                className="rounded-xl border border-slate-200 p-4"
+                className="rounded-xl border border-slate-200"
               >
-                <legend className="px-2 text-xs font-semibold text-slate-700">
-                  Varian {index + 1}
-                </legend>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <label>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-600">
-                        Nama varian
-                      </span>
-                      <span className={`text-xs font-medium ${variant.title.length > 15 ? 'font-semibold text-red-600' : 'text-slate-400'}`}>
+                {/* The variant's identity is its header: name, its saved ID (or
+                    "Baru"), and its remove action. The ID used to sit in a grey
+                    box inside the input grid, a different height from every
+                    field beside it. */}
+                <legend className="sr-only">Varian {index + 1}</legend>
+                <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="text-sm font-semibold text-slate-900">
+                      Varian {index + 1}
+                    </span>
+                    {variant.id ? (
+                      <Badge variant="outline" className="font-mono">
+                        ID {variant.id}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Baru</Badge>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={variants.length === 1}
+                    onClick={() =>
+                      setVariants((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
+                    aria-label={`Hapus varian ${index + 1}`}
+                    className="text-rose-700 hover:text-rose-800"
+                  >
+                    <Trash2 aria-hidden="true" />
+                    Hapus
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-x-3 gap-y-4 p-4 sm:grid-cols-6">
+                  <label className="sm:col-span-3">
+                    <span className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-600">
+                      Nama varian
+                      <span className={variant.title.length > 15 ? "font-semibold text-red-600" : "font-medium text-slate-400"}>
                         {variant.title.length}/15
                       </span>
-                    </div>
+                    </span>
                     <Input
                       required
                       maxLength={15}
                       value={variant.title}
-                      placeholder="500ml / 1 Liter"
+                      placeholder="500 ml / Isi 3"
                       onChange={(event) =>
                         updateVariant(index, "title", event.target.value)
                       }
-                      className="admin-input-flat focus-visible:border-emerald-700 focus-visible:ring-emerald-700/20"
                     />
-                    <span className="mt-1 block text-xs text-slate-400">
-                      Maks. 15 karakter (contoh: 500ml, 1 Liter, Beli 2)
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Ukuran atau isi paket, mis. 500 ml, 1 Liter, Isi 3.
                     </span>
                   </label>
-                  <label>
+                  <label className="sm:col-span-3">
                     <span className="mb-1 block text-xs font-semibold text-slate-600">
                       SKU
                     </span>
@@ -465,84 +736,96 @@ export function ProductForm({ productId }: { productId?: string }) {
                           event.target.value.toUpperCase(),
                         )
                       }
-                      className="admin-input-flat font-mono uppercase focus-visible:border-emerald-700 focus-visible:ring-emerald-700/20"
+                      className="font-mono uppercase"
                     />
+                    <span className="mt-1 block text-xs text-slate-500">
+                      Kode stok internal untuk gudang dan order.
+                    </span>
                   </label>
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-                    <span className="block text-xs font-semibold text-slate-600">
-                      Variant ID
-                    </span>
-                    <span className="mt-1 block font-mono text-sm text-slate-700">
-                      {variant.id || "Dibuat otomatis saat disimpan"}
-                    </span>
-                  </div>
-                  <label>
+                  <label className="sm:col-span-2">
                     <span className="mb-1 block text-xs font-semibold text-slate-600">
-                      Harga (IDR)
+                      Harga jual
                     </span>
-                    <Input
-                      required
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      step="1"
-                      value={variant.price}
-                      onChange={(event) =>
-                        updateVariant(index, "price", event.target.value)
-                      }
-                      className="admin-input-flat focus-visible:border-emerald-700 focus-visible:ring-emerald-700/20"
-                    />
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <InputGroupText>Rp</InputGroupText>
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        required
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        step="1"
+                        value={variant.price}
+                        onChange={(event) =>
+                          updateVariant(index, "price", event.target.value)
+                        }
+                      />
+                    </InputGroup>
                   </label>
-                  <label>
+                  <label className="sm:col-span-2">
                     <span className="mb-1 block text-xs font-semibold text-slate-600">
-                      Harga Coret (IDR)
+                      Harga coret
                     </span>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      min="0"
-                      step="1"
-                      value={variant.compare_price}
-                      onChange={(event) =>
-                        updateVariant(
-                          index,
-                          "compare_price",
-                          event.target.value,
-                        )
-                      }
-                      className="admin-input-flat focus-visible:border-emerald-700 focus-visible:ring-emerald-700/20"
-                    />
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <InputGroupText>Rp</InputGroupText>
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        step="1"
+                        value={variant.compare_price}
+                        onChange={(event) =>
+                          updateVariant(
+                            index,
+                            "compare_price",
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </InputGroup>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      {Number(variant.compare_price) > Number(variant.price) && Number(variant.price) > 0
+                        ? `Hemat ${Math.round((1 - Number(variant.price) / Number(variant.compare_price)) * 100)}%`
+                        : "Opsional, harus lebih tinggi dari harga jual."}
+                    </span>
                   </label>
-                  <label>
+                  <label className="sm:col-span-2">
                     <span className="mb-1 block text-xs font-semibold text-slate-600">
-                      Berat (gram)
+                      Berat kirim
                     </span>
-                    <Input
-                      required
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      step="1"
-                      value={variant.weight_grams}
-                      onChange={(event) =>
-                        updateVariant(index, "weight_grams", event.target.value)
-                      }
-                      className="admin-input-flat focus-visible:border-emerald-700 focus-visible:ring-emerald-700/20"
-                    />
+                    <InputGroup>
+                      <InputGroupInput
+                        required
+                        type="number"
+                        inputMode="numeric"
+                        min="1"
+                        step="1"
+                        max="50000"
+                        placeholder="Contoh: 250"
+                        aria-describedby={`variant-weight-hint-${variant.key}`}
+                        value={variant.weight_grams}
+                        onChange={(event) =>
+                          updateVariant(index, "weight_grams", event.target.value)
+                        }
+                      />
+                      <InputGroupAddon align="inline-end">
+                        <InputGroupText>gram</InputGroupText>
+                      </InputGroupAddon>
+                    </InputGroup>
+                    <span
+                      id={`variant-weight-hint-${variant.key}`}
+                      className="mt-1 block text-xs text-slate-500"
+                    >
+                      Dipakai untuk ongkir Mengantar
+                      {Number(variant.weight_grams) > 0
+                        ? ` · ${formatKg(Number(variant.weight_grams))}`
+                        : ""}
+                    </span>
                   </label>
                 </div>
-                <button
-                  type="button"
-                  disabled={variants.length === 1}
-                  onClick={() =>
-                    setVariants((current) =>
-                      current.filter((_, itemIndex) => itemIndex !== index),
-                    )
-                  }
-                  className="mt-4 inline-flex min-h-11 items-center rounded-lg px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:text-slate-400"
-                >
-                  Hapus varian {index + 1}
-                </button>
               </fieldset>
             ))}
           </div>

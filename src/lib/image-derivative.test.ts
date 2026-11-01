@@ -16,7 +16,7 @@ test("an uploaded image gets a card-sized sibling", () => {
 test("anything that is not an upload is left exactly as it is", () => {
   // Bundled art, a remote URL, or an empty field must never be rewritten into
   // a path the asset route would refuse.
-  assert.equal(cardImageSrc("/images/adsbook-mark.webp"), "/images/adsbook-mark.webp");
+  assert.equal(cardImageSrc("/images/produk-contoh.webp"), "/images/produk-contoh.webp");
   assert.equal(cardImageSrc("https://cdn.example.com/x.webp"), "https://cdn.example.com/x.webp");
   assert.equal(cardImageSrc(""), "");
 });

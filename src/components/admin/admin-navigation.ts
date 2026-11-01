@@ -2,6 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import type { AdminRole } from "../../lib/auth";
 export type { AdminRole } from "../../lib/auth";
 import {
+  Activity,
+  ChartNoAxesCombined,
   BadgeDollarSign,
   Boxes,
   CircleUserRound,
@@ -10,6 +12,7 @@ import {
   CreditCard,
   FilePenLine,
   LayoutDashboard,
+  MessageCircle,
   Megaphone,
   Package,
   Puzzle,
@@ -110,15 +113,32 @@ export const adminNavGroups: AdminNavGroup[] = [
     label: "Pemasaran",
     items: [
       {
+        id: "analytics",
+        href: "/admin/analytics",
+        label: "Analitik",
+        description: "Sumber pesanan, produk, wilayah, dan kampanye",
+        icon: ChartNoAxesCombined,
+        keywords: "analitik analytics laporan trend produk lokasi waktu utm kampanye campaign",
+        children: [
+          { href: "/admin/analytics", label: "Ringkasan" },
+          { href: "/admin/analytics/landing", label: "Landing page" },
+          { href: "/admin/analytics/products", label: "Produk" },
+          { href: "/admin/analytics/locations", label: "Lokasi" },
+          { href: "/admin/analytics/times", label: "Waktu beli" },
+          { href: "/admin/analytics/utm", label: "UTM" },
+        ],
+      },
+      {
         id: "ads",
         href: "/admin/ads",
         label: "Iklan & tracking",
         description: "Sinyal konversi iklan",
         icon: Megaphone,
-        keywords: "ads pixel capi google tracking conversion",
+        keywords: "ads pixel capi google tracking conversion utm link kampanye campaign",
         children: [
           { href: "/admin/ads/meta", label: "Meta Pixel & CAPI" },
           { href: "/admin/ads/google", label: "Google Ads" },
+          { href: "/admin/ads/utm", label: "Link UTM" },
         ],
       },
     ],
@@ -144,9 +164,10 @@ export const adminNavGroups: AdminNavGroup[] = [
         label: "Pengaturan",
         description: "Toko, gudang, dan akses",
         icon: Settings,
-        keywords: "settings system store warehouse crm access headless developer api plugin kelola",
+        keywords: "settings system store warehouse crm access headless developer api plugin kelola whatsapp wa cs rotator nomor",
         children: [
           { href: "/admin/settings/store", label: "Toko & CS", icon: ShoppingBag },
+          { href: "/admin/settings/whatsapp", label: "Nomor WhatsApp", icon: MessageCircle },
           { href: "/admin/settings/developer", label: "Headless API", icon: CodeXml },
           { href: "/admin/settings/warehouse", label: "Gudang", icon: Warehouse },
           { href: "/admin/settings/crm", label: "Template CRM", icon: FilePenLine },
@@ -166,6 +187,17 @@ export const profileNavItem: AdminNavItem = {
   description: "Akun, keamanan, dan API",
   icon: CircleUserRound,
   keywords: "profile akun password mengantar autolaris api domain",
+};
+
+/** Off the sidebar on purpose: the status icon beside the bell is its entry
+ *  (PRD A39); the command palette finds it for owner and admin. */
+export const statusNavItem: AdminNavItem = {
+  id: "status",
+  href: "/admin/status",
+  label: "Status operasional",
+  description: "Kesehatan sinyal dan setup toko",
+  icon: Activity,
+  keywords: "status kesehatan health setup operasional cron capi alert",
 };
 
 /** Menu items whose sub-pages are the item itself: each plugin's settings page
@@ -191,7 +223,7 @@ export function getVisibleNavGroups(role: AdminRole) {
     : role === "advertiser"
       // "content" was here too, but no group defines that id any more - the page is
       // deliberately off the menu and reached from Pengaturan > Toko.
-      ? new Set(["dashboard", "products", "ads"])
+      ? new Set(["dashboard", "products", "analytics", "ads"])
       : new Set(["dashboard", "orders", "shipping", "scoring"]);
   return adminNavGroups
     .map((group) => ({
@@ -226,6 +258,7 @@ export function getSearchableNavItems(role: AdminRole) {
         })),
       ]),
     ),
+    ...(role === "owner" || role === "admin" ? [{ ...statusNavItem, group: "Akun" }] : []),
     { ...profileNavItem, group: "Akun" },
   ];
 }

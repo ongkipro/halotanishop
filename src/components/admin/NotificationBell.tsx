@@ -4,6 +4,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TOPBAR_BADGE, TOPBAR_ICON_BUTTON } from "./topbar-styles";
 import { Bell, PackagePlus, UserPlus, Volume2, VolumeX, Wallet } from "lucide-react";
 import {
   isNotificationMuted,
@@ -235,14 +236,14 @@ export function NotificationBell() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="relative grid size-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+          className={`${TOPBAR_ICON_BUTTON} data-[state=open]:bg-slate-100 data-[state=open]:text-slate-900`}
           aria-label={
             unread > 0 ? `Notifikasi, ${unread} belum dibaca` : "Notifikasi"
           }
         >
           <Bell className="size-[18px]" aria-hidden="true" />
           {unread > 0 && (
-            <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs font-semibold leading-5 text-white">
+            <span className={`${TOPBAR_BADGE} bg-red-600`}>
               {badge}
             </span>
           )}

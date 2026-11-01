@@ -3,6 +3,7 @@ import { jsonError, jsonOk } from "../../../../lib/api.ts";
 import { getRuntimeEnv } from "../../../../lib/env.ts";
 import { pluginContext, savePluginSettings, type PluginContext } from "../../../../plugins/registry.ts";
 import {
+  drainKelolaOrders,
   getKelolaConfig,
   kelolaSyncStatus,
   maskKelolaWebhookUrl,
@@ -13,7 +14,7 @@ import {
 export const prerender = false;
 
 type Payload = {
-  action?: "save" | "test";
+  action?: "save" | "test" | "backfill";
   /** null clears the stored pair and falls back to the env pair. */
   webhook_url?: string | null;
   /** Empty keeps the stored secret. */
@@ -56,6 +57,17 @@ export const PUT: APIRoute = async ({ request, locals }) => {
     return result.ok
       ? jsonOk({ verified: true, message: result.message })
       : jsonError(result.message, 502, { verified: false });
+  }
+  if (body.action === "backfill") {
+    const config = getKelolaConfig(context.settings, context.env);
+    if (!config) return jsonError("Kelola CRM belum dihubungkan.", 400);
+    const synced = await drainKelolaOrders(context.database, config, null);
+    const kelola = await status(context);
+    const left = kelola.sync?.unsynced_older ?? 0;
+    return jsonOk({
+      message: `${synced} order lama terkirim ke Kelola.${left ? ` ${left} masih tertunda: klik lagi, atau lihat galatnya di detail order.` : ""}`,
+      data: { kelola, verified: left === 0 },
+    });
   }
   if (body.action !== "save") return jsonError("Aksi tidak valid.", 400);
   if (locals.admin?.role !== "owner") {

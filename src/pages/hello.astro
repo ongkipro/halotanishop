@@ -27,6 +27,8 @@ import {
   recordAdminLoginFailure,
 } from '../lib/rate-limit';
 
+import { CMS_VERSION } from '../lib/version';
+
 export const prerender = false;
 
 let errorMessage = '';
@@ -159,6 +161,7 @@ if (database && !bootstrapAdminPassword) {
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="icon" type="image/svg+xml" href="/images/logo.svg" />
+    <link rel="apple-touch-icon" href="/favicon-192.png" />
     <!-- LOGIN-18: no third-party asset. This page loaded a Google Fonts
          stylesheet for a family it never applied, which told Google the address
          of every operator opening the admin and bought nothing back. -->
@@ -166,38 +169,64 @@ if (database && !bootstrapAdminPassword) {
   <body class="admin-login-page bg-slate-50 text-slate-900 antialiased selection:bg-blue-200 selection:text-blue-900">
     <main class="admin-login-stage" aria-labelledby="loginTitle">
       <!-- Left Brand Panel (Desktop) -->
-      <div class="admin-login-brand hidden lg:flex flex-col justify-between bg-slate-950 p-10 text-white xl:p-14">
-        <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6 text-white" aria-hidden="true"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M3 15h6"/><path d="M3 18h6"/><path d="M3 12h6"/></svg>
+      <div class="admin-login-brand relative isolate hidden overflow-hidden lg:flex flex-col justify-center bg-slate-950 p-10 text-white xl:p-14">
+        <!-- Ornament: a dot grid that fades toward the edges. Decorative only. -->
+        <div class="login-brand-grid" aria-hidden="true"></div>
+        <!-- A joke more than a tip jar, centred and alone in the panel: the CMS
+             and its hosting are free, the developer's coffee is not. The
+             image is the code itself, rebuilt as vector modules from the
+             merchant's QRIS print (version 9, 53 modules, finder and timing
+             patterns checked, payload identical to the print); the corner frame pulses outside the code so it
+             never gets in a phone's way, and stops under reduced motion.
+             Lazy: the panel is desktop-only, and a phone never fetches it. -->
+        <section class="login-qris" aria-labelledby="loginQrisTitle">
+          <div class="login-qris-frame">
+            <!-- Signal waves leaving the code: the background moves, and it
+                 moves outward from the QR, so the eye lands on it. Behind the
+                 white card, never over the modules. -->
+            <span class="login-qris-waves" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="login-qris-corner" aria-hidden="true"></span>
+            <img
+              src="/images/qris-dukung-adsbookcms.svg"
+              alt="QRIS ONGKI COLLECTION untuk mendukung AdsBookCMS"
+              width="560"
+              height="560"
+              loading="lazy"
+              decoding="async"
+              class="login-qris-image"
+            />
           </div>
-          <span class="text-xl font-semibold tracking-tight">AdsBookCMS</span>
-        </div>
-
-        <div class="max-w-md">
-          <h2 class="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Operator Workspace</h2>
-          <p class="mt-4 leading-relaxed text-slate-400">
-            Sistem manajemen konten dan operasional untuk mengelola <span class="font-normal text-slate-200">{Astro.locals.tenant.adminName}</span>.
-          </p>
-        </div>
+          <div class="login-qris-copy">
+            <h2 id="loginQrisTitle" class="login-qris-title"><span class="block">CMS <span class="login-gratis">GRATIS</span>.</span> <span class="block">Server <span class="login-gratis login-gratis-2">GRATIS</span>.</span></h2>
+            <p class="login-qris-body">Kopi developernya yang belum. Boleh dong ditraktir? Hehehe.</p>
+            <figure class="login-qris-quote">
+              <blockquote>&ldquo;Satu kopi, satu bug minggat.&rdquo;</blockquote>
+              <figcaption>by ongki.pro</figcaption>
+            </figure>
+            <p class="login-qris-note">QRIS a.n. ONGKI COLLECTION</p>
+          </div>
+        </section>
       </div>
 
       <!-- Right Form Panel -->
-      <div class="admin-login-form-wrapper flex flex-col px-4 py-12 sm:px-6 lg:px-20 xl:px-24">
-        <div class="admin-login-card m-auto w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-xl lg:my-auto lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
-          <!-- Header -->
-          <div class="admin-login-header pb-8">
-            <div class="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 lg:hidden">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-7 w-7 text-white" aria-hidden="true"><path d="M4 22h14a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v4"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M3 15h6"/><path d="M3 18h6"/><path d="M3 12h6"/></svg>
-            </div>
-            <h1 id="loginTitle" class="text-2xl font-semibold tracking-tight text-slate-950">
-              <span class="lg:hidden">AdsBookCMS</span>
-              <span class="hidden lg:inline">Masuk ke sistem</span>
+      <!-- One screen, no scroll, on a phone and on a desktop: the form centred,
+           a short footer pinned to the bottom of the same column. -->
+      <div class="admin-login-form-wrapper">
+        <div class="admin-login-card">
+          <div class="admin-login-header text-center lg:text-left">
+            <!-- The wordmark: "Ads" in the brand blue, "Book" in ink - the two
+                 halves of the name - and "CMS" as a small tracked tag after a
+                 hairline. One accessible name, "AdsBookCMS". -->
+            <!-- The wordmark leads back to the store's homepage, on a phone and
+                 on a desktop alike: an operator who reached the login by mistake,
+                 or who wants to see the shop, has one obvious way out. -->
+            <h1 id="loginTitle" class="login-wordmark">
+              <a href="/" class="login-wordmark-link" aria-label={`AdsBookCMS, kembali ke beranda ${Astro.locals.tenant.name}`} title={`Ke beranda ${Astro.locals.tenant.name}`}>
+                <img src="/images/adsbook-icon.svg" alt="" width="28" height="28" class="size-7 shrink-0" />
+                <span aria-hidden="true" class="login-wordmark-name"><span class="text-[#2563EB]">Ads</span>Book</span>
+                <span aria-hidden="true" class="login-wordmark-tag">CMS</span>
+              </a>
             </h1>
-            <p class="mt-2 text-sm text-slate-500">
-              <span class="lg:hidden">Otentikasi akses operator untuk <span class="font-normal text-slate-900">{Astro.locals.tenant.adminName}</span>.</span>
-              <span class="hidden lg:inline">Masukkan kredensial operator Anda untuk melanjutkan.</span>
-            </p>
           </div>
           <div class="admin-login-form-content">
         {errorMessage && (
@@ -225,26 +254,30 @@ if (database && !bootstrapAdminPassword) {
           </div>
         )}
 
-        <form id="loginForm" method="POST" class="space-y-5" aria-busy="false" aria-describedby={[errorMessage && 'loginError', showsDefaultCredential && 'defaultCredentialNotice'].filter(Boolean).join(' ') || undefined}>
+        <form id="loginForm" method="POST" class="space-y-4" aria-busy="false" aria-describedby={[errorMessage && 'loginError', showsDefaultCredential && 'defaultCredentialNotice'].filter(Boolean).join(' ') || undefined}>
           <div class="space-y-2">
             <label for="username" class="text-sm font-semibold text-slate-900">Username operator</label>
-            <input id="username" type="text" name="username" required autocomplete="username" autofocus={!focusPassword} value={submittedUsername} class="admin-input-flat" spellcheck="false" />
+            <input id="username" type="text" name="username" required autocomplete="username" autofocus={!focusPassword} value={submittedUsername} placeholder="Username Anda" class="admin-input-flat" spellcheck="false" />
           </div>
 
           <div class="space-y-2">
             <label for="password" class="text-sm font-semibold text-slate-900">Password</label>
             <div class="relative flex items-center">
-              <input id="password" type="password" name="password" required autocomplete="current-password" autofocus={focusPassword} class="admin-input-flat pr-20" />
+              <input id="password" type="password" name="password" required autocomplete="current-password" autofocus={focusPassword} placeholder="Masukkan password" class="admin-input-flat pr-20" />
               <button id="togglePassword" type="button" class="absolute right-1 flex items-center justify-center rounded px-3 text-sm font-normal text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1" aria-controls="password" aria-label="Tampilkan password" aria-pressed="false">Lihat</button>
             </div>
           </div>
 
-          <button id="loginSubmit" type="submit" class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-slate-800 disabled:text-slate-300 disabled:opacity-90">
-            Masuk Workspace
+          <button id="loginSubmit" type="submit" class="mt-1 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-[#1D4ED8] disabled:text-white/80">
+            Masuk
           </button>
           <p id="loginStatus" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
         </form>
       </div>
+        </div>
+        <footer class="admin-login-foot">
+          <p class="font-mono text-slate-400">AdsBookCMS v{CMS_VERSION.version}</p>
+        </footer>
       <script>
         const form = document.getElementById('loginForm') as HTMLFormElement | null;
         const submit = document.getElementById('loginSubmit') as HTMLButtonElement | null;
@@ -288,7 +321,6 @@ if (database && !bootstrapAdminPassword) {
           toggle.setAttribute('aria-pressed', String(!visible));
         });
       </script>
-        </div>
       </div>
     </main>
   </body>

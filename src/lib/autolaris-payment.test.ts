@@ -101,7 +101,10 @@ function createAutoLarisOrderDatabase(autoLarisApiKey: string | null) {
               expires_at: statement.args[8],
               failed_reason: null,
             };
-          } else if (sql.includes("status = 'pending', amount = ?,\n          admin_fee = ?, total_amount = ?, provider_transaction_id = NULL")) {
+          } else if (sql.includes("INSERT INTO payment_transaction_attempts")) {
+            // The superseded instruction is kept (H-1); its own test runs on SQLite.
+            return { success: true, meta: { changes: state.transaction?.provider_transaction_id ? 1 : 0 }, results: [] };
+          } else if (sql.includes("provider_transaction_id = NULL")) {
             // A failed or expired row is reused for the retry.
             Object.assign(state.transaction!, {
               reference_id: statement.args[0],
@@ -142,6 +145,11 @@ function createAutoLarisOrderDatabase(autoLarisApiKey: string | null) {
         },
       };
       return statement;
+    },
+    async batch(statements: Array<{ run: () => Promise<unknown> }>) {
+      const results = [];
+      for (const statement of statements) results.push(await statement.run());
+      return results;
     },
   } as unknown as D1Database;
 
@@ -558,6 +566,7 @@ function createAdviceReconciliationDatabase() {
           throw new Error(`Unexpected first query: ${sql}`);
         },
         async all() {
+          if (sql.includes("FROM payment_transaction_attempts")) return { success: true, results: [], meta: {} };
           if (sql.includes("pt.provider_transaction_id")) {
             return {
               success: true,

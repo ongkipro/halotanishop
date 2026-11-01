@@ -133,7 +133,15 @@ const { tenantName } = Astro.props;
         finalEventId = String(statusData.order_number || '').trim();
         if (!finalEventId) return;
         verifiedPaymentStatus = String(statusData.payment_status || verifiedPaymentStatus).toLowerCase();
-        if (paymentMethod !== 'cod' && !statusData.is_paid) return;
+        // The order's own method and state, never this tab's storage: opened
+        // in a fresh tab the storage is empty and used to default to COD, so
+        // an unpaid QRIS/VA or a cancelled order fired a Purchase (audit
+        // 2026-10-31 tracking H-1). Same rule as isMetaPurchaseOrderEligible.
+        const orderMethod = String(statusData.payment_method || paymentMethod).toLowerCase();
+        const orderShipping = String(statusData.status || '').toLowerCase();
+        if (['failed', 'refunded', 'cancelled'].includes(verifiedPaymentStatus)) return;
+        if (['abandoned', 'failed', 'cancelled', 'returned'].includes(orderShipping)) return;
+        if (orderMethod !== 'cod' && !statusData.is_paid) return;
         // Report the goods, not the invoice. `product_value` is the chosen
         // variant's price times its quantity, summed from `order_items` — it
         // excludes shipping, the COD service fee and its VAT, and the payment
@@ -242,7 +250,8 @@ const { tenantName } = Astro.props;
           item_id: productId,
           item_name: productName,
           item_variant: pick('variant_unique_id', '') || undefined,
-          transaction_id: orderId || undefined,
+          // The server's order number: it is the dedup key, and a fresh tab has no stored one.
+          transaction_id: finalEventId || orderId || undefined,
           event_id: finalEventId,
         });
       } catch (error) {
@@ -284,7 +293,7 @@ const { tenantName } = Astro.props;
               country: 'ID',
             },
           };
-          window.__PS_PUSH_GOOGLE_CONVERSION__(Number(conversionValue || 1), orderId || undefined, googleUserData);
+          window.__PS_PUSH_GOOGLE_CONVERSION__(Number(conversionValue || 1), finalEventId || orderId || undefined, googleUserData);
         }
       } catch (error) {
         console.error('google-ads-purchase', error);

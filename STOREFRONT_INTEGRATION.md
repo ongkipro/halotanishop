@@ -1,6 +1,6 @@
 # AdsBookCMS — Storefront, Form, and Ads Integration Contract
 
-> Verified against disk: 2026-09-25 @ `6e30950` + audit working tree
+> Verified against disk: 2026-10-29 @ be00fee + s5-a42 working tree
 
 This document is the implementation handoff for anyone — human or agent — building a public storefront experience against an **AdsBookCMS** install. Two integration shapes are supported and both are shipping today:
 
@@ -163,9 +163,9 @@ Query: `q` or `search`, `limit` (1–100, default 30). A query shorter than 2 ch
 
 `src/pages/api/v1/geo/shipping-rates.ts`. Methods: `GET`, `POST`, `OPTIONS` — both verbs run the same handler; POST reads a JSON body, GET reads query parameters, and body wins where both are present.
 
-Inputs: `destination_id` or `location_id` (**required**), `payment_method` (default `cod`), `variant_id`, `quantity` (default 1), `weight` (default 1; values above 100 are treated as grams and divided by 1000).
+Inputs: `destination_id` or `location_id` (**required**), `payment_method` (default `cod`), `variant_id`, `quantity` (default 1), `weight` (default 1; values above 100 are treated as grams and divided by 1000), `city` (optional: the buyer's city, which picks the warehouse the quote ships from, ADR-032; without it, or for an unknown or ambiguous city, the primary warehouse).
 
-Returns `destination_id`, `payment_method`, `origin_id`, `fallback_used`, and `rates[]` of `{ courier_code, courier_service, price, estimated_days, cod_available, cod_fee, total_shipping }`. `total_shipping` equals `price` — what checkout charges as shipping. `cod_fee` is the provider's figure, informational only: the store's own COD service fee is added once at checkout and returned as `cod_service_fee` (+ `cod_service_fee_vat`). Before 2026-09-25 `total_shipping` and headless checkout both added `cod_fee`, charging COD twice.
+Returns `destination_id`, `payment_method`, `origin_id`, `warehouse_id` (the warehouse this quote ships from, or `null`; echo it to checkout), `fallback_used`, and `rates[]` of `{ courier_code, courier_service, price, estimated_days, cod_available, cod_fee, total_shipping }`. `total_shipping` equals `price` — what checkout charges as shipping. `cod_fee` is the provider's figure, informational only: the store's own COD service fee is added once at checkout and returned as `cod_service_fee` (+ `cod_service_fee_vat`). Before 2026-09-25 `total_shipping` and headless checkout both added `cod_fee`, charging COD twice.
 
 Cache: envelope default, `Cache-Control: private, max-age=60`; a quote is not a durable fact, so re-quote before submit. Failures: 400 `DESTINATION_ID_REQUIRED`, 503 `DATABASE_UNAVAILABLE`, or the `ShippingQuoteError` status/code passthrough, else 500 `SHIPPING_RATES_ERROR`.
 
@@ -174,6 +174,8 @@ Cache: envelope default, `Cache-Control: private, max-age=60`; a quote is not a 
 `src/pages/api/v1/checkout.ts`. Methods: `POST`, `OPTIONS` only.
 
 The full guard stack, in order: API key + origin, then a D1 rate limit of **15 attempts per 60 s per client IP** (429 `RATE_LIMITED`), JSON parse (400 `INVALID_PAYLOAD`), honeypot on `website`/`honeypot` (400 `HONEYPOT_TRIGGERED`), `orderSubmitSchema` validation (422 `VALIDATION_ERROR` with a formatted `errors` tree), D1 availability (503 `DATABASE_UNAVAILABLE`), COD province policy (422 `COD_DISABLED_FOR_REGION`), for `qris`/`bank_transfer` a configured AutoLaris key (503 `PAYMENT_METHOD_UNAVAILABLE`), then a **server-side re-quote** through `resolveTrustedHeadlessShipping` — the browser's shipping cost is never trusted — and finally `persistOrder`.
+
+The re-quote ships from the warehouse the rate call did: send the rate response's `warehouse_id` as `warehouse_id`. Without it, checkout quotes from the primary warehouse, which is what a rate call without `city` showed; the checkout's `city` never picks the warehouse. Because checkout cannot tell whether the rate call carried `city`, a checkout with `city` and no `warehouse_id` also quotes the way a rate call with that `city` would: when that warehouse is not the primary and its price for the chosen courier differs, it answers 409 `SHIPPING_QUOTE_CHANGED` rather than charge a price the buyer may not have been shown. Echoing `warehouse_id` avoids that refusal; on a one-warehouse store it never occurs. A `warehouse_id` that is no longer active and ready also answers 409 `SHIPPING_QUOTE_CHANGED`: re-quote and show the new price. Either way a buyer is never charged another warehouse's price than the one quoted.
 
 On success returns **201** with `order` (`id`, `order_number`, `public_status_token`, `total_amount`, `unit_price`, `cod_service_fee`, `cod_service_fee_vat`, `cod_fee_bearer`, `seller_bank_name`, `seller_account_holder`, `seller_account_number`) and `payment` — for `qris`/`bank_transfer` the AutoLaris instruction (`channel_code`, `status`, `total_amount`, `virtual_account`, `qr_payload`, `payment_code`, `payment_url`, `expires_at`, `error`), otherwise `null`. A provider failure still returns 201 with `payment: null` and a failed transaction row, so the order stays retryable through `/api/order-status`, the same contract as storefront checkout. Because the status is 201 and not 200, the envelope marks it `Cache-Control: no-store`. The API does not return a hosted confirmation URL: a Headless client owns its confirmation UI and must not navigate to the system's same-origin `/thanks` page.
 
@@ -439,7 +441,7 @@ DATA AND COMMERCE INTEGRATION
 3. Use only the canonical `/hybrid-form`, `/middle-form`, and `/full-form` routes. The API never returns legacy `/form-*` URLs.
 4. Resolve destinations with GET /api/v1/geo/districts and quote with
    GET|POST /api/v1/geo/shipping-rates. Re-quote before submit; never trust a cached price.
-5. Submit with `POST /api/v1/checkout`. Handle 401, 403, 422, 429, and 409 distinctly.
+5. Submit with `POST /api/v1/checkout`, echoing the quote's `warehouse_id`. Handle 401, 403, 422, 429, and 409 distinctly.
    On 201, persist only the returned identifiers needed by the storefront and render its own
    confirmation state. Checkout is never courier dispatch.
 6. Do not send a Headless customer to `/thanks` or `/payment`; both are same-origin hosted

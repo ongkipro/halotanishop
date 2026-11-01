@@ -67,7 +67,7 @@ export function buildSetupChecklist(facts: SetupFacts): SetupStep[] {
       id: "couriers",
       label: "Aktifkan minimal satu kurir",
       hint: "Tanpa kurir aktif, checkout tidak bisa menghitung ongkir.",
-      href: "/admin/couriers",
+      href: "/admin/expeditions",
       done: facts.enabledCouriers > 0,
       required: true,
     },

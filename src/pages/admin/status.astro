@@ -1,0 +1,38 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminPageHeader from '../../components/admin/AdminPageHeader.astro';
+import OperationalStatus from '../../components/admin/OperationalStatus';
+import { getRuntimeEnv } from '../../lib/env';
+import { readHealthSnapshot, statusIconState } from '../../lib/health-snapshot';
+import { buildSetupChecklist, readSetupFacts } from '../../lib/setup-checklist';
+
+export const prerender = false;
+
+// PRD A39: owner and admin only (ADMIN_PAGE_ROUTES in src/lib/auth.ts; the
+// middleware refuses the other roles before this runs). Signals come from the
+// stored snapshot; the setup checklist is read live, so a step just finished
+// shows as done here even before the icon's hourly count catches up.
+const database = getRuntimeEnv(Astro.locals)?.OMS_DB as D1Database | undefined;
+const [snapshot, setupFacts] = database?.prepare
+  ? await Promise.all([readHealthSnapshot(database), readSetupFacts(database, Astro.locals)])
+  : [null, null];
+const setupSteps = setupFacts ? buildSetupChecklist(setupFacts) : null;
+const now = Date.now();
+// The page's own header uses the live setup count; the icon keeps the stored one.
+const icon = statusIconState(
+  snapshot && setupSteps
+    ? { ...snapshot, setupRequiredLeft: setupSteps.filter((step) => step.required && !step.done).length }
+    : snapshot,
+  now,
+);
+---
+
+<AdminLayout title="Status operasional" activeMenu="status">
+  <div class="space-y-4 md:space-y-5">
+    <AdminPageHeader
+      title="Status operasional"
+      description="Apakah toko siap menerima pesanan, dan apakah pemeliharaan per jam, conversion, kurir, dan pembayaran berjalan."
+    />
+    <OperationalStatus client:load snapshot={snapshot} icon={icon} setupSteps={setupSteps} now={now} />
+  </div>
+</AdminLayout>

@@ -3,8 +3,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import LegalPage from '../components/storefront/shared/LegalPage.astro';
 import { getTenantLegalPage } from '../data/legal';
 import { withStoreName } from '../lib/tenant';
+import { getStorePublicContact } from '../lib/public-store';
 
-const data = getTenantLegalPage('privacy', Astro.locals.tenant.name);
+const contact = await getStorePublicContact(Astro.locals);
+const data = getTenantLegalPage('privacy', Astro.locals.tenant.name, {
+  supportWhatsapp: contact.whatsapp,
+  supportEmail: contact.email,
+  businessAddress: contact.address,
+  siteUrl: Astro.locals.tenant.siteUrl,
+});
 ---
 
 <BaseLayout title={withStoreName(data.title, Astro.locals.tenant.name)} description={data.description}>

@@ -1,6 +1,6 @@
 # AdsBookCMS Meta Pixel, CAPI, GTM, and Google Ads Specification
 
-> Verified against disk: 2026-10-24 @ `8849a28` + EMQ baseline working tree
+> Verified against disk: 2026-10-31 @ `122cb89` + feat/admin-topbar-polish working tree (§2 /thanks gate, §15, §16.1; other sections retain their recorded evidence)
 
 This document owns the technical tracking contract for AdsBookCMS-rendered and headless storefronts. It covers event semantics, identity, browser/server boundaries, deduplication, durable delivery, store configuration, and verification. It does not claim attribution certainty, legal compliance, consent applicability, or live provider acceptance.
 
@@ -40,7 +40,7 @@ A headless storefront may use a different framework and design, but it must not 
 - Click identifiers are captured in middleware into a first-party cookie and persisted on the order (§7).
 - `/admin/ads/meta` manages Pixel ID plus masked CAPI readiness and supports an explicit Test Events request.
 - `/admin/ads/google` manages GTM independently and validates the Google Ads conversion pair.
-- `/thanks` gates Purchase from recorded order/payment state and uses browser duplicate guards.
+- `/thanks` gates Purchase on the order's own server state, read from `/api/order-status`: its payment method, payment status and shipping status, never the tab's `sessionStorage`. A void order (payment failed/refunded/cancelled, or shipping abandoned/failed/cancelled/returned) and an unpaid prepaid order send nothing; the Google `transaction_id` and GTM `transaction_id` are the server's `INV-` number. Same rule as `isMetaPurchaseOrderEligible`, which accepts `paid`, `settled` and `success`. Before 2026-10-31 a fresh tab (empty storage) defaulted to COD and fired Purchase for unpaid and cancelled orders (audit 2026-10-31 tracking H-1, `meta-purchase-dedup.test.ts`).
 
 ### Headless storefront bootstrap — what ships and what does not
 
@@ -769,7 +769,7 @@ An agent implementing a new frontend must:
 5. generate stable per-event IDs and a dedicated per-order Purchase event ID;
 6. preserve `_fbp` and `_fbc` un-hashed when present;
 7. normalize and hash Advanced Matching fields before CAPI, remembering Meta wants digits-only and Google wants a leading `+`;
-8. preserve click identifiers — including `ttclid` — through the submit path, or rely on the first-party cookie riding along with the request;
+8. preserve click identifiers (`fbclid`, `gclid`, `gbraid`, `wbraid`; `ttclid` is no longer captured, §8) through the submit path, or rely on the first-party cookie riding along with the request;
 9. send `transaction_id` as the `INV-` order number, never a numeric row ID;
 10. post server events to `POST /api/v1/tracking/events` rather than calling Meta directly, so the outbox owns retries and dedupe;
 11. gate COD and online Purchase according to recorded backend state;
@@ -822,7 +822,7 @@ The procedure behind the 1.7.12 check on revenleather and petanisejahtera.com.
 - **Deduplication is checked within one visit:** each `eid` on a Pixel hit must
   equal the `event_id` of one `/api/meta-event` body. Expected pairs: PageView
   and ViewContent on load; AddToCart once name and phone qualify;
-  InitiateCheckout once the district resolves (hybrid), or on submit (middle).
+  InitiateCheckout on submit (hybrid and middle forms alike; observed 2026-10-31).
   `SubscribedButtonClick` is Meta's automatic event and has no CAPI twin.
 - **Attribution:** a URL with `fbclid` must leave `_fbc`, `_fbp` and
   `adsbook_click_ids` cookies, on an edge-cache hit as well as a miss.

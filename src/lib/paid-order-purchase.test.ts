@@ -6,6 +6,8 @@ type Row = Record<string, unknown>;
 
 function createDatabase(options: {
   paymentStatus: string;
+  shippingStatus?: string;
+  stockRestoredAt?: string | null;
   pixel: boolean;
   alreadyQueued?: boolean;
   /** What the checkout stored on the order, if anything. */
@@ -36,6 +38,10 @@ function createDatabase(options: {
               city: "Bogor",
               postal_code: "16111",
               payment_status: options.paymentStatus,
+              // Only what the query names: dropping a column from the SELECT
+              // must reach the guard as a missing value, the way D1 would.
+              ...(sql.includes("o.shipping_status") ? { shipping_status: options.shippingStatus ?? "pending" } : {}),
+              ...(sql.includes("o.stock_restored_at") ? { stock_restored_at: options.stockRestoredAt ?? null } : {}),
               ad_click_ids: null,
               meta_request_context: options.metaRequestContext ?? null,
               product_value: 150_000,
@@ -106,6 +112,27 @@ test("an unpaid order, an unconfigured pixel, and an already-sent Purchase are a
     status: "deduplicated",
   });
   assert.equal(sent.outbox.length, 0);
+});
+
+/**
+ * "Transfer Diterima" on an order already cancelled or returned records the
+ * money, but a void order is a refund to make, not a conversion to report.
+ * The guard sits in the shared enqueue, so the cron and reconciliation paths
+ * hold it too.
+ */
+test("a paid but void order never enqueues a Purchase", async () => {
+  for (const void_ of [
+    { shippingStatus: "cancelled" },
+    { shippingStatus: "returned" },
+    { shippingStatus: "pending", stockRestoredAt: "2026-10-28 10:00:00" },
+  ]) {
+    const { database, outbox } = createDatabase({ paymentStatus: "paid", pixel: true, ...void_ });
+    assert.deepEqual(await enqueuePurchaseForPaidOrder(database, locals(database), 41), {
+      status: "skipped",
+      reason: "order-void",
+    });
+    assert.equal(outbox.length, 0);
+  }
 });
 
 /**

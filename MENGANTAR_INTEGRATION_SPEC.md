@@ -1,6 +1,6 @@
 # Mengantar Integration — Technical Contract and Gap Register
 
-> Verified against disk: 2026-09-30 @ `0ef2813` + retire-ninja-default-jne-jt working tree
+> Verified against disk: 2026-10-31 @ `93d78a8` + feat/mengantar-pickup working tree (§5 C and §6 pickup; other sections retain their recorded evidence)
 
 This document is the technical source of truth for AdsBookCMS behavior at the Mengantar boundary. It separates repository-observed transport code, locally verified application behavior, operator-gated live mutations, and provider contracts that remain unknown.
 
@@ -17,7 +17,7 @@ Normative product behavior lives in `PRD.md` (`REQ-40`–`REQ-46`). Earlier revi
 - The store resolves its Mengantar API key and HTTP(S) base URL from D1 first, then from server environment fallback (`getProviderConfig`).
 - Public browser code never receives the API key.
 - JSON order creation uses `Content-Type: application/json`.
-- Pickup address and time mutations use `Content-Type: application/x-www-form-urlencoded`.
+- Pickup address and time mutations use `Content-Type: application/x-www-form-urlencoded`. **[verifikasi]** The Mengantar documentation repository (`~/Projects/mengantar-documentation`, `docs/01-api-reference.md` §4.1) shows `POST /time` as JSON; neither encoding has a recorded live response.
 - **Every** request made through `MengantarClient.requestJson()` sets `x-client-source: directCall` unless the caller has already supplied that header (`src/lib/mengantar-client.ts`). This is shipped, live behavior asserted by `src/lib/mengantar-client.test.ts`. Do not remove or rename it without confirming the provider's expected integrator classification first — the header is part of the active integration contract, not a proposal.
 - Requests are bounded by an `AbortController` timeout configured on the client instance.
 
@@ -53,11 +53,27 @@ Status distinguishes three separate things: whether the **transport method** exi
 
 1. `GET /api/locations?search=<prefix>` searches the bundled 7,285-district index (`src/data/indonesia-districts.ts`, derived from Kepmendagri No. 300.2.2-2138 Tahun 2025) without exposing provider credentials.
 2. The customer selects one district plus city; public checkout does not require village selection.
-3. The server resolves a representative Mengantar destination area identity through `/address/search` using the selected district plus city, not the ambiguous district name alone. Exact district representatives rank ahead of village rows.
+3. The server resolves a representative Mengantar destination area identity through `/address/search` using the selected district plus city, not the ambiguous district name alone. Exact district representatives rank ahead of village rows. The answer is kept in D1 (see *Stored area resolution* below), so a district already resolved costs no Mengantar call.
 4. `/api/shipping-options` requests eligible rates from `/order/estimate`.
 5. Order submission re-fetches and verifies courier, service, cost, weight, active variant, and destination before persistence.
 
 The local district index improves public search relevance; it is not a replacement for the provider identity required by rates and dispatch.
+
+**Quote origin and pickup, per warehouse (ADR-032).** A store keeps up to ten
+warehouses, each with its own Mengantar `origin_area_id` (a precise
+sub-district) and its own `pickup_address_id` registered through `POST /address`
+(`ensurePickupAddress`). A warehouse missing either is "not ready" and is never
+chosen. Each quote sends `/order/estimate` one `origin_id`: the chosen
+warehouse's — the active, ready one serving the buyer's province, else one on
+the same island group, else the primary. When a non-primary warehouse's
+estimate fails or returns no usable rate, the quote sends one more estimate
+from the primary and uses it (REQ-270, ADR-032 amendment); a warehouse named
+by `warehouse_id` and headless checkout do not. The order stores the warehouse that quoted;
+dispatch sends `POST /order` the pickup address of `orders.warehouse_id`, and
+`/time` schedules pickups per warehouse. No extra provider call is made to
+choose, and a store with one warehouse sends the same origin and pickup as
+before A42. An explicit `warehouse_id` (admin re-quote, headless checkout) is
+honoured only while that warehouse is active and ready, or the primary.
 
 **Courier catalogue.** Mengantar removed Ninja from its public API on
 2026-09-01. Migration `0056` disabled its rule and `0061` removes it; the code
@@ -100,8 +116,21 @@ cannot reroute a paid online order, so it could never have shipped.
 - `search` is required and must be at least two characters after trimming; anything shorter returns an empty list.
 - `level` is **not an enum**. The handler branches on exactly one value: `level === 'resolve'`. Any other value — including no value at all — takes the same default path. There is no `level=district` mode; passing it is indistinguishable from omitting the parameter.
 - `level=resolve` **with** a `city` value builds multi-attempt provider searches (`buildProviderDestinationSearches`), stops early once a district/city match resolves, and returns `resolved` rows with `alternatives` as fallback. The default path instead runs one provider search and applies `sortLocationResults`.
-- Without a D1 binding or without a configured Mengantar API key, the handler degrades to the bundled district catalog only.
+- `level=resolve` with a `city` reads `mengantar_areas` first and answers a stored row with no Mengantar call; only a miss runs the provider searches above.
+- Without a D1 binding, the handler degrades to the bundled district catalog only. Without a configured Mengantar API key, a stored district still answers from `mengantar_areas`; anything else degrades to the catalog.
+- Free-text (non-resolve) provider searches are not cached; before PRD A43 they wrote a 10-minute KV entry per query.
 - Results are de-duplicated by ID and capped at 50 rows.
+
+### Stored area resolution (PRD A43)
+
+`src/lib/mengantar-areas.ts` owns D1 table `mengantar_areas` (migration `_mengantar_areas.sql`); nothing else reads or writes it. It replaced the 24-hour KV entry (`location-cache.ts`, deleted).
+
+- **Key.** `district|city|province`, each part trimmed and lower-cased.
+- **Sources.** `order-history`: seeded once by the migration from the store's own orders, the most frequent `destination_area_id` per district (ties: the most recent order), with `agreeing_orders` / `total_orders`. An order cannot tell an exact match from a fallback the form accepted, so a seeded row is dated by the newest order on its id, not by the migration: a district last ordered more than the bound ago starts stale and is resolved again on first use. A hit is composed from the request's district, city and province plus the stored id and postal code. `resolve`: a live resolve, whose exact response body is replayed byte for byte.
+- **What is stored.** Only an exact district/city match (`resolveProviderDestinations` non-empty). A fallback answer — Mengantar does not know the catalogue district and offers a migrated kelurahan or same-city alternative, e.g. Jakabaring → Seberang Ulu I, 8 Ulu — and an empty answer are returned to the form but not stored, so they are asked again on the next resolve.
+- **Bounded age.** A row answers for `MENGANTAR_AREA_MAX_AGE_DAYS` (30) from `resolved_at`; an older row is a miss and is resolved again: an exact answer replaces it, a fallback or empty answer deletes it, so a stale row (a seeded fallback included) never lingers. This bounds how long a retired or renamed area id can be served.
+- **Drop on rejection (REQ-244).** `dropMengantarArea(areaId)` exists but has no caller: wiring it to an "area not found" answer from `/order/estimate` or dispatch touches `shipping-quote.ts` and `mengantar-dispatch.ts`, a protected surface held as TASKS A-415's proposal until approved.
+- **Failure.** A D1 read or write failure is logged (`mengantar-area-read-failed` / `mengantar-area-write-failed`) and the resolve continues through Mengantar.
 
 ### Admin warehouse and order editing
 
@@ -141,6 +170,7 @@ Behavior:
 ### A. Intake
 
 - Every checkout endpoint persists the order and its items atomically in D1. Stock is not read or written (ADR-023).
+- Each order line records the variant's weight at that moment in `order_items.weight_grams` (migration `0070`): checkout copies it in the insert, and CS conversion of an abandoned lead copies it the same way.
 - New orders use `shipping_status = pending` and remain in Order Management.
 - COD, an eligible quote, and an authenticated AutoLaris paid transition do not call Mengantar automatically.
 
@@ -159,10 +189,12 @@ An explicit Push action in Order Management is the provider boundary. Selection 
 ### C. Sequential dispatch from Order Management
 
 - The backend validates ownership, pending status, payment eligibility, destination, warehouse, courier/service, and existing provider state again.
+- The parcel weight sent to `/order` is the order's recorded weight, `COALESCE(order_items.weight_grams, product_variants.weight_grams)` per line: the weight the order was quoted with, falling back to the variant's current weight only for lines written before migration `0070`. Editing a variant after checkout does not change what dispatch sends. The Kelola plugin reads weight the same way. AutoLaris is a payment gateway only and is not changed.
 - Each `/order` request is awaited before the next begins. Parallel calls and guessed fixed delays are prohibited.
 - Every selected order returns an independent `success`, `unpaid`, `skipped`, or `failed` result with an actionable reason.
 - Accepted siblings remain committed when another order fails.
-- Provider rejection or transport failure clears the dispatch claim, preserves the provider error, and leaves the order `pending` in Order Management for correction and retry.
+- A clear provider rejection (4xx, `success:false`) clears the dispatch claim, preserves the provider error, and leaves the order `pending` in Order Management for correction and retry.
+- An **unknown** outcome of `POST /order` — timeout, dropped connection, provider 5xx, or a 2xx whose body or shipment id cannot be read (`MengantarOutcomeUnknownError`) — may mean the shipment exists. The order is marked `DISPATCH_UNKNOWN: …`, refused by every push (eligibility, the dispatcher's early check, and the D1 claim), and shown on the order page with instructions; an owner or admin releases it (`release-dispatch-unknown`) only after finding no shipment at Mengantar. A failure before `POST /order` (a pickup slot that cannot be booked) is a plain failure. Audit 2026-10-31 M-1; a lookup by order number would let this resolve itself, but no such provider endpoint is confirmed.
 - A stale dispatch claim becomes retryable after the same bounded lease used by the dispatcher.
 
 ### D. Provider-accepted Shipping projection
@@ -202,7 +234,13 @@ Observed client fields for `/address` include:
 - `PICKUP_AUTOFILL` provider area identity;
 - optional existing address identity for update.
 
-Observed client fields for `/time` include `address_id`, `date` in `MM-DD-YYYY`, and a provider time value.
+`/time` fields (Mengantar docs, mirrored in `~/Projects/mengantar-documentation`): `address_id`, `date` in `mm-dd-yyyy`, and `time`, **one hour** from `9:00` to `18:00` (`"13:00"`). The `"9:00 - 18:00"` range this repository used to send was never a provider value; it came with the fork and no evidence supported it (fixed 2026-10-31, PRD A46). `POST /time` answers **one slot object** in `data`; `GET /time?address=` answers an array. `pickMengantarTimeId` reads either shape; the shipping page's former `data[0]` read always came back empty for the object.
+
+### Pickup or drop-off at push (PRD A46)
+
+`POST /order` carries `pickup.type`: `dropOff` (the default, and the only value sent before A46) or `scheduledPickup`, which also needs `time_id` (a `/time` slot `_id`) and `volume` (`volumeMotor` by default, `volumeMobil`, `volumeTruck`). The push dialog collects date, hour and vehicle; the dispatch resolves one slot per pickup address per request (an existing matching slot from `GET /time`, else `POST /time`), sends it with every order of that address, and links each accepted order to a local `pickup_schedules` row keyed by warehouse and provider slot id, so the shipping page does not list it as needing pickup.
+
+Still **[verifikasi]** (open in the documentation repository's checklist): the exact server-accepted spelling of `scheduledPickup`/`dropOff` beyond `dropOff` (which live dispatch has used), the `GET /time` slot field names, and the error shape of a rejected pickup time. Confirm with one approved live order before relying on scheduled pickup in production.
 
 ### Pickup scheduling constraint — enforced in code
 
@@ -291,6 +329,7 @@ Relevant implementation owners:
 - `src/lib/mengantar-dispatch.ts`;
 - `src/lib/payment-dispatch-policy.ts` — payment eligibility for dispatch;
 - `src/lib/location-search.ts` and `src/lib/district-catalog.ts` — area resolution helpers;
+- `src/lib/mengantar-areas.ts` — stored kecamatan → area resolution (`mengantar_areas`);
 - `src/data/indonesia-districts.ts` — the bundled 7,285-district index;
 - `src/pages/api/admin/orders/[id].ts`;
 - `src/pages/api/admin/shipping.ts` — pickup scheduling and the 90-minute rule;

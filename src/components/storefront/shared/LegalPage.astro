@@ -1,6 +1,5 @@
 ---
-import { cn } from '../../../lib/cn';
-import { listItemVariants, textVariants } from '../../../lib/ui-variants';
+import { legalSegments } from '../../../lib/legal-links';
 import PageIntro from './PageIntro.astro';
 
 interface LegalSection {
@@ -24,25 +23,38 @@ interface Props {
 const { badge, title, description, sections, breadcrumbs = [] } = Astro.props;
 ---
 
-<main id="konten-utama" class="min-h-screen bg-[#FAFAFA] text-[#111111]">
+<!-- One reading column, as a Shopify theme sets its policy pages: headings
+     and text on white, no box around each section. Contacts and page names
+     inside a paragraph are links (src/lib/legal-links.ts). -->
+<main id="konten-utama" class="min-h-screen bg-white text-[#111111]">
   <PageIntro badge={badge} title={title} description={description} breadcrumbs={breadcrumbs} />
 
-  <section class="mx-auto max-w-[480px] px-5 py-8">
-    <div class="space-y-6">
-      {
-        sections.map((section) => (
-          <article class={listItemVariants({ density: 'featured' })}>
-            <h2 class={cn('text-[18px] font-semibold tracking-[-0.01em]', textVariants({ tone: 'heading' }))}>
-              {section.title}
-            </h2>
-            <div class={cn('mt-3 space-y-4 text-[14px] leading-7', textVariants({ tone: 'body' }))}>
-              {section.paragraphs.map((paragraph) => (
-                <p>{paragraph}</p>
-              ))}
-            </div>
-          </article>
-        ))
-      }
-    </div>
-  </section>
+  <div class="px-4 pb-12 pt-2">
+    {
+      sections.map((section) => (
+        <section class="pt-7">
+          <h2 class="text-base font-bold tracking-[-0.01em] text-[#111111]">{section.title}</h2>
+          <div class="mt-2 space-y-3 text-[15px] leading-7 text-[#444444]">
+            {section.paragraphs.map((paragraph) => (
+              <p>
+                {legalSegments(paragraph).map((segment) =>
+                  segment.href ? (
+                    <a
+                      href={segment.href}
+                      class="font-semibold text-[#111111] underline decoration-[#C7C7C7] underline-offset-4 hover:decoration-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+                      {...(segment.href.startsWith('https://') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                    >
+                      {segment.text}
+                    </a>
+                  ) : (
+                    segment.text
+                  ),
+                )}
+              </p>
+            ))}
+          </div>
+        </section>
+      ))
+    }
+  </div>
 </main>

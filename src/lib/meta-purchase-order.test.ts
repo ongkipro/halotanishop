@@ -204,6 +204,10 @@ test("the public Meta event endpoint counts sixty a minute per IP and fails open
 test("a Purchase is only ever a submitted order, never a lead", () => {
   const cod = { payment_method: "cod", payment_status: "unpaid", shipping_status: "pending" };
   assert.equal(isMetaPurchaseOrderEligible(cod), true, "COD is purchased at submit");
+  // Audit 2026-10-31 tracking L-2: every word the code reads as paid.
+  for (const paid of ["paid", "settled", "success"]) {
+    assert.equal(isMetaPurchaseOrderEligible({ payment_method: "qris", payment_status: paid, shipping_status: "pending" }), true, paid);
+  }
   // The failure this exists for: an abandoned lead carries COD-like defaults
   // and its own status token, and used to be enough to send Meta a Purchase.
   assert.equal(isMetaPurchaseOrderEligible({ ...cod, shipping_status: "abandoned" }), false);

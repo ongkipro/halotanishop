@@ -1,6 +1,4 @@
 ---
-import { cn } from '../../../lib/cn';
-
 interface BreadcrumbItem {
   label: string;
   href?: string;
@@ -11,38 +9,79 @@ interface Props {
 }
 
 const { items } = Astro.props;
-const rail = 'max-w-[480px]';
 ---
 
-<nav aria-label="Breadcrumb" class="border-b border-[#E5E5E5] bg-white px-4 py-1">
-  <div
-    class={cn(
-      'mx-auto flex min-w-0 items-center gap-1.5 overflow-hidden text-[11px] text-[#555555]',
-      rail,
-    )}
+<!--
+  One line, never cut: a long trail scrolls sideways instead of truncating, and
+  starts scrolled to its end so the current page reads whole. The home crumb
+  is an icon (its label stays the accessible name); chevrons separate. The left
+  edge fades only while something is scrolled out of view.
+-->
+<nav aria-label="Breadcrumb" class="bg-white px-4 pt-3">
+  <ol
+    data-breadcrumb-track
+    class="breadcrumb-track flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap text-[13px] leading-5 text-[#555555]"
   >
     {
       items.map((item, index) => {
         const isLast = index === items.length - 1;
-
+        const isHome = index === 0 && item.href === '/';
         return (
-          <>
-            {index > 0 && <span class="shrink-0 text-[#767676]">/</span>}
-            {item.href ? (
-              <a href={item.href} class="inline-flex min-h-6 shrink-0 items-center transition-colors hover:text-[#111111]">
-                {item.label}
+          <li class="flex shrink-0 items-center gap-1">
+            {index > 0 && (
+              <svg viewBox="0 0 24 24" class="h-3.5 w-3.5 shrink-0 text-[#B3B3B3]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            )}
+            {item.href && !isLast ? (
+              <a
+                href={item.href}
+                aria-label={isHome ? item.label : undefined}
+                title={isHome ? item.label : undefined}
+                class="inline-flex min-h-8 items-center rounded-md transition-colors hover:text-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+              >
+                {isHome ? (
+                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+                    <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  </svg>
+                ) : (
+                  item.label
+                )}
               </a>
             ) : (
-              <span
-                class="min-w-0 max-w-[58%] truncate font-normal text-[#111111] sm:max-w-[65%]"
-                aria-current={isLast ? 'page' : undefined}
-              >
+              <span class="font-semibold text-[#111111]" aria-current={isLast ? 'page' : undefined}>
                 {item.label}
               </span>
             )}
-          </>
+          </li>
         );
       })
     }
-  </div>
+  </ol>
 </nav>
+
+<style>
+  .breadcrumb-track {
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .breadcrumb-track::-webkit-scrollbar {
+    display: none;
+  }
+  .breadcrumb-track[data-scrolled] {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px);
+    mask-image: linear-gradient(90deg, transparent, #000 24px);
+  }
+</style>
+
+<script>
+  // Start at the end so the current page is in view; fade the left edge only
+  // while part of the trail is scrolled away.
+  for (const track of document.querySelectorAll<HTMLElement>('[data-breadcrumb-track]')) {
+    const sync = () => track.toggleAttribute('data-scrolled', track.scrollLeft > 1);
+    track.scrollLeft = track.scrollWidth;
+    sync();
+    track.addEventListener('scroll', sync, { passive: true });
+  }
+</script>

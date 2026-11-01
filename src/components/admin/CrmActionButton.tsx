@@ -1,15 +1,16 @@
-import React from 'react';
+import type { OrderFollowUpStep } from '../../lib/order-follow-up';
 
-export type CrmStepKey = 'welcome' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
-
+export type CrmStepKey = OrderFollowUpStep;
 export interface CrmStepConfig {
   key: CrmStepKey;
-  label: string;        // Short label (W, D, F1...)
-  fullLabel: string;    // Full label (1. Welcome, 2. Detail...)
-  mobileLabel: string;  // 5-col mobile label
-  title: string;        // Full tooltip title
+  label: string;
+  fullLabel: string;
+  mobileLabel: string;
+  title: string;
 }
 
+// Shared presentation labels for the existing CRM templates. Completion is
+// recorded explicitly by CrmActionGroup, never by clicking a WhatsApp link.
 export const CRM_STEPS: CrmStepConfig[] = [
   { key: 'welcome', label: 'Welcome', fullLabel: 'Welcome', mobileLabel: 'Welcome', title: 'Welcome: Sapa & Konfirmasi Pesanan' },
   { key: '1', label: 'Detail', fullLabel: 'Detail', mobileLabel: 'Detail', title: 'Detail: Kirim Rincian Pesanan' },
@@ -22,91 +23,3 @@ export const CRM_STEPS: CrmStepConfig[] = [
   { key: '8', label: 'Finish', fullLabel: 'Finish', mobileLabel: 'Finish', title: 'Completed: Paket Diterima' },
   { key: '9', label: 'Upsell', fullLabel: 'Upsell', mobileLabel: 'Upsell', title: 'UpSelling: Penawaran Varian Lain' },
 ];
-
-interface CrmActionButtonProps {
-  stepKey: CrmStepKey;
-  label: string;
-  fullLabel?: string;
-  mobileLabel?: string;
-  title: string;
-  waUrl: string;
-  isClicked: boolean;
-  onClicked?: (key: CrmStepKey) => void;
-  size?: 'sm' | 'md';
-  variant?: 'full' | 'compact';
-}
-
-export const CrmActionButton: React.FC<CrmActionButtonProps> = ({
-  stepKey,
-  label,
-  fullLabel,
-  mobileLabel,
-  title,
-  waUrl,
-  isClicked,
-  onClicked,
-  size = 'md',
-  variant = 'full',
-}) => {
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!waUrl) {
-      e.preventDefault();
-      return;
-    }
-    if (onClicked) {
-      onClicked(stepKey);
-    }
-  };
-
-  const displayText = fullLabel || label;
-  const displayMobile = mobileLabel || label;
-
-  if (variant === 'compact') {
-    const sizeClasses = size === 'sm'
-      ? 'h-7 min-w-[28px] px-1.5 text-xs'
-      : 'h-8 min-w-[32px] px-2 text-xs';
-
-    return (
-      <a
-        href={waUrl || '#'}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={handleClick}
-        title={title}
-        className={`inline-flex items-center justify-center font-semibold rounded transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 ${sizeClasses} ${
-          isClicked
-            ? 'bg-slate-900 text-white hover:bg-slate-800 focus:ring-slate-900'
-            : 'bg-emerald-800 text-white hover:bg-emerald-900 focus:ring-emerald-800 shadow-xs'
-        } ${!waUrl ? 'opacity-50 cursor-not-allowed' : ''}`}
-      >
-        {label}
-      </a>
-    );
-  }
-
-  return (
-    <a
-      href={waUrl || '#'}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={handleClick}
-      title={title}
-      // h-11 below sm: this is an <a>, so the shell's `min-height: 2.75rem` mobile
-      // rule (which only matches <button> and a.btn-*) never reached it and the ten
-      // CRM steps were 32px tap targets on a phone.
-      className={`inline-flex h-11 sm:h-8 items-center justify-between gap-1 rounded-lg px-2 text-xs font-semibold transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
-        isClicked
-          ? 'bg-slate-900 text-white hover:bg-slate-800 focus:ring-slate-900 shadow-xs'
-          : 'bg-emerald-800 text-white hover:bg-emerald-900 focus:ring-emerald-800 shadow-xs active:scale-[0.98]'
-      } ${!waUrl ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-      <span className="hidden sm:inline truncate">{displayText}</span>
-      <span className="inline sm:hidden truncate text-xs">{displayMobile}</span>
-      {isClicked && (
-        <span className="inline-flex size-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-xs font-semibold text-slate-950">
-          ✓
-        </span>
-      )}
-    </a>
-  );
-};

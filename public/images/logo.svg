@@ -1,19 +1,13 @@
 <!--
-  The product favicon, used by every admin page and the login screen.
-
-  It previously spelled out the reference store's name in two 62px words, so
-  every install shipped a browser tab wearing someone else's brand — the same
-  defect as the login-screen artwork, on a surface nobody thought to look at.
-  It was also 960x240, which a square favicon slot letterboxes into an
-  illegible sliver.
-
-  Now: the emblem only, square, no wording. A merchant who wants their own mark
-  replaces this file; nothing here claims to be theirs in the meantime.
+  The default tab icon for admin pages and the login screen: the AdsBookCMS
+  product icon (same artwork as images/adsbook-icon.svg). A merchant who wants
+  their own mark replaces this file and the favicons (INSTALLATION.md); an
+  install update never overwrites a replaced copy (UPDATE-PATH-OWNERSHIP.md).
+  No wording, square, nothing that claims to be a store's brand.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <rect width="256" height="256" fill="#111111"/>
-  <rect x="32" y="32" width="192" height="192" fill="none" stroke="#C5A880" stroke-width="8"/>
-  <rect x="80" y="80" width="96" height="24" fill="#C5A880"/>
-  <rect x="80" y="116" width="96" height="24" fill="#F8F7F4"/>
-  <rect x="80" y="152" width="56" height="24" fill="#C5A880"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="232" fill="#2563EB"/>
+  <path fill="#FFFFFF" d="M184 306c0-24 20-44 44-44h160c58 0 92 28 104 64v446c-22-28-58-44-104-44H228c-24 0-44-20-44-44z"/>
+  <path fill="#FFFFFF" d="M840 306c0-24-20-44-44-44H636c-58 0-92 28-104 64v446c22-28 58-44 104-44h160c24 0 44-20 44-44z"/>
+  <path fill="none" stroke="#2563EB" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" d="M606 624 746 484M636 480h114v114"/>
 </svg>

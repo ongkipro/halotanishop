@@ -775,7 +775,8 @@ export function ProductCatalog({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h3 className="font-semibold text-sm text-slate-950 truncate">
+                          {/* Two lines before an ellipsis: the name is what the operator scans for. */}
+                          <h3 className="line-clamp-2 break-words font-semibold text-sm text-slate-950">
                             <a
                               href={`/admin/products/edit?id=${encodeURIComponent(String(product.id))}`}
                               className="hover:text-emerald-700 hover:underline"

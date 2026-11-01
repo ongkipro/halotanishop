@@ -1,98 +1,56 @@
 ---
+import { DEFAULT_TENANT_LOGO } from '../../../lib/tenant';
+
 interface Props {
   href?: string;
   class?: string;
-  tone?: 'light' | 'dark' | 'glossy';
-  showTagline?: boolean;
 }
 
-const { href = '/', class: className = '', tone = 'dark', showTagline = false } = Astro.props;
-const isLight = tone === 'light';
-const textClass = isLight ? 'text-white' : 'text-[#111111]';
-const goldClass = 'text-[#111111]';
-
-// The wordmark used to be the reference store's name spelled out, with a
-// hardcoded monogram and tagline, while the aria-label beside
-// it resolved correctly from the tenant. So the accessible name said one store
-// and every sighted visitor read another — and every install shipped wearing
-// the reference store's brand. Same defect as LOGIN-10 and LOGIN-18, one
-// surface over.
-//
-// The two-tone treatment survives by splitting the store's own name: the first
-// word carries the weight, the remainder takes the gold. A single-word name
-// simply renders in one tone, which is the correct degradation rather than a
-// second layout.
+const { href = '/', class: className = '' } = Astro.props;
+// Always the tenant's own name. The wordmark once spelled out the reference
+// store's name on every install (LOGIN-10/18); it reads the tenant or nothing.
+// Set in the body face, not a display serif: a default storefront has to suit
+// a kitchenware shop as well as a perfume one.
 const storeName = Astro.locals.tenant.name.trim();
-const [leadWord = '', ...restWords] = storeName.split(/\s+/);
-const trailingWords = restWords.join(' ');
-const tagline = Astro.locals.tenant.tagline?.trim() ?? '';
-const monogram = (leadWord[0] ?? 'A').toUpperCase();
+// The store's uploaded logo (Settings → Store) when there is one; until then
+// the name alone, set as a wordmark. No placeholder mark: the product's own
+// emblem is not the store's brand, and a letter tile added nothing the name
+// did not already say.
+const logo = Astro.locals.tenant.logo?.trim();
+const uploadedLogo = logo && logo !== DEFAULT_TENANT_LOGO ? logo : '';
 const brandMark = Astro.locals.tenant.brandMark;
 ---
 
 <a
   href={href}
-  class={`group inline-flex min-h-11 items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#111111] ${className}`}
+  class={`inline-flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111] ${className}`}
   aria-label={Astro.locals.tenant.name}
   title={Astro.locals.tenant.defaultTitle}
 >
-  <!-- Elegant Monogram Luxury Emblem Icon without border.
-       The letter is drawn by CSS rather than written as a text node. As markup
-       it was a second visible string inside the link that the accessible name
-       did not contain, which is `label-content-name-mismatch` (WCAG 2.5.3) —
-       `aria-hidden` keeps it out of the accessible name but not out of what an
-       auditor reads as the link's visible text. Generated content is not text
-       either way, and a decorative duplicate of a letter that is already
-       spelled out beside it should never have been a text node.
-       A store that sets PUBLIC_SITE_BRAND_MARK shows its own mark instead,
-       decorative for the same reason (empty alt). Sized by the width
-       attribute, not h-7: that utility resolves through var(--spacing), which
-       a page's inlined CSS can leave undefined, and the image then renders at
-       its intrinsic size. -->
   {
-    brandMark ? (
+    uploadedLogo ? (
+      /* The logo is the brand; the link's name comes from aria-label, so the
+         image is decorative here. Height-bound, any aspect up to 168px wide.
+         Sized inline, not by utilities: with h-8 and then h-[32px] the image
+         still rendered 0x0 inside this flex link on a dev store (2026-10-31);
+         an inline height cannot be lost to the page's CSS. */
       <img
-        src={brandMark}
+        src={uploadedLogo}
         alt=""
-        width="26"
-        height="28"
-        class={`shrink-0 object-contain ${isLight ? 'invert' : ''}`}
+        height="32"
+        style="display:block;height:32px;width:auto;max-width:168px;flex-shrink:0;object-fit:contain"
         decoding="async"
       />
     ) : (
-      <span
-        aria-hidden="true"
-        data-monogram={monogram}
-        class={`site-brand-monogram flex h-7 w-7 items-center justify-center bg-transparent text-[14px] font-bold tracking-widest ${goldClass} transition-colors group-hover:text-[#111111]`}
-        style="font-family: 'Cinzel', serif;"
-      ></span>
+      <>
+        {brandMark && (
+          <img src={brandMark} alt="" width="28" height="28" class="shrink-0 object-contain" decoding="async" />
+        )}
+        {/* Text wordmark, Shopify-theme style: the name in capitals, slightly
+            tracked, one line; leading-tight keeps the glyphs inside the
+            truncation box. */}
+        <span class="min-w-0 truncate text-[15px] font-bold uppercase leading-tight tracking-[0.08em] text-[#111111]">{storeName}</span>
+      </>
     )
   }
-
-  <span class="flex flex-col justify-center">
-    <span
-      class={`whitespace-nowrap text-[15px] font-bold uppercase tracking-[0.2em] leading-none ${textClass}`}
-      style="font-family: 'Cinzel', 'Playfair Display', Georgia, serif;"
-    >
-      {/* The separator is a real space, not just a margin: rendered as two
-          adjacent spans the text computed as "ZanobyShop", one word. */}
-      {leadWord}{trailingWords && <> <span class={`font-normal ${goldClass}`}>{trailingWords}</span></>}
-    </span>
-    {
-      showTagline && tagline && (
-        <span
-          class="mt-1 text-[8px] font-semibold uppercase tracking-[0.25em] text-[#767676]"
-          style="font-family: Inter, sans-serif;"
-        >
-          {tagline}
-        </span>
-      )
-    }
-  </span>
 </a>
-
-<style>
-  .site-brand-monogram::before {
-    content: attr(data-monogram);
-  }
-</style>

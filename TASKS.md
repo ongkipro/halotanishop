@@ -1,6 +1,6 @@
 # Tasks: AdsBookCMS
 
-> Verified against disk: 2026-09-30 @ `dd83acd` + working tree
+> Verified against disk: 2026-10-31 @ `d61afbe` (A38 cancelled; A-444; other sections retain their recorded evidence)
 
 ## A21 — A landing page may become the product page
 
@@ -2332,6 +2332,14 @@ tests, `astro check` 0/0/0, build complete; browser checks in `STATUS.md`.
   = sent, others terminal) with a test. Also: Google has no requeue path and no
   retention purge for `failed` rows.
 - [ ] **A-285** — AutoLaris money edges (need provider evidence): the
+  **Live read 2026-10-29** (owner's AutoLaris account, read-only,
+  `05-autolaris.json`): `GET /api/h2h/list_payment` → `rc "00"`, 8 channels
+  (COD, QRIS 0.7%, VA BNI/Permata/Mandiri/BRI 3,000, VA BCA 6,500, OVO 3%).
+  `POST /api/h2h/advice` for an unknown `transaction_id` → HTTP 200
+  `{"rc":"02","ket":"NOT FOUND","data":[]}`. `rc "02"` is also PENDING, and
+  `inquirePayment` maps every `"02"` to pending, so a transaction AutoLaris
+  does not know stays pending forever. Fix needs `autolaris-*.ts` (protected):
+  treat `rc 02` + `ket "NOT FOUND"` + empty `data` as its own state.
   fee-bearer amount is stored but `grand_total` is always the order total; a
   payment retry clears the old `provider_transaction_id` so a late payment to
   the old VA is never matched, and two concurrent retries both create provider
@@ -2664,15 +2672,16 @@ tests, `astro check` 0/0/0, build complete; browser checks in `STATUS.md`.
   `ALLOW_NATIVE_LANDING_REMOVAL=1` allows an intended removal. Verified
   read-only on production: taniniaga passed (14 registered), and zvarashop
   refused with 55 slugs.
-- [ ] **A-327** — permatamall and zanobyshop deploy from GitHub Actions with a
+- [x] **A-327** — permatamall and zanobyshop deployed from GitHub Actions with a
   bare `wrangler deploy`, which skips `preflight:deploy` and all four of its
-  refusals. Move both workflows onto `npm run deploy`, with D1 read access
-  for the token. **2026-10-19: both workflows moved** (permatamall
-  `46aaaab`, zanobyshop `9d944fd`), plus a strict step that fails the run when
-  the preflight cannot read production D1. zanobyshop deployed through it,
-  preflight complete (ledger 62). permatamall's run stopped at the strict step
-  without deploying: its `CLOUDFLARE_API_TOKEN` cannot read D1. Open until
-  that token gets Account › D1 › Read and the run is re-run green.
+  refusals. **2026-10-19: both workflows moved** onto `npm run deploy`
+  (permatamall `46aaaab`, zanobyshop `9d944fd`), plus a strict step that fails
+  the run when the preflight cannot read production D1. zanobyshop deploys
+  through it, preflight complete (ledger 62). permatamall's token could not
+  read D1, so every run failed; **2026-10-24** its `deploy.yml` was removed
+  (permatamall `5499583`) and it deploys by hand with `npm run deploy` like
+  every other install (STATUS 2026-10-24). **Closed:** nothing remains in this
+  repository, which deploys nothing (ADR-012).
 - [x] **A-328** — Script-carrier images in merchant html (`<img src="x"
   onerror>`) no longer request `/x` on every view; the placeholder becomes
   `data:,`. **Done 2026-10-19 (1.5.11).**
@@ -2681,3 +2690,1693 @@ tests, `astro check` 0/0/0, build complete; browser checks in `STATUS.md`.
   detail), abandoned orders still abandoned after 30 min to its lead webhook,
   and the source landing path on every order. Migrations `0062`-`0065`.
   **Done 2026-10-19 (1.5.12).**
+
+## Releases 1.6.0–1.7.13
+
+Shipped without task ids; one line per release, from the commit subjects
+(`0e080be..3e73f04`) and BUILD-LOG entries 181–183. Fleet state per release
+is owned by `STATUS.md`.
+
+- [x] **1.6.0** — First-party plugins installed per store; Kelola CRM becomes
+  the first (`5b9cb1b`).
+- [x] **1.6.1** — Kelola failure count turns red; Plugin stays lit on plugin
+  settings (`0e1c87d`).
+- [x] **1.6.2** — Receiver score retries a stored refusal at any age; the
+  refusal names its key (`ff9cc5f`).
+- [x] **1.6.3** — CRM templates name variant, quantity and unit price; real
+  strike price only; scheduler heartbeat (`29c884f`).
+- [x] **1.6.4** — `/thanks` hands a middle-form COD order to WhatsApp; clearer
+  buyer-number note (`8a6baf3`).
+- [x] **1.6.5** — HTTP to HTTPS in the Worker; `PUBLIC_ALIAS_HOSTS` sends older
+  domains to the canonical one (`13157d5`).
+- [x] **1.7.0** — Two-minute edge cache for anonymous storefront HTML; Inter
+  preloaded (`a1ae4fd`).
+- [x] **1.7.1** — Inter latin faces use `font-display: optional` (`905b9a9`).
+- [x] **1.7.2** — Inter declared only as optional faces, so no swap face can
+  reflow text (`4ae3ebf`).
+- [x] **1.7.3** — Uploaded images kept a day in the Workers cache, answered
+  before D1 and R2 (`01dc44d`).
+- [x] **1.7.4** — Product and landing pages cached per province in the Workers
+  Cache API (`eac81ac`).
+- [x] **1.7.5** — Optional store brand mark in the header (`a14b08a`).
+- [x] **1.7.6** — No dangling separator in the home h1 and brand title
+  (`4837478`).
+- [x] **1.7.7** — Optional store-wide noindex via `PUBLIC_SITE_NOINDEX`
+  (`f42b627`).
+- [x] **1.7.8** — Never host-redirect a bare IP address (`9df9fb4`).
+- [x] **1.7.9** — COD city fallback on a failed estimate; clearer transfer
+  options (`b3ff8cd`).
+- [x] **1.7.10** — Gates report install drift and owe a courier in setup
+  (`86a0fb5`).
+- [x] **1.7.11** — Storefront runs beside D1 and reads the catalogue once per
+  request (`ca7331d`).
+- [x] **1.7.12** — Canonical-elsewhere landing slugs kept out of the sitemap;
+  the store named once in titles (`69999a2`, BUILD-LOG 181).
+- [x] **1.7.13** — "Transfer Diterima" confirms a manual transfer and sends its
+  Meta Purchase (`8849a28`, BUILD-LOG 183).
+- [ ] **A-421** — A void order never sends a Purchase. **Built 2026-10-29
+  (uncommitted, a35). Exception, approved by Paduka 2026-10-29** (protected:
+  `paid-order-purchase.ts`, `order-lifecycle.ts`,
+  `src/pages/api/admin/orders/[id].ts`). 1.7.13 let a manual-transfer order
+  whose shipping was cancelled or returned be marked paid and enqueue a Meta
+  Purchase. `isVoidOrder()` in `order-lifecycle.ts` (the admin guard's own
+  expression) now gates `enqueuePurchaseForPaidOrder`, read after the edit is
+  saved; "Transfer Diterima" hides for a void order. Marking it paid stays
+  allowed, since the money arrived and must be refunded. Test:
+  `paid-order-purchase.test.ts` "a paid but void order never enqueues a
+  Purchase" (its mock returns only the columns the query names, so dropping
+  one from the SELECT fails it; mutation-checked). Open: browser evidence;
+  release entry.
+
+## Protected surfaces for A35–A43 — read before any of those tasks
+
+Ad tracking, the three order forms, and the order flow and its processing are
+working and are **not** in scope for A35–A43. Every task below is held to this
+list; a task that cannot be done inside it stops and asks first. The only
+planned edits to it are the tasks marked **Exception** (A42, A43), each
+approved by Paduka on its own, and each held to the same gate.
+
+**Untouched — no edit, no reformat, no import change:**
+
+- Tracking: `src/components/storefront/tracking/*`, `meta-*.ts`,
+  `capi-outbox.ts`, `google-ads-offline.ts`, `paid-order-purchase.ts`,
+  `click-ids.ts`, `traffic-source.ts`, `meta-purchase-order.ts`.
+- Forms: `src/scripts/form-hybrid.ts`, `form-middle.ts`,
+  `src/components/storefront/forms/*`, `form-config.ts`, `form-mode.ts`,
+  `geo.ts`, `checkout-navigation.ts`.
+- Order flow and processing: `src/pages/api/submit-order.ts`,
+  `submit-middle-order.ts`, `src/pages/api/v1/checkout.ts`, `persistOrder` and
+  every order statement in `order-persistence.ts`, `order-lifecycle.ts`,
+  `order-status*.ts`, `order-schema.ts`, `mengantar-*.ts`, `autolaris-*.ts`,
+  the location and shipping-quote modules, `src/pages/api/admin/orders/*`.
+
+**Allowed, and only this much:**
+
+| Task | File | The whole change |
+| --- | --- | --- |
+| A-334 | `src/pages/thanks.astro` | The support number becomes a list and the module script picks one. `MetaThanksTracker`, `ps:purchase-done`, the redirect timing and the message stay byte-identical. |
+| A-344 | `src/pages/api/record-abandoned-order.ts` and the abandoned-lead upsert in `order-persistence.ts` | One bound `source_page_path` value read from `Referer`. The converted-lead and order statements are not edited. |
+| A-346 | `OrdersTable.tsx`, `AbandonedOrders.tsx` and their list APIs | A display chip and a read filter. No status, release or bulk action is edited. |
+| A-368 | `src/worker.ts` `scheduled()` | One snapshot write appended after the alert evaluation, inside the existing `housekeeping()` isolation. The CAPI drain, Google reconcile, payment reconciliation, plugins and receiver-score steps are untouched and keep their order. |
+
+**Gate on every task:**
+
+1. `git diff --name-only` lists no untouched file, and an allowed file's diff is
+   no larger than its row above.
+2. These suites pass unchanged, with no test edited to make them pass: every
+   `meta-*`, `capi-outbox`, `google-ads-offline`, `paid-order-purchase`,
+   `checkout-*`, `form-*`, `order-*`, `headless-checkout`, `mengantar-*` and
+   `thanks-whatsapp` test. Then the full `npm test`, `npm run check` and
+   `npm run build`.
+3. The A-338 and A-339 findings are reports. A change to a protected file is a
+   separate proposal, one finding at a time, made only on Paduka's approval.
+
+## A35 — Rotate the support WhatsApp number on the thank-you page
+
+Proposed 2026-10-29. Scope is `/thanks` only (PRD A35). Order: A-330 → A-332 →
+A-333 → A-334 can run before the admin screen; A-335 and A-336 follow A-331.
+
+- [ ] **A-330** — Measure first: time the order-form submit (`/api/submit-*-order`
+  and what the buyer waits on after the click) and read the Mengantar kecamatan
+  path (`/api/locations`, `/address/search`, the exact-district estimate). Record
+  numbers, not impressions; list anything awaited that the buyer does not need.
+  -> REQ: REQ-190 · deps: [] · Done when: a written before-figure for submit
+  latency (local and one live read-only GET at most) and a list of awaited work,
+  with no provider write and no remote D1 command.
+- [x] **A-331** — **Done 2026-10-29** (uncommitted in the worktree):
+  `0067_whatsapp_numbers.sql`, `src/lib/whatsapp-numbers.ts`, and
+  `CMS_VERSION.schemaVersion` 68. The cap and the last-active rule are part of
+  the writing SQL statement, so concurrent admins cannot both pass a check.
+  `whatsapp-numbers.test.ts` (7 tests, real SQLite with the migration) covers
+  the seed, each refusal and the mirror. Not yet run on local D1 under wrangler.
+  Migration `0067` creates `whatsapp_numbers` (id, label, phone,
+  is_active, created_at; unique on phone) and seeds one row from
+  `stores.support_whatsapp` where it is set. Add `src/lib/whatsapp-numbers.ts`
+  (list, add, update, remove; normalize to `62…`; reject unusable, duplicate, an
+  11th number, and removing or deactivating the last active one; sync the
+  `stores.support_whatsapp` mirror to the first active number).
+  -> REQ: REQ-184, REQ-185, REQ-189 · deps: [] · Done when: the migration applies
+  to an empty local D1 and to one holding a store number (one seeded row), and
+  focused tests prove each refusal and that the mirror follows the first active.
+- [x] **A-332** — **Done 2026-10-29.** FNV-1a over the order number. Measured
+  over INV-10001..INV-11000: 50.1/49.9 for two numbers, 34.1/32.4/33.5 for three,
+  25.0 each for four; the test allows three points.
+  Add the pure picker `pickThanksWhatsapp(numbers, orderNumber,
+  random)` to `thanks-whatsapp.ts`: filter numbers `thanksWhatsappUrl` rejects,
+  `fnv1a(orderNumber) mod n`, random only when there is no order number, null for
+  an empty list.
+  -> REQ: REQ-186, REQ-187 · deps: [] · Done when: tests prove 1 number → always
+  it, the same order → the same number, 2 and 3 numbers over 1,000 sequential
+  invoices land inside the measured tolerance around 50% and 33.3%, and an
+  unusable number is never returned.
+- [x] **A-333** — **Done 2026-10-29.** `getThanksWhatsappSettings` returns `{ phones, autoRedirect }` from `activeThanksNumbers` (legacy `support_whatsapp` fallback covered in `whatsapp-numbers.test.ts`).
+  `getThanksWhatsappSettings` returns the active, usable numbers
+  (falling back to `support_whatsapp` for an empty list) instead of one phone;
+  `thanks.astro` is its only caller.
+  -> REQ: REQ-185, REQ-189 · deps: [A-331] · Done when: `public-store.test.ts`
+  proves the list, the fallback, and a store with no number returning an empty
+  list.
+- [x] **A-334** — **Done 2026-10-29.** `thanks.astro` diff is 18 lines, all in the number hand-off; `MetaThanksTracker`, `ps:purchase-done`, the timing and the message are untouched (68 thanks, tracking and WhatsApp tests pass). Playwright on a local store with two active numbers: INV-10001/3/5 → 0898…, INV-10002/4/6 → 0812…, each stable across a reload, the invoice in every message, a deactivated third number never picked.
+  `/thanks` ships the list and picks per order in the module
+  script; the button and the automatic hand-off both use the pick. The inline
+  `data-phone` single value is removed.
+  -> REQ: REQ-186, REQ-187, REQ-188 · deps: [A-332, A-333] · Done when: browser
+  evidence with two numbers shows two different orders landing on different
+  numbers, a reload keeping the same one, and the COD hand-off URL carrying the
+  picked number; with one number the page is identical to PRD A28. Closes the
+  browser-evidence half of A-325.
+- [x] **A-335** — **Done 2026-10-29.** `api/admin/whatsapp-numbers.ts`; `ADMIN_API_ROUTES` and `ADMIN_PAGE_ROUTES` entries; `auth.test.ts` proves owner and admin in, advertiser and customer service out.
+  `/api/admin/whatsapp-numbers` (GET, POST, PATCH, DELETE),
+  for owner and admin only. Owner passes every route; admin is held to explicit
+  lists, so add the endpoint to `ADMIN_API_ROUTES` and the page
+  `/admin/settings/whatsapp` to `ADMIN_PAGE_ROUTES` in `auth.ts`. Advertiser and
+  customer service get neither.
+  -> REQ: REQ-184, REQ-185 · deps: [A-331] · Done when: tests prove owner and
+  admin reach both, advertiser and customer service get 403 on both, every
+  refusal from A-331 reaches the client
+  as a stated 4xx, and no response carries anything but label, number, state.
+- [x] **A-336** — **Done 2026-10-29.** `WhatsappNumbers.tsx` + `/admin/settings/whatsapp`. One responsive list (rows wrap on a phone) instead of a separate table and cards. Playwright: add, the browser-side phone refusal, the last-active guard (server 409 text), 3 active → "±33,3%", no overflow at 390 and 1280 px. Edit and delete through the UI not yet clicked in the evidence run.
+  The page `/admin/settings/whatsapp` ("Nomor WhatsApp CS"), on
+  `AdminLayout` + `AdminPageHeader` (back to Pengaturan), one React island
+  modelled on `SellerBankAccounts.tsx`:
+  - header line: "2 nomor aktif · tiap nomor ±50% order COD" (1 → "semua
+    order", 3 → "±33,3%"), and a note that the split is per order, not an
+    alternation;
+  - list (table at `md`, cards below): label, number shown as `0812-…`,
+    active switch, share for active rows, edit and delete with `useConfirm`;
+  - add form: label (optional, 60) and number, both validated in the browser
+    with the server's messages; the add button disabled at 10 with the reason;
+  - the last-active guard shown as the server's 409 text, never as a silent
+    no-op; loading skeleton, empty state ("Belum ada nomor — tambahkan nomor
+    CS pertama"), and an error state.
+  Controls follow DESIGN-SYSTEM §7.1 (shadcn primitives, `FilterBar` rules).
+  -> REQ: REQ-184, REQ-185, REQ-186 · deps: [A-335] · Done when: browser
+  evidence at 390px and 1280px proves add, edit, deactivate, delete, the share
+  text for 1, 2 and 3 numbers, the 10-number limit, the guard message, no
+  horizontal overflow and an empty console; `admin-controls.test.ts` and
+  `admin-page-width.test.ts` pass.
+- [x] **A-399** — **Done 2026-10-29.** Pengaturan child "Nomor WhatsApp", palette keywords, and a card on `/admin/settings`; route map 117 routes.
+  Navigation: a "Nomor WhatsApp" child under Pengaturan in
+  `admin-navigation.ts` (after "Toko & CS"), command-palette keywords
+  (whatsapp, wa, cs, rotator, nomor), shown to owner and admin only, and a card
+  on `/admin/settings`. `npm run route-map` after the page exists.
+  -> REQ: REQ-184 · deps: [A-336] · Done when: the item opens the page for owner
+  and admin, is absent for advertiser and customer service, and the route-map
+  drift test passes.
+- [x] **A-400** — **Done 2026-10-29.** The store form shows the first active number read-only with a link; the save no longer validates or writes `support_whatsapp` (`tenant.test.ts`).
+  Settings → Store: the "WhatsApp customer service" input
+  becomes a read-only line showing the first active number with a link
+  "Kelola nomor WhatsApp"; the PRD A28 redirect switch stays. The store PUT
+  in `api/admin/settings.ts` no longer requires `support_whatsapp` and never
+  writes it (only `whatsapp-numbers.ts` does).
+  -> REQ: REQ-189 · deps: [A-336] · Done when: a test proves saving the store
+  without the field keeps `support_whatsapp` and the list unchanged; browser
+  evidence shows the line and the link; saving store settings still works for
+  every other field.
+- [ ] **A-401** — Release: version and changelog entry per `RELEASE.md`
+  (schema 68, migration `0067`), `STATUS.md`, and the A-340 close-out.
+  -> REQ: REQ-184 … REQ-189 · deps: [A-334, A-336, A-337, A-399, A-400] · Done
+  when: the release notes name the migration and the Settings → Store change.
+- [x] **A-337** — **Done 2026-10-29.** The install batch adds the number into an empty list; `install.test.ts` proves the seeded row and the empty list (real SQLite). `dev:seed` installed with it end to end.
+  The installer inserts its number as the first
+  `whatsapp_numbers` row, and an install given no number leaves the list empty.
+  -> REQ: REQ-189 · deps: [A-331] · Done when: an `install.test.ts` case proves
+  both, and the admin page opens empty without error.
+- [ ] **A-338** — Report on submit speed; change nothing. From A-330, list each
+  thing the buyer waits on that it need not (work that could move to
+  `waitUntil`, sequential D1 reads that could be one `batch`, a provider call
+  on the buyer's path), each with its measured cost, the file it lives in, and
+  the risk of changing it. The submit routes and `order-persistence.ts` are
+  protected surfaces.
+  -> REQ: REQ-190 · deps: [A-330] · Done when: the report is written in this
+  task's entry and no file outside `TASKS.md` changed. Any fix becomes its own
+  task, approved by Paduka one at a time.
+- [ ] **A-339** — Prove the Mengantar kecamatan path; change nothing. Run the
+  local district and location tests first; then only read-only provider calls
+  (`/address/search` and a rate estimate), after Paduka approves the live call,
+  for a sample of kecamatan that share a name across cities and for a plain one.
+  -> REQ: REQ-190 · deps: [A-330] · Done when: each sampled kecamatan is recorded
+  as resolved to a `destination_area_id` or failing with its reason, the
+  exact-district estimate (1.7.9) is exercised, nothing is dispatched or created
+  at the provider, and no source file changed. A failure becomes a proposed fix
+  (district + city resolution, `buildProviderDestinationSearches`), approved
+  separately.
+- [ ] **A-340** — Close out: `npm run route-map`, a short mention in
+  `ARCHITECTURE.md`, version and changelog per `RELEASE.md`, `STATUS.md`.
+  -> REQ: REQ-184 … REQ-189 · deps: [A-334, A-336, A-337, A-399, A-400, A-401] · Done when:
+  `npm test` (≥ 833 plus the new checks), `npm run check` and `npm run build`
+  pass and the doc headers cite the commit they were checked at. The rotator
+  does not wait on A-338 or A-339: those ship on their own, and A-339 waits on
+  an approval the rotator does not need.
+
+## A36 — Know where a lead came from
+
+Proposed 2026-10-29. Prerequisite of A37. Migration numbers are provisional
+(`0067` is A35's): take the next free one at merge.
+
+- [x] **A-341** — Pure `sourceSlugFromPath(path)` (lower-case, strip query, hash
+  and trailing slash, last segment, ≤ 80 chars, `/` → `beranda`, nothing usable →
+  null) in `src/lib/source-slug.ts`.
+  -> REQ: REQ-191 · deps: [] · Done when: tests cover `/promo-a`, `/produk/x`,
+  `/PROMO/`, `/a?utm=1#h`, `/`, an empty string, a 500-character path, and an
+  encoded or non-ASCII segment.
+  **Done 2026-10-29:** `source-slug.ts`; "sourceSlugFromPath covers every
+  A-341 shape" in `source-slug.test.ts`.
+- [x] **A-342** — Migration adds `orders.source_slug` as
+  `GENERATED ALWAYS AS (…) VIRTUAL` over `source_page_path`, plus
+  `INDEX (source_slug, created_at)`, then `PRAGMA optimize` (D1 recommends it
+  after creating an index; PRD A40 E7). No backfill and no write path: SQLite
+  computes it for every row. Proven in plain SQLite on 2026-10-29 (`/Promo-A/` →
+  `promo-a`, `/produk/kopi` → `kopi`, `/` → `beranda`, NULL → NULL, index used
+  for `=`); D1 is not yet proven.
+  -> REQ: REQ-191, REQ-193 · deps: [A-341] · Done when: it applies to an empty
+  local D1 and to a copy holding paths of every shape in A-341, the column reads
+  correctly on old rows, `EXPLAIN QUERY PLAN` shows the index, and a test feeds
+  the same paths through the SQL and the function and gets equal results. If
+  local D1 refuses a generated column, stop and bring the alternative to Paduka;
+  do not fall back to editing the order write path.
+  **Done 2026-10-29** as `0068_order_source_slug.sql`. **Local D1 result:**
+  the chain `0000`–`0067` applied to an empty local D1 (workerd through
+  wrangler's `getPlatformProxy`, never `--remote`) via `ensureSchemaUpgraded`,
+  six orders of every A-341 shape seeded, then `0068` applied in the Worker's
+  own claim-plus-statements `batch` — `ALTER TABLE … ADD … GENERATED ALWAYS AS
+  (…) VIRTUAL`, the index and `PRAGMA optimize` all accepted, claim row
+  written (`upgraded: 1`). The pre-existing rows read `/kopi` → `kopi`,
+  `/produk/kopi/` → `kopi`, `/lp/Promo-Kopi?utm=fb#x` → `promo-kopi`,
+  `/` → `beranda`, NULL and `''` → NULL; `table_xinfo` shows `hidden = 2`
+  (virtual); `EXPLAIN QUERY PLAN` is `SEARCH orders USING INDEX
+  idx_orders_source_slug_created (source_slug=? AND created_at>?)`. SQL and
+  function agree in "the generated column and the function agree on every
+  path, old rows included". No migration change was needed. **Not proven:**
+  remote D1 (its statement allowlist may differ from workerd's local SQLite);
+  the first install that deploys it is the proof.
+- [x] **A-343** — Dropped 2026-10-29: the generated column (A-342) gives every
+  order its slug without touching `persistOrder` or the submit routes.
+- [x] **A-344** — Capture the source on a lead without touching the forms.
+  `/api/record-abandoned-order` reads the page from the `Referer` header (the
+  form's `fetch` is same-origin and the store sends
+  `Referrer-Policy: strict-origin-when-cross-origin`, so it carries the full
+  URL), keeps its pathname clipped to 500 characters, and passes it to the
+  abandoned-lead insert; the 2-hour repeat keeps the first value
+  (`COALESCE(source_page_path, ?)`). Form scripts and the converted-lead and
+  order statements are not edited.
+  -> REQ: REQ-192 · deps: [A-342] · Done when: tests prove a captured lead has a
+  slug, a missing or foreign-origin `Referer` stores null, a repeat capture
+  inside two hours keeps the first page, conversion still leaves the order with
+  the submit page's path, and `git diff` shows `form-hybrid.ts` and
+  `form-middle.ts` unchanged.
+  **Done 2026-10-29:** `sourcePathFromReferer`, the `COALESCE` repeat in
+  `recordAbandonedOrder`; four tests in `source-slug.test.ts`; both form
+  scripts unchanged in `git status`.
+- [x] **A-345** — Resolve a slug to a label: CMS landing title, native page name,
+  product name, else the slug. One batched read, reused by the lists and A37.
+  -> REQ: REQ-195 · deps: [A-342] · Done when: tests prove each kind, a product
+  page that a landing has claimed showing one name, and an unknown slug falling
+  back to itself.
+  **Done 2026-10-29:** `resolveSourceLabels` (one `sourceLabelsStatement`
+  read); the labels test in `source-slug.test.ts`. **Deliberate collision:**
+  the slug is the last segment, so `/produk/kopi` and a landing at `/kopi` are
+  one source, `kopi`; the label resolves it (landing title, then native page,
+  then product title, then the slug). See `ARCHITECTURE.md` §4,
+  "`orders.source_slug`".
+- [x] **A-346** — Show and filter the source in the order list and the
+  abandoned-lead list. The slug is a chip beside the existing
+  `TrafficSourceBadge` (≤ 16 characters, the full path in `title`), not a new
+  column; a filter built from `FilterBar`/`FilterField` lists the present slugs
+  by frequency, and the API parameter sits behind it.
+  -> REQ: REQ-194, REQ-196 · deps: [A-342, A-345] · Done when: tests prove the
+  filter and an unknown slug returning no rows rather than all; browser evidence
+  at 390px and 1280px shows the chip, the filter, the table's width unchanged and
+  a phone card without a chip unchanged (a card with one may wrap the chip to
+  its own line — Paduka 2026-10-29: readable over one-line), no overflow, and `admin-controls.test.ts` still
+  passing.
+  **Built 2026-10-29:** `SourceSlugChip`, the source filter on `OrdersTable`
+  and `AbandonedOrders` (both rows now `FilterBar`/`FilterField`; the
+  abandoned-lead row was a hand-built label/div until the review), the
+  `source_slug` / `source_options` API parameters; "the order and lead lists
+  filter by source; an unknown slug returns no rows, not all" and
+  `admin-controls.test.ts` pass. **Browser evidence 2026-10-29 (local dev,
+  `scratchpad/evidence/s1/`, script `pw/s1-admin.mjs`, 52/55 checks):** real
+  data from the storefront — a partial fill on `/contoh-landing` and
+  `/produk/madu-hutan-dummy` recorded leads with the page from `Referer`
+  (`a344-lead-partial-form-*-390.png`); COD orders from
+  `/produk/kaos-katun-dummy` and `/full-form` (`a346-order-thanks-full-form-390.png`).
+  Passing at 390 and 1280: chip with label and full path in `title`, ≤ 16
+  characters, seeded rows without a source show none (`a346-orders-chip-*`,
+  `a346-leads-chip-*`); options by frequency plus "(tidak tercatat)"
+  (`a346-*-filter-open-*`); a slug filter returns only its rows
+  (`a346-orders-filtered-kaos-*`, `a346-leads-filtered-madu-*`); none
+  returns the 12 sourceless orders and the empty state on leads
+  (`a346-*-filtered-none-*`); an unknown slug returns 0 rows, not all
+  (`a346-*-unknown-slug-*`); no page overflow; phone-card badge row 22px with
+  and without the chip; leads list console clean. **Not met, so not ticked:**
+  (1) at 1280 the chip widens the order table's invoice column 180 → 296px
+  (table 1363 → 1479px inside its scroll wrapper) — the table width is not
+  unchanged; (2) `/admin/orders?source_slug=<any>` throws React #418 (hydration
+  text mismatch): the island is server-rendered with "Semua halaman" while the
+  `useState` initializer reads `window.location`; the leads list (no SSR) is
+  clean. Also seen: on a 390px order card the chip shrinks to one letter
+  ("K…") beside the RTS badge.
+  **Fixed and done 2026-10-29** (`pw/s1-hyd-fixed.mjs`, `pw/s1-admin-fixed.mjs`,
+  54/54, `*-fixed` screenshots): both islands take `initialQuery` from
+  `Astro.url.search`, so no `useState` reads `window.location` (test in
+  `admin-islands-render.test.ts`, mutation-checked; `?search=`/`?status=` had
+  the same mismatch and are fixed with it); no console error with any
+  `source_slug`; at 1280 the table stays 1363px and the invoice column 180px
+  with or without chips; the chip reads in full and wraps to its own line when
+  it does not fit (card 574 → 600px only when a chip is present).
+- [x] **A-347** — Channel split, read-only. `traffic-source.ts` is a protected
+  surface, so it is called, not edited: a new `src/lib/ad-channel.ts` maps
+  `parseTrafficSource(ad_click_ids)` to a plain channel (meta, google, tiktok,
+  other paid, organic, direct). Check which keys of `CLICK_ID_KEYS` end up in
+  `ad_click_ids`, and write the SQL `CASE` the aggregation needs to match it.
+  -> REQ: REQ-203 · deps: [] · Done when: tests cover each channel from a real
+  stored value, a malformed value and null, and the SQL `CASE` and the function
+  agree on every one; the stored shape is written into the function's header
+  comment.
+  **Done 2026-10-29:** `ad-channel.ts` + `ad-channel.test.ts` (each channel,
+  malformed, null; SQL `CASE` agreement); `traffic-source.ts` unchanged.
+
+## A37 — Analytics: which landing page wins, what sells, and where
+
+Backend resumed and verified 2026-10-30 in `feat/s1-a36-a38`; A-357–A-362
+screens/close-out and A38 remain open. Evidence: `scratchpad/evidence/analytics-resume/`
+(ignored local logs); reproducible commands and figures live in PRD A37 and
+`scripts/measure-insights.ts`. Full suite: 1024 passing, check/build pass.
+No protected order, tracking or form module was changed. Existing uncommitted
+backend work was preserved and completed, not replaced.
+
+A-348 establishes the fixed-fixture budget; A-362 must verify finished screens.
+
+Code review 2026-10-30 (working tree, high): ten findings, all addressed.
+Province drill-down sends the row key, so an empty or unmatched province opens;
+non-JSON error bodies keep the 401/403/5xx states; a follow-up 409 reloads the
+stage list; a URL `source`/`product_id` on a screen without that control is shown
+as "Filter aktif" and kept on Apply; the period reaches Analitik links on
+pointerdown/focus as well as click, and the palette uses `withInsightsPeriod`;
+shared constants replace literals; the follow-up route reuses `orderRowSql()` and
+answers 404 for an order that vanishes mid-save; both layout instances of an
+order's follow-up stay in step. Closing rate keeps every lead in the denominator
+(PRD amended). Suite 1039/1039, check 0/0/0, build. Browser on the 8795 demo at
+1366/390px: drill-down, filter chip, sidebar/palette period, 401/403/502 states,
+follow-up save sync and 409 recovery. Not browser-proven: an empty-province row
+(no such row in the demo data; covered by `insights.test.ts`).
+
+UI checkpoint 2026-10-30: 1033 tests pass, check 521 files with zero
+errors/warnings/hints, build passes. Evidence: `scratchpad/evidence/analytics-ui/`.
+Independent attached-source review accepted code fixes; no visual approval.
+Native browser tool failed `missing-binary` (`agent-browser` not on PATH), and
+`pi-agent-browser-doctor` is also absent. No browser package installed, no
+alternate unaudited browser harness used. Geometry and visual/interaction checks
+are UNVERIFIED. Local dev server started on 8795 and was stopped by its own
+process group; no seed, credential read or live mutation was performed.
+
+- [ ] **A-348** — **Measured 2026-10-30; pending the explicitly required Git commit.**
+  Ephemeral local D1: 20,000 orders / 27,000 items / 40 sources / 30 products /
+  300 cities. Real rows-read, elapsed times, indexed range plans, covering-index
+  experiment and runnable ceilings recorded in PRD A37. Script is present but
+  uncommitted; no commit was authorized. Seed a realistic local D1 (≥ 20,000 orders over 90 days, 40
+  slugs, 30 products, 300 cities) and measure `meta.rows_read` and time for the
+  queries the dashboard runs today. Every new A37 or A38 query is checked
+  with `EXPLAIN QUERY PLAN`: no `SCAN orders` and no `USE TEMP B-TREE` where an
+  index could serve, with a covering index tried before a plan is accepted
+  (PRD A40 E2). Write the figure and the budget (a ceiling of
+  rows read per screen) into the PRD's A37 technical decisions.
+  -> REQ: REQ-198, REQ-208 · deps: [] · Done when: the figures are recorded, the
+  seed script is committed under `scripts/` and never touches a remote database.
+- [x] **A-349** — **Done locally 2026-10-30.** Shared `order-metrics.ts` imported
+  by dashboard and insights; `admin-analytics.test.ts` unchanged and green.
+  Protected lifecycle keeps its own equivalent write predicate, checked by test.
+  Move `RELEASED_ORDER` and the "abandoned is a lead" rule out of
+  `api/admin/analytics.ts` into one `src/lib` module and import it there.
+  -> REQ: REQ-206 · deps: [] · Done when: `admin-analytics.test.ts` is unchanged
+  and green, and a grep finds the expression in one place.
+- [x] **A-350** — **Done locally 2026-10-30.** Existing parser reused; 90-day,
+  missing/inverted range, zero-fill, prior period and Jakarta boundary tests pass.
+  Shared period handling for the new routes: required start and
+  end, 90-day ceiling with a stated 400, the dashboard's `'+7 hours'` expression,
+  zero-filled day series. Reuse `admin-date-filter.ts`; add no second parser.
+  -> REQ: REQ-198 · deps: [A-349] · Done when: tests prove a missing end, an
+  inverted range, a 91-day range and a valid one, and a day with no orders
+  returned as zero.
+- [x] **A-351** — **Done locally 2026-10-30.** Hand-checked ranking/funnel,
+  aggregates-only response and local D1 fixture budget pass. Response is no-store,
+  matching admin middleware; PRD corrected rather than weakening session policy.
+  Landing ranking: `GET /api/admin/insights/landing` returns, per
+  source, leads, orders, revenue, average order value, closing rate, delivered
+  and return share and channel split, in one `D1.batch`, labels joined, with a
+  `(tidak tercatat)` row and the default sort on delivered revenue.
+  -> REQ: REQ-199, REQ-203, REQ-205, REQ-206, REQ-207 · deps: [A-344, A-345,
+  A-347, A-350] · Done when: tests on a seeded fixture prove the arithmetic by
+  hand (including a page with many orders that all returned ranking below a
+  smaller page that was delivered), leads counted per source, no personal field
+  in the response, and `rows_read` under the A-348 ceiling. Role access is
+  A-356's.
+- [x] **A-352** — **Done locally 2026-10-30.** Source totals, product revenue,
+  zero-filled days and previous-period arithmetic pass. Trend: `GET /api/admin/insights/trend` returns daily orders,
+  leads and revenue for the period, optionally for one source or product, plus
+  the previous period's total.
+  -> REQ: REQ-200 · deps: [A-350] · Done when: tests prove zero-filled days, the
+  filtered series summing to the unfiltered total across all sources, and the
+  previous period being the same length ending the day before.
+- [x] **A-353** — **Done locally 2026-10-30.** Line arithmetic and released-order
+  exclusions pass. Legacy orphan test first proves normal FK rejection, then
+  simulates an old import only in disposable SQLite; schema stays unchanged.
+  Product ranking: `GET /api/admin/insights/products` returns
+  units, revenue, variant split and return share per product (`order_items` ⋈
+  `product_variants`), live orders only.
+  -> REQ: REQ-201, REQ-206 · deps: [A-350] · Done when: tests prove units × price
+  equals revenue on a fixture, a released order excluded, and a deleted variant
+  not failing the query.
+- [x] **A-354** — **Done locally 2026-10-30.** Top-N + Lainnya totals, unknown
+  aliases and hostile province input pass; city label is stable across row order.
+  Location ranking: `GET /api/admin/insights/locations` returns
+  provinces, then a province's cities on request, top 20 and top 50 plus
+  `Lainnya`, each with orders, revenue and return share.
+  -> REQ: REQ-202 · deps: [A-350] · Done when: tests prove the cut-off and that
+  `Lainnya` makes the total equal the unfiltered total; the city param is bound,
+  never interpolated; and a province spelled two ways in old rows is reported
+  (the finding recorded, merged only if the catalogue defines the alias).
+- [x] **A-355** — **Done locally 2026-10-30.** Sunday/Monday WIB boundaries,
+  7×24 zero cells and landing follow-up aggregates pass. Order time heatmap: `GET /api/admin/insights/times` returns
+  orders by weekday × hour in Asia/Jakarta, and the lead follow-up funnel is
+  folded into A-351's response.
+  -> REQ: REQ-204, REQ-205 · deps: [A-350] · Done when: tests prove an order at
+  Sunday 23:30 WIB (16:30 UTC) lands in Sunday 23:00, and one at Monday 00:10 WIB
+  (Sunday 17:10 UTC) lands in Monday 00:00.
+- [x] **A-356** — **Done locally 2026-10-30.** Real request-gate tests admit
+  owner/admin/advertiser and refuse customer service for every insights endpoint;
+  dashboard access is unchanged. Page-policy tests pass; pages await A-357.
+  Route policy in `auth.ts`: add `/api/admin/insights` to
+  `ADMIN_API_ROUTES` and the advertiser API list, and `/admin/analytics` to
+  `ADMIN_PAGE_ROUTES` and the advertiser page list. Only owner passes by
+  default; admin is held to its lists. Customer service gets neither. Do not put
+  the endpoints under `/api/admin/analytics`: `matchesRoute` is a prefix match
+  and customer service holds that entry.
+  -> REQ: REQ-207 · deps: [A-351] · Done when: the policy tests prove owner, admin
+  and advertiser reach every `/api/admin/insights/*` path and `/admin/analytics`,
+  customer service gets 403 on all of them, and the dashboard's own
+  `/api/admin/analytics` access is unchanged for every role.
+- [ ] **A-357** — **Implemented, browser acceptance in progress 2026-10-30.** Five
+  Astro routes and Analitik sidebar children; owner/admin/advertiser only. Shared
+  period picker, explicit Apply, applied-period label, source/product/channel
+  choices, source-to-order links and page-width guard. URL helper tests pass;
+  Owner browser proof now covers explicit Apply and seven-day period persistence
+  from Ringkasan to Lokasi, plus keyboard province drill-down. Full role/menu
+  acceptance remains open.
+  Navigation and shell: an **Analitik** item in
+  `admin-navigation.ts` with children (Ringkasan, Landing page, Produk, Lokasi,
+  Waktu beli), one `/admin/analytics/*` page each on `AdminLayout`,
+  `AdminPageHeader`, the shared period control, no page-level width of its own.
+  -> REQ: REQ-197, REQ-198, REQ-208 · deps: [A-350] · Done when: the menu item
+  opens each page, the period survives switching screens, the limits notice
+  (REQ-208) is on every page, and `admin-page-width.test.ts` still passes.
+- [ ] **A-358** — **Implemented, browser acceptance in progress 2026-10-30.** Numeric
+  sorting, delivered-revenue default, phone cards, desktop table, closing bars,
+  expandable channel/follow-up counts and role-gated source links. SSR test
+  covers populated and empty rows. Browser captures cover phone cards and desktop
+  table; the table now has a named focusable scroll region, with ArrowRight
+  movement verified at 1280px. Multi-row sorting and source deep links remain open.
+  Landing screen: a sortable table (delivered revenue default)
+  with a closing-rate bar, a channel mini-split, the `(tidak tercatat)` row, and
+  a link to the order list filtered by that source (A-346).
+  -> REQ: REQ-199, REQ-203 · deps: [A-351, A-357] · Done when: browser evidence at
+  390px (cards) and 1280px (table) shows sorting, the link, an empty state and no
+  overflow; the console is empty.
+- [ ] **A-359** — **Partial 2026-10-30.** Lazy trend chart with metric selector,
+  previous total and accessible daily table; failed chart import degrades to a
+  reload action while the data table remains. Product summaries expand variant
+  tables. Desktop product ranking is now a table; phone retains cards. Native
+  keyboard expansion, empty/reset, and injected network failure/retry with period
+  preserved pass in-browser. Tooltip/network lazy-load proof remains open. Trend and product screens: a daily chart with the previous
+  period beside it, a source or product selector, and the product table with
+  variant split. Lazy island per screen.
+  -> REQ: REQ-200, REQ-201 · deps: [A-352, A-353, A-357] · Done when: browser
+  evidence shows the chart, the selector changing it, tooltips, the empty state
+  and both widths; the network panel shows the chart code loading only on these
+  screens.
+- [ ] **A-360** — **Implemented, browser acceptance in progress 2026-10-30.** Province
+  to city drill-down, Lainnya, stated 20% RTS attention threshold and numeric
+  7×24 heatmap. Keyboard province-to-city drill-down is verified; heatmap theme
+  and keyboard/scroll acceptance remain open.
+  Location and time screens: province table opening to cities,
+  return share highlighted above a stated threshold, and the weekday × hour
+  heatmap with a legible scale in both themes.
+  -> REQ: REQ-202, REQ-204 · deps: [A-354, A-355, A-357] · Done when: browser
+  evidence at both widths proves drill-down, `Lainnya`, the heatmap in light and
+  dark, and keyboard reach for every control.
+- [x] **A-361** — **Verified locally 2026-10-30.** Shared InsightsReport island
+  renders loading/empty cases for all five reports and populated landing,
+  product, location and time data through the existing esbuild/SSR harness.
+  Chart remains lazy; its client rendering requires A-359 browser proof.
+  Island render safety: add each new data island to
+  `admin-islands-render.test.ts`, or keep the branch logic in `src/lib` where
+  the runner reaches it.
+  -> REQ: REQ-197 · deps: [A-358, A-359, A-360] · Done when: the render test fails
+  if an island throws on empty and on populated data.
+- [ ] **A-362** — **Partial 2026-10-30:** measurement rerun passes all eight
+  existing fixture budgets unchanged; five real handlers pass local D1 smoke.
+  Full suite 1033/1033, check 0/0/0, build, docs check and route-map generation
+  (131 routes) pass after desktop-product/keyboard-scroll refinement. Full screen
+  budget including selector reads, browser matrix and release closure remain.
+  Weight gate and close-out: re-run the A-348 measurement against
+  the finished screens, record the figures, `npm run route-map`, document the menu
+  in `ARCHITECTURE.md`, version and changelog per `RELEASE.md`.
+  -> REQ: REQ-198, REQ-208 · deps: [A-361] · Done when: every screen is under its
+  A-348 ceiling, `npm test` (≥ 833 plus the new checks), `npm run check` and
+  `npm run build` pass, and the doc headers cite the commit they were checked at.
+
+### Deferred — needs a decision before any task
+
+- **Visits and visit-to-order rate.** Not buildable honestly from D1 without a
+  write per visit. Options to weigh in an ADR when wanted: Workers Analytics
+  Engine, a sampled counter, or reading the ad platforms' own landing views.
+- **Customer repeat rate** (needs an index on `customer_phone`).
+- **Rollup table** (`analytics_daily`), only if A-362 shows a screen past its
+  ceiling on a real store.
+
+## A38 — Dashboard: best landing pages, best sellers and recent buyers
+
+Proposed 2026-10-29. **Cancelled 2026-10-31 by the owner** (PRD A38): Every panel repeats a screen the admin already has: Pembeli terbaru is the head of `/admin/orders`, and the landing-page and product rankings are Analitik.
+The unintegrated `recentBuyers` commit `d408b32` (branch `feat/s2-a39`) was
+discarded with it.
+
+- [x] **A-363** — **Cancelled 2026-10-31 with A38.** Recent buyers read: `recentBuyers(db, 8)` in `src/lib/` — the 8
+  latest non-abandoned orders, then their first items in one bound query, name
+  shortened to first name plus initial, no phone or address selected.
+  -> REQ: REQ-211 · deps: [] · Done when: tests prove leads are excluded, an order
+  with three items shows the first plus "+2", a one-word name, and that the
+  returned object has no phone, address or full-name field.
+- [x] **A-364** — **Cancelled 2026-10-31 with A38.** `GET /api/admin/dashboard-panels` returning only the sections
+  the role may see, from one `D1.batch`, landing and product via the A37 query
+  functions with `limit = 5`. Add it to `ADMIN_API_ROUTES` and to the advertiser
+  and customer-service API lists in `auth.ts`, and check the role per section in
+  the handler.
+  -> REQ: REQ-210, REQ-212, REQ-213 · deps: [A-351, A-353, A-363] · Done when:
+  tests prove owner and admin get three sections, advertiser two and customer
+  service one, a section outside the role is a 403 and not an empty list, and the
+  period parameter is capped at 31 days.
+- [x] **A-365** — **Cancelled 2026-10-31 with A38.** Draw the row: three equal panels under the trend and payment
+  mix, loaded after them, skeletons of final size, empty states, the "Lihat
+  semua" links carrying the period, rows linking to the order.
+  -> REQ: REQ-209, REQ-210, REQ-211, REQ-213, REQ-214 · deps: [A-364] · Done when:
+  browser evidence at 390px, 1024px and 1280px shows one, two and three columns,
+  equal heights, no layout shift when the row arrives, an empty store, each role,
+  and the KPI cards and chart painted before the row's request is sent.
+- [x] **A-366** — **Cancelled 2026-10-31 with A38.** Consistency check: the dashboard panel and its Analitik screen
+  agree for the same period and role.
+  -> REQ: REQ-215 · deps: [A-358, A-365] · Done when: a test or a recorded manual
+  comparison on a seeded store shows identical orders and revenue for the top 5
+  rows, including `(tidak tercatat)`.
+
+## A39 — Operational status beside the notification bell, with its own page
+
+Proposed 2026-10-29. Independent of A36 to A38; it can ship first.
+
+- [x] **A-367** — Migration `ops_health_snapshot` (single row) and
+  `src/lib/health-snapshot.ts`: write, read, and the staleness rule (older than
+  120 minutes reports the stalled state), plus a pure `statusIconState()` for the
+  precedence in REQ-217.
+  -> REQ: REQ-217, REQ-222 · deps: [] · Done when: the migration applies to an
+  empty local D1, and tests prove the precedence (degraded beats setup beats
+  healthy beats unknown), that "belum ada data" alone is not red, that a 3-hour-
+  old healthy snapshot reads as a problem, and that no row reads as neutral.
+  **Done 2026-10-29:** `0069_ops_health_snapshot.sql` (0068 until the A-419 renumber) applied to an empty
+  local D1 (workerd via `getPlatformProxy`, through `ensureSchemaUpgraded`'s
+  claim-plus-statements batch; `CHECK (id = 1)` enforced); precedence,
+  "belum ada data", 3-hour-stale and no-row tests in `health-snapshot.test.ts`.
+  Review fix: staleness is measured from `scheduler_ran_at`, not `taken_at`,
+  so a manual **Periksa ulang** cannot hide a dead cron (test "a manual check
+  does not reset staleness", fails without the fix). Second review fix
+  (finding 18): stale when **either** `scheduler_ran_at` or `taken_at` is over
+  120 minutes (`staleReason`), so a snapshot write that keeps failing behind a
+  fresh heartbeat turns the icon and `/admin/status` red ("status tidak
+  diperbarui"); test "a snapshot write that keeps failing turns the icon
+  stale", mutation-checked. Finding 19: `OperationalStatus` is in
+  `admin-islands-render.test.ts`, and an unknown stored signal state or icon
+  tone degrades to "Belum ada data" instead of throwing.
+- [x] **A-368** — The hourly run upserts the snapshot after it collects health,
+  including the required-setup-left count; alert evaluation stays where it is.
+  The write is the last step of `scheduled()`, inside `housekeeping()`, so its
+  failure is logged and nothing else.
+  -> REQ: REQ-217, REQ-223 · deps: [A-367] · Done when: a scheduled-handler test
+  proves one row after a run, a second run replaces it, a failing collection
+  leaves the old snapshot rather than a blank one, a throwing snapshot write
+  leaves the CAPI drain and payment reconciliation results unchanged, and the
+  diff of `worker.ts` is only the appended step.
+  **Done 2026-10-29:** scheduled-handler tests (one row, replaced on a second
+  run, failing collection keeps the old snapshot, throwing write leaves the
+  drain and reconciliation results unchanged, last-step source check). The
+  `worker.ts` diff also carries the A-379 heartbeat move.
+- [x] **A-369** — API: `GET /api/admin/health/status` (the snapshot, with the
+  staleness applied, `private, max-age=60`), `POST /api/admin/health/check`
+  (live collection, writes the snapshot, 15-second reuse, no alerts), and remove
+  `evaluateOperationalAlerts` from `GET /api/admin/health`.
+  -> REQ: REQ-216, REQ-223 · deps: [A-367] · Done when: tests prove owner and admin
+  succeed and advertiser and customer service get 403, a GET no longer writes KV
+  or calls the webhook, a second check inside 15 seconds returns the stored one,
+  and the cron path still fires an alert on a stalled outbox.
+  **Done 2026-10-29**, tests in `health-snapshot.test.ts`. **Deviation:** no
+  `private, max-age=60` — the middleware sends `no-store` on every admin
+  response, so the five-minute reuse lives in the icon's `sessionStorage`.
+- [x] **A-370** — `health-actions.ts`: the map from signal and reason to its
+  button (a route, or a setting name to copy), written from the reasons
+  `OperationalHealth.tsx` already words.
+  -> REQ: REQ-220 · deps: [] · Done when: a test fails for any reason in the
+  component's table that has neither an action nor an explicit "none", and every
+  route in the map is a real page in the route map.
+  **Done 2026-10-29:** `health-actions.ts` + `health-actions.test.ts`.
+- [x] **A-371** — The icon: a link beside `NotificationBell` in `AdminShell`,
+  owner and admin only, tone and count from the snapshot, `sessionStorage` for
+  five minutes, a re-check on focus, no interval; accessible name in words.
+  -> REQ: REQ-216, REQ-217, REQ-218 · deps: [A-369] · Done when: browser evidence at
+  390px and 1280px proves each of the four states, the name read by the
+  accessibility tree, no overflow in the top bar, no request for the other two
+  roles, and the network panel showing one request per load and none after.
+  **Built 2026-10-29** (`OperationalStatusIcon.tsx`, `AdminShell.tsx`);
+  role gating covered by tests. **Done 2026-10-29**, browser evidence (local
+  dev, snapshot row written in local D1, playwright-core + Chrome, 390x844 and
+  1280x800): healthy, setup (amber, count 1), problem (red, count 2), stale
+  scheduler ("pemeliharaan berhenti"), stale snapshot ("status tidak
+  diperbarui"), unknown-only and no-row (neutral, no badge). In every state the
+  accessible name is in words and is the link's name in the Chrome AX tree, the
+  top bar has no overflow, the first load sends one
+  `GET /api/admin/health/status`, and the next admin page plus a `focus` event
+  inside five minutes send none. Advertiser and customer service: no icon, no
+  `/api/admin/health*` request, `/admin/status` redirects to the dashboard, the
+  API answers 403. Screenshots: `a371-<state>-dashboard-{390,1280}.png`,
+  `a371-role-{advertiser,customer_service}-{390,1280}.png`.
+- [x] **A-372** — `/admin/status`: the header with **Periksa ulang**, **Perlu
+  tindakan**, **Setup toko** (the checklist and its `readSetupFacts`, moved from
+  the dashboard), and **Semua sinyal**; the copyable setting names for causes
+  outside the admin. Add `/admin/status` to `ADMIN_PAGE_ROUTES` (the API is
+  already covered: `/api/admin/health` is in `ADMIN_API_ROUTES`, and
+  `matchesRoute` reaches its sub-paths).
+  -> REQ: REQ-219, REQ-220 · deps: [A-369, A-370] · Done when: browser evidence
+  proves a degraded, an unknown-only, a fully healthy and a fresh-install state,
+  each button landing on the page it names, **Periksa ulang** refreshing the
+  icon, and both widths without overflow.
+  **Built 2026-10-29** (`src/pages/admin/status.astro`, `OperationalStatus.tsx`,
+  `/admin/status` in `ADMIN_PAGE_ROUTES`). **Browser evidence 2026-10-29**
+  (390x844 and 1280x800, no console errors, no 4xx/5xx, no overflow of the page
+  or `#admin-main`): degraded, unknown-only, fully healthy, setup-needed, both
+  stale reasons, and a no-row fresh state; **Periksa ulang** sends one
+  `POST /api/admin/health/check` (200), rewrites the header and turns the icon
+  from neutral to amber without a GET; **Salin nama** copies `triggers.crons`.
+  Screenshots: `a372-<state>-status[-full]-{390,1280}.png`,
+  `a372-no-snapshot-after-recheck-{390,1280}.png`. **Remaining (bug):** the
+  **Setup toko** step "Aktifkan minimal satu kurir" links `/admin/couriers`
+  (`setup-checklist.ts`, since 86a0fb5), which redirects to `/admin/shipping`;
+  couriers are enabled on `/admin/expeditions`. **Fixed 2026-10-29:** the step
+  links `/admin/expeditions` (`setup-checklist.test.ts` asserts it; the link
+  was not re-clicked in a browser). Every other button lands on
+  the page it names (`/admin/ads/meta`, `/admin/profile`,
+  `/admin/settings/store`). Observation: with no snapshot row the header reads
+  "Belum ada data" even while a required setup step is left (the icon rule
+  says no row is neutral; the page follows it).
+- [ ] **A-373** — Dashboard: delete the health card and keep one slim line while
+  a required setup step is left.
+  -> REQ: REQ-221 · deps: [A-372] · Done when: the dashboard no longer imports
+  `OperationalHealth`, the line shows with a required step left and not without,
+  and the dashboard's request count is lower than before.
+  **Built 2026-10-29:** the dashboard no longer imports the health panel and
+  shows the slim setup line only while a required step is left.
+  **Measured 2026-10-29** (owner, 1280x800, local dev): the slim line shows
+  with one required step left and is absent with none; no health card
+  (`a371-setup-needed-dashboard-*.png`, `a371-healthy-dashboard-*.png`). Cold
+  load: 55 requests, 3 of them fetches (`/api/admin/notifications`,
+  `/api/admin/health/status`, `/api/admin/analytics`); a second load inside
+  five minutes: 54, 2 fetches (the status answer comes from sessionStorage).
+  Base `be00fee` was not measured (no second build allowed); from its source
+  the dashboard fetched `/api/admin/notifications`, `/api/admin/analytics` and
+  `GET /api/admin/health` (the full eight-signal collection plus alert
+  evaluation) once each. **Remaining:** the cold-load fetch count is equal to
+  base, not lower (3 vs 3; the replaced request is a one-row read instead of
+  the collection); lower only on a warm load (2). Decide whether that meets
+  "lower than before", or measure base directly.
+- [ ] **A-374** — Close-out: update `OBSERVABILITY.md` §4 item 4, `ARCHITECTURE.md`
+  and the command-palette keywords (status, kesehatan, health, setup);
+  `npm run route-map`; version and changelog per `RELEASE.md`.
+  -> REQ: REQ-216 … REQ-223 · deps: [A-373] · Done when: `npm test` (≥ 833 plus the
+  new checks), `npm run check` and `npm run build` pass and the doc headers cite
+  the commit they were checked at.
+  **Partly done 2026-10-29:** `OBSERVABILITY.md` (§3 schema row, §4, §6 and the
+  two `scheduled-*-failed` labels), `ARCHITECTURE.md` (`ops_health_snapshot`),
+  palette keywords (`statusNavItem`), route map regenerated; `npm test` 915/915.
+  **Remaining:** version bump and changelog per `RELEASE.md`; re-stamp the
+  headers at the real commit. **Follow-up:** `GET /api/admin/health` has no UI
+  consumer left (the dashboard panel was its only one; the icon and page read
+  `/status` and `/check`). Callers today: its own test, the `auth.ts` route
+  list, and the unauthenticated-`401` smoke probe in `STATUS.md` /
+  `BUILD-LOG.md`. Kept on purpose; decide whether to retire it or keep it as
+  the probe (REQ-83).
+
+## A40 — Cloudflare fit: stay inside what the plan allows
+
+Proposed 2026-10-29. Evidence in PRD A40. Nothing here deploys, and nothing runs
+`--remote` without Paduka's approval (`AGENTS.md` §5).
+
+- [x] **A-375** — Read the account's D1 usage. **Done 2026-10-29** with Paduka's
+  approval: `wrangler d1 insights --remote --time-period 30d` over all 14
+  databases, read-only. Account average 13.5M rows read and 83k written a day
+  (`STATUS.md`). **Not met:** the worst single day, because insights returns
+  30-day totals per query; and KV writes, which no command here reads. Both
+  come from the dashboard's D1 and KV metrics.
+  -> REQ: REQ-224 · deps: [] · Done when: `STATUS.md` holds the figures with
+  their date and the worst day of the 30.
+- [ ] **A-376** — Count the D1 writes each storefront request makes, locally:
+  page view, kecamatan search, browser Meta event, abandoned capture, order
+  submit. Multiply by one install's daily traffic and by the fleet's.
+  -> REQ: REQ-224, REQ-226 · deps: [] · Done when: a table of writes per request
+  type and an estimated daily total against the 100k Free allowance, measured
+  with a counting proxy on `OMS_DB` that is never committed (ADR-030's method).
+- [x] **A-377** — ADR: Workers Free or Paid. **Done 2026-10-29:** ADR-031,
+  Workers Paid, accepted by Paduka. The A-375 reads alone decide it (2.7× the
+  Free allowance), so it did not wait on A-376. The plan change is Paduka's
+  dashboard action.
+  -> REQ: REQ-225 · deps: [A-375, A-376] · Done when: the ADR is in
+  `DECISIONS.md` with its status and the decision is Paduka's.
+- [ ] **A-378** — Proposal only: options to cut the `rate_limits` writes (WAF
+  rate-limiting rule, threshold counting, coarser window), each with its write
+  saving from A-376 and its risk to the form and tracking paths.
+  -> REQ: REQ-227 · deps: [A-376] · Done when: the options are written in this
+  entry; no file under the protected surfaces changed.
+- [x] **A-379** — **Exception, approved by Paduka 2026-10-29** (`src/worker.ts`
+  beyond the A-368 row; recorded at the integration review). Move the scheduler heartbeat into the A39 snapshot row and
+  delete the KV write (`recordSchedulerRun`, `SCHEDULER_HEARTBEAT_KEY`); the
+  `scheduler` signal reads the D1 value. Written at the start of `scheduled()`
+  inside `housekeeping()`, so a later failing step still records the run.
+  -> REQ: REQ-228 · deps: [A-367, A-368] · Done when: tests prove the signal reads
+  the D1 heartbeat, a missing row reads as "never ran", the stale threshold is
+  unchanged, and a grep finds no KV write left in the scheduled path apart from
+  alert state.
+  **Done 2026-10-29** (s2-a39): `recordSchedulerRun` writes
+  `ops_health_snapshot.scheduler_ran_at` inside `housekeeping("scheduled-heartbeat-failed")`;
+  tests prove the D1 read, never-ran, the unchanged 150-minute threshold, no
+  `SCHEDULER_HEARTBEAT_KEY`, and that the cron's only KV writes are alert state.
+- [x] **A-380** — Record the Workers Cache finding (E6). **Done 2026-10-29:**
+  ADR-031 decision 3, with the Workers Cache URL.
+  -> REQ: REQ-229 · deps: [] · Done when: `DECISIONS.md` carries it with the
+  Workers Cache URL, and no code changed.
+
+### Measured read reductions (from A-375)
+
+Each figure is the fleet's 30-day average from `STATUS.md` 2026-10-29. "Free to
+do" means outside the protected surfaces; "proposal" means it touches one and
+waits for Paduka's approval of that item alone.
+
+- [x] **A-381** — **Done 2026-10-29** (worktree `feat/a35-a40-analytics-fit`).
+  Every writer of `orders.created_at` uses `toISOString()`
+  (`order-persistence.ts` insert and abandoned upsert). A real-SQLite test
+  shows the new predicate and the old `unixepoch` one give the same count at
+  the 24-hour edge, and that the plan uses `idx_orders_created_at`. Fleet
+  rows-read effect is measured only after a release reaches the stores.
+  Free to do. `recentOrderCount` (`src/lib/social-proof.ts`):
+  replace `unixepoch(created_at) >= unixepoch('now', '-24 hours')` with
+  `created_at >= ?` bound to the ISO time 24 hours ago, so
+  `idx_orders_created_at` serves it. 2.13M rows read a day, about 470 per run.
+  -> REQ: REQ-226 · deps: [] · Done when: a test proves the same count on
+  fixtures straddling the 24-hour edge, `EXPLAIN QUERY PLAN` shows the index,
+  and the stored `created_at` format (`toISOString`) is confirmed on every
+  writer of `orders.created_at`, so string order equals time order.
+- [x] **A-382** — **Done 2026-10-29.** The cost was not the subquery but the
+  join: `CAST(p.id AS TEXT) = lp.product_id` made SQLite scan every landing page
+  once per active product (`SEARCH p … SCAN lp`). The join now adds
+  `p.id = CAST(lp.product_id AS INTEGER)` and keeps the text equality, so each
+  product is a primary-key lookup and the matches are unchanged. A plan test
+  fails on the old join and passes on the new one; the 25 existing tests pass
+  unchanged. No migration needed.
+  Free to do. The public landing-page list
+  (`src/lib/landing-pages.ts`, the query selecting `AS product_image`) runs a
+  correlated subquery per row: 2.75M rows read a day, about 1,700 per run.
+  Rewrite it as a join or a second batched query; same output.
+  -> REQ: REQ-226 · deps: [] · Done when: `landing-pages.test.ts` passes
+  unchanged, a test proves identical output on a fixture, and `meta.rows_read`
+  on a seeded 40-page store drops, figures recorded here.
+- [x] **A-383** — **Closed 2026-10-29, no change.** The plan is already
+  fully indexed: a rowid range over `notifications` above the operator's floor
+  and a covering-index probe into `notification_reads`. Its cost is the number
+  of retained notifications, which no index removes. A per-operator read
+  watermark would, but that changes read-state semantics; not worth 2.8 % of
+  fleet reads now.
+  Free to do. The notification unread count
+  (`src/lib/notifications.ts`), polled every 30 seconds by the bell: 375k rows a
+  day, about 450 per run. Check its plan and add the index it needs.
+  -> REQ: REQ-226 · deps: [] · Done when: `EXPLAIN QUERY PLAN` shows an index
+  search, the notification tests pass unchanged, and the per-run rows read on a
+  seeded store are recorded before and after.
+- [ ] **A-384** — **Proposal** (tracking). The CAPI and Google outbox retention
+  `DELETE`s (`capi-outbox.ts`, `google-ads-offline.ts`) compare
+  `unixepoch(updated_at)`, so each hourly run scans the outbox: 1.98M rows a
+  day, about 11,750 per run. Option: `updated_at < ?` with the ISO cut-off and
+  an index on `(status, updated_at)`. Write the option with its test plan;
+  change nothing until Paduka approves this item.
+  -> REQ: REQ-226 · deps: [] · Done when: the proposal is written in this entry.
+- [ ] **A-385** — **Proposal** (forms). The storefront catalog reads every
+  `products` and `product_variants` row per request: 3.6M rows a day together,
+  about 27k runs each. Option: an in-isolate memo with a short lifetime for
+  storefront rendering only, never for checkout pricing (`AGENTS.md` §3: price
+  comes from D1). Write the option, its staleness, and how checkout is kept off
+  it; change nothing until approved.
+  -> REQ: REQ-226 · deps: [] · Done when: the proposal is written in this entry.
+- [ ] **A-386** — **Proposal** (tracking). The CAPI outbox writes about 58k rows
+  a day: one insert and two updates per event. Write what each update is for and
+  whether one can be folded, with its risk to delivery and dedup; change nothing
+  until approved.
+  -> REQ: REQ-226 · deps: [] · Done when: the proposal is written in this entry.
+- [ ] **A-387** — Read-only investigation. `SELECT name FROM d1_migrations` runs
+  12.8k times a day (0.83M rows): find why the schema check runs that often per
+  isolate (`schema-version.ts`) without weakening the AGENTS §3 rule that the
+  chain applies on the first database-backed request after a deploy.
+  -> REQ: REQ-226 · deps: [] · Done when: the cause and an option are written
+  here; a change is its own approved task.
+
+### Dependencies and security
+
+- [x] **A-388** — In-range dependency update and `npm audit fix`. **Done
+  2026-10-29.** `npm update` within the existing semver ranges (no
+  `package.json` change): astro 7.2.0 → 7.4.4, @astrojs/cloudflare 14.2.0 →
+  14.4.3, react/react-dom 19.2.8 → 19.3.1, recharts 3.8 → 3.10.1, radix-ui,
+  @base-ui/react, lucide-react, tailwind-merge, wrangler 4.120 → 4.155, and
+  others. `npm audit`: 26 vulnerabilities (2 critical, among them astro ≤ 7.3.2)
+  → 4 (3 low, 1 high). recharts 3.10 deprecates `verticalAlign`, so
+  `ChartLegendContent` (unused in the app) reads it untyped and `astro check` is
+  back to 0 hints. Evidence: `npm test` 880/880, `npm run check` 0/0/0,
+  `npm run build` passes. `npm run dev:seed` on a fresh local store passed
+  install, login, 11 products, 6 orders (COD, QRIS, transfer), payment settle,
+  cron, Mengantar dispatch and cancel. A Playwright run at 390 and 1280 px
+  showed home, a product page with its form island (6 inputs, 1 submit),
+  dashboard, order list and order detail, all 200, no console error, no
+  horizontal overflow.
+  **Not upgraded (major versions):** @astrojs/react 7, TypeScript 7, zod 4,
+  @types/node 26. **Install scripts:** npm now blocks the `esbuild` and
+  `workerd` postinstall scripts until approved (`npm install-scripts approve`);
+  the build and local Worker ran without them.
+- [ ] **A-389** — **Proposal** (checkout validation). The remaining high
+  advisory is zod < 4.6.6 (GHSA-mrhx-c7xc-m3w5: memory exhaustion on oversized
+  *constrained collections*). `order-schema.ts` validates only bounded strings
+  and numbers, so checkout exposure looks low. Other zod users are admin-only
+  or authenticated, and their arrays are not yet reviewed. The fix is zod 4, a
+  major version touching `order-schema.ts`, a protected surface. Write the
+  migration plan and its test coverage; change nothing until approved.
+  -> REQ: REQ-226 · deps: [] · Done when: the plan is written here.
+- [ ] **A-390** — Remaining low advisory `deepmerge` comes through the `shadcn`
+  CLI (a development tool, not in the Worker bundle); its fix is shadcn 1.0
+  (a downgrade path npm proposes under `--force`). Leave it and recheck at the
+  next shadcn release.
+  -> REQ: REQ-226 · deps: [] · Done when: rechecked after a shadcn update.
+
+## A41 — Variant weight: required for new products, visible on every order
+
+Proposed 2026-10-29. PRD A41. The quote and dispatch already use
+`weight_grams`; nothing here edits `shipping-quote.ts`, `mengantar-*.ts` or
+the order write path.
+
+- [x] **A-391** — **Done 2026-10-29** with Paduka's approval; figures in
+  `STATUS.md`. zanobyshop (34 of 34 active products) and skincarebpom (11 of 13)
+  still sit entirely at the 1000 g default.
+  Read-only, needs Paduka's approval for `--remote`: per live
+  store, `SELECT weight_grams, COUNT(*) FROM product_variants GROUP BY 1`, and
+  the active products whose variants are all at 1000 g. Record the counts in
+  `STATUS.md`; nothing is written to any store.
+  -> REQ: REQ-236 · deps: [] · Done when: `STATUS.md` lists each store's
+  variants at 1000 g and at other weights, with the date.
+- [x] **A-392** — **Done 2026-10-29** (worktree s3-a41): `product-mutation.test.ts`
+  "a new variant without a weight is refused with a 422", "a new variant saves
+  the weight it states", "an existing variant saved without a weight keeps its
+  stored one", "zero, negative, fractional and non-numeric weights are refused".
+  Save API: `product-mutation.ts` returns null for a missing
+  weight instead of 1000; a new variant (no id) with null is refused with
+  "Berat varian <SKU> wajib diisi (gram)." (422). `api/admin/products.ts`
+  updates with `weight_grams = COALESCE(?, weight_grams)`, so an omitted weight
+  keeps the stored one.
+  -> REQ: REQ-230, REQ-231, REQ-232 · deps: [] · Done when: tests prove a new
+  variant without weight is refused, a new variant with 250 saves 250, an
+  existing variant saved without weight keeps its stored value (not 1000), and
+  zero, negative and fractional weights are refused as before.
+- [x] **A-393** — **Done 2026-10-29** (worktree s3-a41): SSR proof
+  (`admin-islands-render.test.ts` "ProductForm starts a new variant with an empty
+  weight and states its use", 9/9 pass) plus browser evidence on `dev:local`
+  (Chrome headless, 390px and 1280px, 0 overflow, no console errors, no 4xx/5xx
+  except the intended 422): a new and an added row start empty and `required`
+  with "Dipakai untuk ongkir Mengantar" (`a393-new-empty-*`,
+  `a393-new-second-row-empty-*`); Simpan with no weight sends no request and
+  shows "Berat varian <SKU> wajib diisi (gram)." (`a393-new-refused-*`); a
+  direct POST without weight gets the 422 with the same message; 1250 → "1,25 kg",
+  250 → "0,25 kg" (`a393-new-kg-hint-*`); with weights it saves and reopens with
+  1250/250 (`a393-new-saved-*`); seeded "Madu" opens with 400/750 and an edit
+  persists (`a393-existing-open-*`, `a393-existing-saved-*`). Screenshots are
+  in the session scratchpad `evidence/s3/` (not committed).
+  Form: a new variant row starts with an empty, required weight
+  (not `"1000"`); the input carries the hint "Dipakai untuk ongkir Mengantar"
+  and a live kg equivalent (1250 → "1,25 kg", `Intl.NumberFormat("id-ID")`);
+  existing variants show their stored grams.
+  -> REQ: REQ-231, REQ-233 · deps: [A-392] · Done when: browser evidence at 390px
+  and 1280px shows an empty new row blocking save with the message, the kg hint
+  updating, an existing product opening with its stored weights, and
+  `ProductForm` still passing `admin-islands-render.test.ts`.
+- [x] **A-394** — **Done 2026-10-29** (worktree s3-a41): `weight.test.ts` "each
+  line is unit × quantity and the order total is their sum", "a deleted variant
+  reads as unknown, never as zero". The query reads `COALESCE(oi.weight_grams,
+  pv.weight_grams)`; the "order statements untouched" clause is superseded by
+  A-397's approved exception.
+  Order detail API: the item query adds the variant's current
+  `weight_grams` (one joined column, no extra round trip); a pure helper sums
+  line and order weight.
+  -> REQ: REQ-234, REQ-235 · deps: [] · Done when: a test proves unit × quantity
+  per line and the order total, a deleted variant reads as unknown (not 0), and
+  the order statements in `order-persistence.ts` are untouched.
+- [x] **A-395** — **Done 2026-10-29** (worktree s3-a41): `OrderDetail` renders per-item
+  "Berat", "Total berat" and the A-397 label ("Berat saat order, …" when
+  recorded, "Berat varian saat ini, …" otherwise; `weight.test.ts` covers the
+  choice) and still passes `admin-islands-render.test.ts`. Browser evidence
+  (390px and 1280px, 0 overflow, no console errors, no 4xx/5xx; the edit dialog
+  opens, so the island is hydrated) on two seeded orders given a second line in
+  local D1: INV-10007, both lines recorded — "300 g (0,3 kg)", "2 x 250 g =
+  500 g (0,5 kg)", total "800 g (0,8 kg)", "Berat saat order, …"
+  (`a395-INV-10007-*`); INV-10008, one line with no recorded weight — "260 g
+  (0,26 kg) · berat varian saat ini", total "610 g (0,61 kg)", "Berat varian
+  saat ini, …" (`a395-INV-10008-*`). Screenshots are in the session scratchpad
+  `evidence/s3/` (not committed).
+  Order detail page (the invoice): per item "Berat" (unit and
+  line) and an order total "Total berat 2.500 g (2,5 kg)", labelled "berat
+  varian saat ini, dipakai saat kirim ke Mengantar".
+  -> REQ: REQ-234, REQ-235 · deps: [A-394] · Done when: browser evidence at 390px
+  and 1280px shows the weights on a two-item order, the label, no overflow, and
+  `OrderDetail` still passing `admin-islands-render.test.ts`.
+- [x] **A-396** — **Done 2026-10-29** (worktree s3-a41): `order-item-weight.test.ts`
+  "quote and dispatch agree on 1000 g × 3" and "… 250 g × 3". The "no diff
+  under `mengantar-*.ts`" clause is **superseded** by A-397's approved
+  exception: `mengantar-dispatch.ts` changes one line (the `COALESCE`);
+  `shipping-quote.ts` is untouched.
+  Lock the existing contract with tests, no source change:
+  the quote's weight is `weight_grams / 1000 × quantity` and dispatch sends the
+  same per item, from a variant at 1000 g and one at 250 g.
+  -> REQ: REQ-230 · deps: [] · Done when: the tests exist and pass, and
+  `git diff` shows no change under `shipping-quote.ts` or `mengantar-*.ts`.
+- [x] **A-397** — **Done 2026-10-29** (worktree s3-a41): migration
+  `0070_order_item_weight.sql` (0068 until the A-419 renumber); `order-item-weight.test.ts` "a new order line
+  records the variant's weight at checkout", "editing the variant after
+  checkout does not change what dispatch sends", "an order placed before the
+  column existed dispatches with the variant weight", and (review fix) "CS
+  conversion of a lead records the variant's weight at conversion". The Kelola
+  plugin follows the same `COALESCE` (`sync.test.ts` "the Kelola payload carries the order's
+  recorded weight, …").
+  Integration review fix 2026-10-29: the admin courier re-quote of an existing
+  order (`src/pages/api/admin/orders/[id].ts`) quotes the line's recorded
+  weight, `MAX(0.001, COALESCE(oi.weight_grams, pv.weight_grams) / 1000)` × quantity
+  of the first line — dispatch's own expression — passed as the quote's
+  explicit weight; OrderDetail's preview sends the same figure as `weight=`
+  (`quoteUnitWeightKg` in `weight.ts`), so preview, save and dispatch agree
+  after the variant is edited (`admin-requote-weight.test.ts`,
+  mutation-checked). `shipping-quote.ts` is unchanged. The no-variant-write
+  assertion in `order-persistence.test.ts` now also catches a quoted
+  identifier (`"…"`, `` `…` ``, `[…]`), `OR <conflict>` and `REPLACE INTO`, with a
+  self-check of each form and of the two reads it must accept.
+  **Exception, approved by Paduka 2026-10-29** (order flow):
+  record `weight_grams` on `order_items` at checkout so dispatch sends exactly
+  the weight that was quoted, even if the variant is edited later. The insert
+  copies the variant's weight in SQL (`SELECT weight_grams FROM
+  product_variants`), so no submit route changes; dispatch reads
+  `COALESCE(order_items.weight_grams, product_variants.weight_grams)`, so
+  orders placed before the migration still dispatch as today.
+  -> REQ: REQ-235 · deps: [] · Done when: tests prove a new order stores the
+  variant's weight, editing the variant afterwards does not change what
+  dispatch sends, an old order without the column value still dispatches with
+  the variant weight, and the order detail label (A-395) then says "berat saat
+  order".
+- [ ] **A-398** — **Partial 2026-10-29.** Limit: regular 50 kg, cargo 100 kg,
+  **Live read 2026-10-29** (owner's Mengantar account, read-only
+  `GET /order/estimate`, Surabaya → Tebet, `scratchpad/live/out/03-main.json`):
+  every weight 0.5–150 kg answered 200 `success:true`; no error text at any
+  weight. A courier past its limit stays listed `unsupported:true, price:0`.
+  J&T, AnterAja, SPX and Pos stop at 50 kg; JNE, SiCepat, SAP, iDexpress and
+  Lion quote regular service at 101 and 150 kg; cargo quotes at 150 kg (no
+  100 kg cap seen); iDlite stops above 0.5 kg. So 50 kg is a per-courier
+  limit, not a parcel limit: the product's 50 kg per-unit cap refuses
+  variants that several couriers ship. Create-order limits were not tested
+  (it would create an order).
+  lite 0.5 kg. Source: `~/Projects/mengantar-documentation/docs/02-couriers-and-rules.md`
+  §3.1 (local notes that cite the official Mengantar API docs plus live
+  analysis; not re-checked against app.mengantar.com/docs). Applied as
+  `MAX_VARIANT_WEIGHT_GRAMS = 50_000` in `product-mutation.ts`, tested in
+  `product-mutation.test.ts`. **Remaining:** confirm the figure against
+  Mengantar's own published documentation; the cap is per unit, not per parcel
+  (a `// lazy:` comment names the upgrade path).
+  Verify Mengantar's maximum parcel weight from its own
+  documentation (not inferred) and, if it exists, add it as the save API's
+  upper bound with its source in a comment.
+  -> REQ: REQ-231 · deps: [] · Done when: the limit and its source are written
+  here, or "not documented" is.
+
+## A42 — Multiple warehouses, each quote from the warehouse nearest the buyer
+
+Proposed 2026-10-29. PRD A42. Tasks marked **Exception** edit a protected
+surface; each needs Paduka's approval as its own item, and each must keep a
+one-warehouse store byte-identical (REQ-242).
+
+Status 2026-10-29 (worktree `adsbookcms-s5-a42`, uncommitted): A-402 to A-405
+done; A-407 and A-408 built and tested but their Exception approval is **not
+recorded** in this file; A-406, A-409 and A-410 closed with browser and
+stand-in evidence the same day (below); A-411 docs written, closing now
+unblocked. Verification on that tree:
+`npm test` 926 pass / 0 fail, `npm run check` 0 errors / 0 warnings / 0 hints,
+`npm run build` complete.
+
+**Upgrade risk (read before any deploy).** An install that already holds more
+than one `warehouses` row changes behaviour on the deploy that carries the
+migration: until now every quote and dispatch used the lowest-id row; after it,
+every other ready row serves buyers in its own province. Count rows per install
+(`SELECT COUNT(*) FROM warehouses`, a `--remote` read that needs approval)
+before deploying, and have the operator confirm or deactivate extra rows first.
+One-row installs are unchanged (REQ-242). Recorded in `RELEASE.md` §3 and
+ADR-032. No install was read or touched.
+
+- [x] **A-402** — **Done 2026-10-29.** `src/db/migrations/0072_multi_warehouse.sql` (0068 until the A-419 renumber)
+  (renumbered at integration; tests find it by suffix). `warehouses.test.ts`:
+  "A-402: the migration applies to an empty store" and "the first existing
+  warehouse becomes primary; a second primary is refused by the index".
+  Migration: `warehouses.is_primary` (the first existing row
+  becomes 1), `is_active` (default 1), `served_provinces` (JSON array of
+  province codes, NULL meaning "its own province"); a partial unique index so
+  only one row can be primary.
+  -> REQ: REQ-237, REQ-239 · deps: [] · Done when: it applies to an empty local
+  D1 and to one holding a warehouse (which becomes primary), and a second
+  primary is refused by the index.
+- [x] **A-403** — **Done 2026-10-29.** `warehouse-choice.test.ts` covers one
+  warehouse, coverage, island, primary, unknown province, ties, not-ready and
+  inactive skipped, and all 38 codes in exactly one group.
+  Pure chooser `chooseWarehouse(warehouses, buyerProvinceCode)`
+  in `src/lib/warehouse-choice.ts`, plus the static island-group map of the 38
+  province codes. Order: ready and serving the province, then same island
+  group, then primary; ties to primary, then lowest id; not-ready and
+  inactive rows never chosen.
+  -> REQ: REQ-239 · deps: [] · Done when: tests cover one warehouse (always it),
+  coverage, island fallback, primary fallback, an unknown province, a not-ready
+  warehouse skipped, and every province code mapped to exactly one group.
+- [x] **A-404** — **Done 2026-10-29.** `provinceCodeForCity` in
+  `warehouse-choice.ts`. Every city in the index resolves to one province except
+  **`banjar`** (Kota Banjar, Jawa Barat / Kabupaten Banjar, Kalimantan Selatan),
+  pinned by the A-404 test. **Decision: no form change.** The rate route and
+  every submit route already carry the city; an unknown or ambiguous city
+  quotes from the primary on both the rate call and submit, so they agree.
+  Buyer province on the server: derive the province code from
+  the destination the rate route already receives (city, and district where
+  given) using the bundled district index. Report ambiguous city names.
+  -> REQ: REQ-239 · deps: [] · Done when: a test resolves every city in the index
+  to one province or lists the ambiguous ones, and the result decides whether a
+  form change is needed (if it is, that becomes a separate proposal).
+- [x] **A-405** — **Done 2026-10-29.** `src/lib/warehouses.ts`,
+  `/api/admin/warehouses` (in `ADMIN_API_ROUTES`, owner/admin only).
+  `warehouses.test.ts` proves each rule with `ensurePickup` stubbed; no test
+  reaches Mengantar. Screens that show one warehouse (expeditions, `/admin/check`,
+  settings GET + `save-warehouse`, lead conversion) now read the primary, not
+  `ORDER BY id LIMIT 1`, with a test guarding it.
+  Warehouse management: `src/lib/warehouses.ts` and
+  `/api/admin/warehouses` (list, add, edit, delete, set primary). Saving needs a
+  precise Mengantar origin and a pickup address from `ensurePickupAddress`, as
+  the current single form does; at most 10; deleting a warehouse with orders is
+  refused (deactivate instead); the primary cannot be deactivated. Add the route
+  to `ADMIN_API_ROUTES`.
+  -> REQ: REQ-237, REQ-238, REQ-248 · deps: [A-402] · Done when: tests with the
+  Mengantar client stubbed prove each rule, that a warehouse without
+  `origin_area_id` or `pickup_address_id` is stored as not ready, and that no
+  test calls Mengantar.
+- [x] **A-406** — **Done 2026-10-29.** `Warehouses.tsx` replaces the single
+  form on `/admin/settings/warehouse`. Browser evidence (local `dev:local`
+  store, headless Chrome via playwright-core, screenshots in the session's
+  `evidence/s5/`, each at 390px and 1280px): add "Gudang Surabaya" (origin
+  Gubeng, Jawa Timur) through the editor (`a406-04-added-two-*`); edit saved
+  (`a406-05-edit-390`, "Gudang tersimpan."); validation — empty submit stops
+  at the browser's required check, missing origin shows "Pilih kecamatan
+  origin…" (`a406-02-validation-origin-390`), a short phone shows the server's
+  "Telepon PIC harus berisi 9-15 digit." (`a406-03-validation-phone-1280`);
+  deactivate shows "Nonaktif", `aria-checked=false`, "Jadikan utama" disabled
+  (`a406-06-inactive-settled-*`); primary switch both ways, the primary loses
+  its delete button and its switch is disabled (`a406-07-primary-switched-*`);
+  delete guard on a warehouse with an order shows "Gudang ini sudah dipakai
+  order…" (`a406-09-delete-confirm-390`, `a406-10-delete-guard-*`); 10-row
+  limit — "10 dari 10 gudang", "Tambah gudang" disabled, notice shown, an 11th
+  POST answers 409 "Maksimal 10 gudang." (`a406-11-ten-limit-*`; the eight
+  fixtures were added through `/api/admin/warehouses`); not-ready — "Belum
+  lengkap" with the pickup message and "Jadikan utama" disabled
+  (`a406-12-not-ready-*`; fixture: one test row's `pickup_address_id` blanked
+  in local D1, because the stand-in always registers a pickup); deleting an
+  unused row works (`a406-13-deleted-unused-390`); "Tambah gudang" opens the
+  editor from the keyboard. Horizontal overflow 0 on every capture. Console:
+  no JS or hydration errors; the only entries are Chrome's resource-load lines
+  for the deliberately provoked 422 and 409 answers.
+  Pengaturan → Gudang becomes a list: each warehouse with name,
+  city, Mengantar status (siap / belum lengkap), primary badge, served
+  provinces; an editor reusing `WarehouseOriginPicker`, the PIC fields and a
+  province multi-select; "Jadikan utama", deactivate, delete with confirm.
+  `save-warehouse` in `api/admin/settings.ts` stays working for older clients
+  until this page no longer calls it.
+  -> REQ: REQ-237, REQ-238 · deps: [A-405] · Done when: browser evidence at 390px
+  and 1280px proves add, edit, primary switch, the not-ready state, the 10-row
+  limit and the delete guard, with no overflow and an empty console.
+- [x] **A-407** — **Done 2026-10-29. Exception, approved by Paduka
+  2026-10-29** (recorded after the build, at the review of the protected-file
+  edits; `docs/AUDIT-2026-10-29.md` §5). `warehouse-quote.test.ts`: the one-warehouse
+  results recorded before the change pass unchanged; a two-warehouse store
+  quotes from the chosen one with exactly one rate call. An explicit
+  `warehouseId` is honoured only while active and ready (or the primary).
+  **Exception** (`shipping-quote.ts`): replace the
+  first-warehouse read with one read of ready warehouses fed to
+  `chooseWarehouse`, and accept `destinationProvince` in `ShippingQuoteInput`.
+  `input.originId` still wins when given.
+  -> REQ: REQ-239, REQ-240, REQ-242 · deps: [A-403, A-404] · Done when: the
+  existing quote tests pass unchanged, a one-warehouse fixture returns the
+  identical result, a two-warehouse fixture quotes from the chosen one, and
+  the quote makes still exactly one rate call.
+- [x] **A-408** — **Done 2026-10-29. Exception, approved by Paduka
+  2026-10-29**, including the headless change in `src/lib/headless-checkout.ts`
+  and `/api/v1/geo/shipping-rates` (checkout re-quotes from the echoed
+  `warehouse_id` or the primary). Audit finding 23 closed 2026-10-29: a
+  checkout with `city` and no `warehouse_id` also quotes the way the rate route
+  would for that city, and answers 409 `SHIPPING_QUOTE_CHANGED` when that
+  warehouse is not the primary and the chosen courier's price differs, so a
+  client that sent `city` to rates is never silently charged the primary's
+  price (`headless-checkout.test.ts`, mutation-checked). It first asks which
+  warehouse the city picks (`warehouseOnly`, no rate call) and quotes that
+  warehouse only when it is not the primary, so a one-warehouse store makes
+  the one Mengantar call it made before A42 and is charged exactly as before;
+  a failed extra quote fails the checkout (`warehouse-quote.test.ts`). `headless-client.ts` now echoes the rate
+  call's `warehouse_id`.
+  Tests: submit re-verifies from the warehouse the form was quoted from (409
+  `SHIPPING_QUOTE_CHANGED` on the primary's price); the admin re-quote keeps the
+  order's warehouse while it is active, else chooses by the order's province,
+  and OrderDetail previews with the same two values; `/api/shipping-rates`
+  ignores an inactive or not-ready `warehouse_id`. Headless: the rate route
+  returns `warehouse_id` and `/api/v1/checkout` re-quotes from the echoed one
+  (primary when absent, 409 when no longer quotable), so a client that quotes
+  without `city` is never charged another warehouse's price
+  (`STOREFRONT_INTEGRATION.md` §4.6–4.7, OpenAPI). `submit-middle-order` makes
+  no quote and stores no warehouse. `headless-client.ts` does not send `city`
+  to rates, so it quotes from the primary and echoes that `warehouse_id`.
+  Re-review 2026-10-29: a store with no warehouse rows (env origin) also makes
+  one rate call (`?? null` comparison; test "headless checkout on a store with
+  no warehouse rows (env origin) makes one rate call", mutation-checked).
+  Behaviour change to record in the release: a headless COD checkout whose
+  Mengantar estimate fails no longer falls back to the city average and
+  answers 422 `SHIPPING_RATE_NOT_FOUND`; it now fails as a provider error
+  (500 `CHECKOUT_PROCESSING_ERROR`). The v1 rate route never offered the
+  city average, so no correct client was charged it.
+  **Exception** (rate and submit routes): `/api/shipping-rates`,
+  `/api/v1/geo/shipping-rates`, `submit-order`, `submit-middle-order`,
+  `v1/checkout`, lead conversion in `abandoned-orders`, and the admin re-quote
+  pass the buyer province (or, for a re-quote, the order's `warehouse_id` as the
+  origin).
+  -> REQ: REQ-240, REQ-241 · deps: [A-407] · Done when: tests prove the submit
+  re-verifies from the same warehouse the form was quoted from, an admin
+  re-quote keeps the order's warehouse, and every protected suite listed in the
+  gate passes unchanged.
+- [x] **A-409** — **Done 2026-10-29.** The order detail shows "Gudang
+  Pengirim"; the shipping workspace shows "Dari <gudang>" per shipment when a
+  store has more than one. Browser evidence: INV-10005 (buyer in Malang,
+  Jawa Timur) shows "Gudang Pengirim: Gudang Surabaya" before and after
+  dispatch (`a409-order-detail-INV-10005-surabaya-{390,1280}`,
+  `…-dispatched-1280`); INV-10006 and INV-10008 show "Gudang Dummy Jakarta";
+  `/admin/shipping` shows "Dari Gudang Surabaya" on INV-10005 and "Dari Gudang
+  Dummy Jakarta" on the others, in the table (1280) and the cards (390)
+  (`a409-shipping-dari-{1280,390}`). No overflow, empty console.
+  Show the warehouse where it matters: the order detail and the
+  shipping workspace name the warehouse each order ships from (the workspace
+  already groups pickups per warehouse).
+  -> REQ: REQ-240 · deps: [A-407] · Done when: browser evidence shows the
+  warehouse name on an order shipped from the second warehouse.
+- [x] **A-410** — **Done 2026-10-29** on a local `dev:local` store (Mengantar
+  and AutoLaris stand-ins on 127.0.0.1; nothing reached a real account). Two
+  warehouses: primary "Gudang Dummy Jakarta" (origin `dev-area-1974`, pickup
+  `dev-pickup-mvtfdqbj1`) and "Gudang Surabaya" (origin `dev-area-3931`,
+  pickup `dev-pickup-mvtfhjdq7`). Orders placed through `/full-form` in the
+  browser (the product page renders the middle form locally, which makes no
+  quote); dispatched with "Push Order ke Mengantar"; payloads read from the
+  stand-in's memory over a local Node inspector
+  (`a410-standin-dispatch-payloads.json`, `…-aceh.json`):
+  - Jawa Timur, INV-10005 (Klojen, Malang, COD): `/api/shipping-options`
+    answered `origin_id: dev-area-3931`; `orders.warehouse_id = 2`; dispatch
+    `pickup.address_id = dev-pickup-mvtfhjdq7` (`a410-jatim-*`).
+  - DKI Jakarta, INV-10006 (Tebet, COD): origin `dev-area-1974`;
+    `warehouse_id = 1`; pickup `dev-pickup-mvtfdqbj1` (`a410-dki-*`).
+  - Aceh, INV-10008 (Kuta Alam, Banda Aceh; QRIS because Aceh is COD-disabled
+    by default, settled on the stand-in): origin `dev-area-1974`;
+    `warehouse_id = 1`; pickup `dev-pickup-mvtfdqbj1` (`a410-aceh-*`).
+  - Contrast: with Surabaya deactivated the same Malang quote came from
+    `dev-area-1974` (J&T 15,000 against 18,000), and from `dev-area-3931`
+    again once reactivated (`a410-quote-contrast.json`).
+  - One warehouse: the four seed orders placed before the second warehouse
+    existed (INV-10001…10004, a Jawa Timur buyer among them) all carry
+    `warehouse_id = 1`. Their dispatch payloads were not captured; the
+    byte-identical one-warehouse result rests on the A-407 tests.
+  Mengantar's create-order payload carries no origin field, so the origin is
+  proven by the rate answer and the pickup by the payload. **Still owed
+  before any deploy:** the per-install row count above.
+  End-to-end on a local store: two warehouses on the local
+  Mengantar stand-in (`dev-providers`), a buyer in Jawa Timur quoted and
+  dispatched from the Surabaya warehouse, one in Aceh from the primary, and a
+  one-warehouse store unchanged.
+  -> REQ: REQ-239, REQ-240, REQ-242 · deps: [A-408, A-406] · Done when: the
+  dispatch payload's pickup address and origin match the chosen warehouse in
+  each case, recorded here; nothing reaches a real Mengantar account.
+- [ ] **A-411** — **Partial 2026-10-29.** ADR-032 in `DECISIONS.md`;
+  `ARCHITECTURE.md` (§4 warehouse model, §7 quote origin and dispatch),
+  `MENGANTAR_INTEGRATION_SPEC.md` (§3 origin and pickup per warehouse),
+  `RELEASE.md` §3 (upgrade risk), `STOREFRONT_INTEGRATION.md` (headless
+  `city`/`warehouse_id`). Route map current. Remaining: changelog and version
+  (only `schemaVersion` is bumped), and closing after A-410.
+  ADR for the choice rule (province coverage over distance or
+  cheapest-of-all), `MENGANTAR_INTEGRATION_SPEC.md`, `ARCHITECTURE.md`, route
+  map, version and changelog.
+  -> REQ: REQ-237 … REQ-242, REQ-248 · deps: [A-410] · Done when: the docs match
+  disk and `npm test`, `npm run check` and `npm run build` pass.
+- [x] **A-444** — **Done 2026-10-30.** A branch warehouse whose rate call fails
+  or comes back empty hands the quote to the primary
+  (`resolveEligibleShippingRates` in `src/lib/shipping-quote.ts`; result field
+  `primaryFallbackFrom`; `console.warn("shipping-quote-primary-fallback", …)`
+  with both ids and `error`/`no_rates`). Headless checkout sets
+  `noPrimaryFallback`; a named `warehouseId` is never swapped. Protected
+  surface (the quote path), changed at Paduka's explicit request.
+  Independent review (2026-10-30): one medium — the admin re-quote with the
+  order's own `warehouseId` was swapped to the primary at save with no price
+  compare against its preview, against REQ-241 — fixed by never swapping a
+  named warehouse; lows fixed: the branch's provider error is surfaced when
+  the primary has no rate either, `noPrimaryFallback` added to the headless
+  resolver type, a misnamed test renamed. Not fixed (pre-existing, low): lead
+  conversion's preview and save also compare no price.
+  Evidence: `warehouse-quote.test.ts` +7 — failing and empty branch for COD and
+  prepaid, a named warehouse never swapped, primary with no rate surfaces the
+  branch error, primary failing too (prepaid throws, COD city average from
+  the primary), a chosen primary never retried, rate route → submit at the
+  fallback price accepted (the persisted `warehouse_id` is inferred from
+  `quote.warehouse`: the fixture has no order tables); the REQ-242 golden
+  tests and "headless checkout fails closed" unchanged and passing. Mutation:
+  fallback disabled → 5 fail; headless opt-out removed → 1; named-warehouse
+  guard removed → 1; branch-error restore removed → 1. `npm test` 1049 pass,
+  `npm run check` 0 errors (524 files), `npm run build` complete. Not run: a
+  browser or live Mengantar outage.
+  -> REQ: REQ-270 (constraints REQ-240, REQ-241, REQ-242) · deps: [] · Done when: the
+  tests above pass and the full suite, check and build are green.
+
+## A43 — Resolve kecamatan to Mengantar areas without calling Mengantar
+
+Proposed 2026-10-29. PRD A43. Rates stay live; only the area lookup is stored.
+
+- [x] **A-412** — **Done 2026-10-29** (uncommitted, s4-a43 worktree):
+  `0071_mengantar_areas.sql` (0068 and schemaVersion 69 until the A-419 renumber) and `src/lib/mengantar-areas.ts`;
+  `mengantar-areas.test.ts` applies the real chain on node:sqlite to an empty
+  store and to one with orders (one row per district, majority id, ties to the
+  newest order) and proves read-back, replace-on-store and drop. Precision mode
+  leaves no marker on an order, so the seed counts every order with an area id
+  and records `agreeing_orders` / `total_orders` (migration header). Not run
+  against a miniflare local D1.
+  Migration: `mengantar_areas` (key `district|city|province`
+  normalised as `location-cache.ts` already did, `area_id`, `label`,
+  `source` ('order-history' or 'resolve'), `resolved_at`), seeded in the same
+  migration from `orders` (distinct district, city, province with the most
+  frequent `destination_area_id`), and `src/lib/mengantar-areas.ts` (read,
+  store, drop). Check first how the order editor's precision mode marks its
+  orders, so the seed can leave them out.
+  -> REQ: REQ-243 · deps: [] · Done when: it applies to an empty local D1 and to
+  a copy with orders (one row per district, the majority id), and tests prove a
+  stored area is read back, a second store of the same key replaces it, and
+  drop removes it.
+- [x] **A-413** — **Done 2026-10-29** (uncommitted). **Exception, approved by
+  Paduka 2026-10-29** (recorded at review; audit §5). `/api/locations` resolve
+  goes through `resolveMengantarArea`; tests pin the pre-A43 bodies byte for
+  byte (golden captured from `be00fee`), prove a second resolve makes no
+  Mengantar call, and assert the route names no `SESSION`/KV. Two refinements
+  from review: only an exact district match is stored (a fallback such as
+  Jakabaring → Seberang Ulu I, 8 Ulu is returned but asked again next time),
+  and a row answers for `MENGANTAR_AREA_MAX_AGE_DAYS` (30) from `resolved_at`
+  before it is resolved again — the bound that stands in for A-415 until that
+  is approved. Behaviour change: a stored district now answers even when
+  Mengantar is not configured (before, no API key meant catalogue only).
+  Review finding 20: the seed cannot tell an exact id from a fallback the form
+  accepted, so a seeded row is dated by its newest order (not the migration)
+  and a stale row whose re-resolve is a fallback or empty is deleted; a
+  district ordered within the bound still answers from its seed until then.
+  The delete touches only an expired row, so a fresh row reached through a
+  failed read is kept (test "a fresh row survives a fallback re-resolve
+  reached through a failed read", mutation-checked).
+  **Exception** (`/api/locations` resolve): read `mengantar_areas`
+  before Mengantar; on a miss resolve as today and store in D1 instead of the
+  24-hour KV entry.
+  -> REQ: REQ-243, REQ-247 · deps: [A-412] · Done when: a test pins the resolve
+  response byte-identical to today's for the same input, a second resolve of
+  the same district makes no Mengantar call, and no KV write remains on the
+  resolve path.
+- [x] **A-414** — **Done 2026-10-29** (uncommitted). **Exception, approved by
+  Paduka 2026-10-29** (recorded at review; audit §5). Decision: **dropped**, not
+  bounded. Free-text provider search is now uncached; the response is the same
+  `fetchProviderLocations` body (golden test, `kebayoran`). Numbers: the hit
+  rate **could not be measured** — the repository has no KV hit/miss counter
+  and the fleet's KV analytics need `--remote` access, which was not requested.
+  The decision rests on the shape of the traffic instead: the key was the raw
+  query, so each typed prefix was its own entry and its own KV write; the
+  buyer form searches the bundled district index locally and reaches the
+  provider search only for the kelurahan fallback; the admin pickers are a
+  handful of operators. If A-416's fleet figures show repeat queries, a bounded
+  D1 or in-memory cache is the upgrade, never KV.
+  **Exception** (`/api/locations` search): drop the 10-minute KV
+  cache for free-text searches, or bound it, based on how often it is hit;
+  the local district index already answers the form.
+  -> REQ: REQ-245 · deps: [A-413] · Done when: the decision and its numbers are
+  written here, and the search response is unchanged.
+- [ ] **A-415** — **Proposal** (quote and dispatch): when Mengantar answers
+  **Live read 2026-10-29** (read-only estimates, `04-unknown.json`): an
+  unknown or malformed destination **or origin** id answers HTTP 200
+  `{"success":false,"data":0}` with no `message`; an empty id answers 400
+  `"origin_id or destination_id is empty"`; an unknown search keyword answers
+  `success:true, data:[]`. There is no "area not found" text, and origin and
+  destination failures are identical, so A-415 must match
+  `success === false && data === 0 && !message` and drop the destination row
+  only when the same origin quotes another destination.
+  "area not found" for a stored area, drop it so the next resolve heals it.
+  Touches `shipping-quote.ts` and `mengantar-dispatch.ts`; write the change and
+  its tests; change nothing until approved.
+  -> REQ: REQ-244 · deps: [A-412] · Done when: the proposal is written here.
+  **Proposal, 2026-10-29 — not implemented, awaiting approval.** Interim: the
+  30-day bound in A-413 heals a wrong id within a month with no protected-file
+  edit. The change, once approved: (1) in `shipping-quote.ts`, when
+  `/order/estimate` fails with Mengantar's area refusal for the destination,
+  call `dropMengantarArea(db, destinationAreaId)` inside a try/catch that only
+  logs, then return the quote error unchanged; (2) the same in
+  `mengantar-dispatch.ts` for the dispatch's destination id, after the dispatch
+  is recorded as failed, never before. The exact refusal text must first be
+  captured from the provider stand-in or a sandbox answer — none is on disk, so
+  matching it would be a guess today. Tests (Mengantar stubbed): a refusal drops
+  every row carrying that id and the next resolve asks Mengantar; any other
+  error drops nothing; a D1 failure in the drop leaves the quote/dispatch
+  result identical; every protected suite passes unchanged. `dropMengantarArea`
+  and its test already exist; it has no caller until this is approved.
+- [ ] **A-416** — **Not started.** Remaining: run `dev:local` with the
+  `dev-providers` stand-in on `be00fee` and on this tree, time N resolves of
+  the same districts (cold and warm), and take the KV-writes-per-day estimate
+  from the fleet's analytics (needs `--remote` approval; `STATUS.md` carries no
+  per-key location figures today).
+  Measure: resolve latency before and after A-413 on a local
+  store with the provider stand-in, and the KV writes removed per day from the
+  fleet figures (`STATUS.md`).
+  -> REQ: REQ-243 · deps: [A-413] · Done when: the before and after figures are
+  recorded here.
+- [ ] **A-417** — **Not started; needs Paduka's approval for `--remote`** before
+  any query runs. Open.
+  Stability study from order history, read-only, needs approval
+  for `--remote`: for each district|city|province, the `destination_area_id`
+  values across all 14 databases' orders, with counts. No waiting for A-413.
+  -> REQ: REQ-246 · deps: [] · Done when: the share of districts whose majority
+  id agrees across stores, and the districts that disagree, are recorded in
+  `STATUS.md`, which decides A-418.
+- [ ] **A-418** — **Not started; blocked on A-417** and on its own approval for
+  ~7,300 live Mengantar searches. Open.
+  Only if A-417 shows stable ids: a throttled, read-only script
+  resolves all 7,285 districts once (about 7,300 Mengantar searches, needs
+  approval) and adds the area id to the bundled district data, with the D1
+  table kept as the fallback.
+  -> REQ: REQ-246 · deps: [A-417] · Done when: the bundle grows by the measured
+  size (target under 150 KB raw), a new install resolves a sampled district
+  with no Mengantar call, and the generator is committed under `scripts/`.
+
+## A44 — Operator switches a COD order to transfer/VA on the admin order
+
+Added 2026-10-30 on request: a COD order whose buyer then wants to transfer;
+the operator switches it on the admin invoice page ("admin yang mengganti di
+halaman inv admin"). A first cut put the chooser on the buyer's `/thanks`; the
+owner corrected that it is an operator action, and the buyer-side switch was
+removed before merge. Direction: COD → prepaid only. Kelola: its order webhook
+keys on the order code and answers a resend as a duplicate
+(`src/plugins/kelola/sync.ts`); no update route is known, so the order is
+flagged for a manual Kelola correction instead.
+
+- [x] **A-421** — `src/lib/payment-switch.ts`, PATCH
+  `/api/admin/orders/[id]` action `switch-payment` (session operator recorded),
+  `payment_switch` / `payment_link` on the admin order read,
+  `PaymentSwitchDialog`, migration `0074` (`payment_switched_from/_at/_by`),
+  the Kelola notice, and the local AutoLaris simulator charging the store's
+  own fee table.
+  -> REQ: REQ-250 · deps: [] · Done when: tests prove the COD-fee drop, the
+  operator record, the refusals, the failed-provider path and the guarded
+  write (mutation-checked); a browser run switches a demo COD order to VA from
+  the admin order and the buyer link resolves to the new instruction.
+  Done 2026-10-30: `payment-switch.test.ts` 5/5 (dispatch guard and COD-fee
+  mutations each fail a test); `dev-providers.test.ts` pins QRIS 0.7% and VA
+  BCA Rp6.500. Demo: admin INV-10014 COD Rp142.596 → VA BCA, total Rp138.000,
+  "Diganti dari COD … oleh admin", Mengantar push held for payment; the copied
+  link's instruction is VABCA Rp138.000 + Rp6.500. Earlier INV-10019 showed
+  the Kelola notice with Kelola enabled locally on a dummy URL. A Base UI
+  Select inside the Radix dialog dropped its selection, so the dialog lists
+  the methods as buttons. Not run in a browser: manual transfer (no demo
+  seller account; covered by the test) and the dialog at 390 px.
+
+## A45 — Operations API and `adsbook` CLI (beside the storefront headless API)
+
+Accepted 2026-10-30 (PRD A45, REQ-251–REQ-269); the storefront headless API
+stays, so A-432 and A-433 are cancelled. Migration numbers are
+provisional: take the next free one at merge. Every task: `npm test`,
+`npm run check`, `npm run build`, `npm run route-map` when a route or lib
+module is added, and the A40 `rows_read` measurement for any new list or
+report query.
+
+**v1 — read**
+
+- [x] **A-422** — **Done locally 2026-10-30.** Six `ops:` scopes, never a default; a key is created or changed only with an explicit scope list (400 otherwise — an omitted list on PATCH used to reset an ops key to the storefront defaults); only the owner issues, changes or revokes a key with an `ops:` scope. Browser: developer page at 1280 and 390 px lists scopes, last use and the audit rows, no page overflow.
+  Operations scopes beside the storefront scopes in
+  `src/lib/developer-api-keys.ts`: `ops:orders:read`, `ops:orders:read_pii`,
+  `ops:orders:write`, `ops:shipping:write`, `ops:reports:read`,
+  `ops:catalog:read`; a null or empty stored scope list keeps the storefront
+  defaults and never grants an `ops:` scope; key creation requires at least one
+  scope and is owner-only (`src/pages/api/admin/settings/developer.ts`,
+  `src/pages/admin/settings/developer.astro`, its island).
+  -> REQ: REQ-252 (constraints REQ-263, REQ-265) · deps: [] · Done when: tests
+  prove a null-scope key gets 403 on an operations route and still passes a
+  storefront route, creation without scopes is
+  400, a non-owner gets 403 on create and revoke; the developer page lists
+  scopes, last use and usage at 390 and 1280 px.
+- [x] **A-423** — **Done locally 2026-10-30.** Key lookup, usage limits and audit exported from `headless-api.ts`, not copied; no CORS headers, `no-store`.
+  `src/lib/ops-api.ts`: `OPS_OPERATIONS` (one minimum scope
+  each) and `validateOpsRequest`, sharing the key lookup, usage limits and
+  audit of `headless-api.ts` (extracted, not duplicated); Bearer auth, no CORS,
+  no origin allowlist.
+  -> REQ: REQ-251 (constraints REQ-263) · deps: [A-422] · Done when: tests
+  cover absent, malformed and revoked keys (401, no audit row) and an
+  out-of-scope key (403 with an audit row); a storefront scope never satisfies
+  an operations operation nor the reverse; a test fails when a route file under
+  `src/pages/api/ops/v1` is not in the table.
+- [x] **A-424** — **Done locally 2026-10-30.** Migration `0075` (schema 76). Applied by workerd D1 on a fresh install (`dev:local`) and to a copy of the A36–A38 demo D1 (20 orders backfilled). A test drives `order-lifecycle.ts`, `updateAdminOrderShippingStatuses`, `payment-switch.ts` and an admin edit; dropping the trigger fails it.
+  Migration: `orders.updated_at` backfilled from `created_at`,
+  kept by an `AFTER UPDATE` trigger (one place instead of every write path),
+  index `(updated_at, id)`.
+  -> REQ: REQ-254 · deps: [] · Done when: it applies to an empty local D1 and
+  to the demo copy; a test updates an order through `order-lifecycle.ts`,
+  `payment-switch.ts` and the admin PATCH SQL and sees `updated_at` advance
+  each time; `EXPLAIN QUERY PLAN` uses the index for `updated_at > ?`. If D1
+  refuses the trigger, stop and bring the alternative to Paduka.
+- [x] **A-425** — **Done locally 2026-10-30.**
+  Pure order serializer `src/lib/ops-order.ts`: attribution
+  (`source_slug`, traffic source via `traffic-source.ts`, five UTM tags from
+  `ad_click_ids`) and PII omission without `ops:orders:read_pii`.
+  -> REQ: REQ-256 (constraints REQ-253) · deps: [] · Done when: tests prove a
+  `ops:orders:read` payload has no name, phone, email, street address or click-id
+  value, and a `ops:orders:read_pii` payload has them; UTM values match the stored
+  JSON.
+- [x] **A-426** — **Done locally 2026-10-30.** Browsing pages by `(created_at, id)`, syncing by `(updated_at, id)`; both walk an index. `scripts/measure-ops-orders.ts` (20k orders/27k lines, local workerd D1): a 90-day page read 37,930 rows when ordered by id, 399 now; every page ≤ 1,240 rows, ceilings in the script.
+  `GET /api/ops/v1/orders`: filters (status, payment method/status,
+  period by the admin rules, `source_slug`, `utm_campaign`, `kind`), opaque
+  cursor, ≤ 100 per page, `updated_since`.
+  -> REQ: REQ-254 · deps: [A-423, A-424, A-425] · Done when: a test pages 250
+  fixture orders and sees each once; an order edited after `t` appears under
+  `updated_since=t`; `rows_read` for a 90-day page is recorded and under the
+  A40 ceiling.
+- [x] **A-427** — **Done locally 2026-10-30.** Amounts and items equal the admin GET's; unknown number 404 with an audit row.
+  `GET /api/ops/v1/orders/{number}`: items with recorded weight,
+  payment, shipping, `payment_switched_*`.
+  -> REQ: REQ-255 · deps: [A-423, A-425] · Done when: a test reads a fixture
+  order and its totals equal the admin GET's; unknown number is 404 with an
+  audit row.
+- [x] **A-428** — **Done locally 2026-10-30.** Logic in `src/lib/adsbook-cli.ts`, entry `scripts/adsbook.ts`, contract in `docs/OPS-API.md` §5. The test drives the CLI through the real route handlers: `--json` equals the API page and detail, the file is 0600, a 401 key is not stored, no output carries the key (mutation-checked for the mode and a leak). The entry was smoke-run through `npm run -s adsbook` with a piped key, and the hidden prompt inside a pseudo-terminal (`script`): the key was not echoed.
+  `adsbook` CLI (`scripts/adsbook.ts`, `npm run adsbook --`):
+  `login`, `logout`, `orders list|show`, `--json`; credentials at
+  `~/.config/adsbook/credentials.json` mode 0600; plain `fetch`.
+  -> REQ: REQ-260 · deps: [A-426, A-427] · Done when: a test runs the CLI
+  against the real route handlers (as `headless-client.test.ts` does) and its
+  `--json` output equals the API page; the credentials file is 0600 and the key
+  never appears in stdout or stderr.
+- [x] **A-429** — **Done locally 2026-10-30.** `utmStatements`/`shapeUtm`/`utmReport` in `insights.ts`, tags normalised in SQL (`utmTagSql`: trim, lower, blank = NULL). Tests: `Promo-Okt `, `promo-okt`, `PROMO-OKT` share a row; a blank and a missing medium share a row; untagged (no JSON, click ids only, blank tags, broken JSON) is the last row; totals equal the landing report; the statement walks `idx_orders_created_at`. Mutation-checked (no `lower`, no `NULLIF`). `measure-insights.ts`: `utm-90d` reads 79,600 rows on the 20k fixture (ceiling 90,000, the landing screen's), route totals equal the independent arithmetic.
+  UTM aggregation in `src/lib/insights.ts`: source / medium /
+  campaign, drill to content, "(tanpa UTM)" row, trim + lower-case, same
+  `orderRowSql()` and period rules; `GET /api/admin/insights/utm`.
+  -> REQ: REQ-261 · deps: [] · Done when: tests prove `Promo-Okt ` and
+  `promo-okt` share a row, untagged orders land in "(tanpa UTM)", totals equal
+  the summary report for the same period; `rows_read` recorded on the
+  locations-90d fixture.
+- [x] **A-430** — **Done locally 2026-10-30.** `UtmView` in `InsightsReport.tsx`, nav child "UTM", `/admin/analytics/utm`. Headless Chromium on a seeded `dev:local` store: table at 1366 px and cards at 390 px, drill to content and back at both widths, no horizontal overflow, the sidebar link carries the period, empty state, error state (500) with retry; an advertiser opens it and its API answers 200, customer service is redirected and its API answers 403.
+  Analitik › UTM screen (`InsightsReport.tsx`, nav entry,
+  period carry) in the existing report idiom.
+  -> REQ: REQ-261 · deps: [A-429] · Done when: browser run at 1366 and 390 px
+  shows the table, the drill to content and back, empty and error states, no
+  horizontal overflow; advertiser role can open it.
+- [x] **A-431** — **Done locally 2026-10-30.** `src/lib/ops-openapi.ts` served by `openapi.json.ts` (ops key, no CORS, `no-store`); `ops-openapi.test.ts` fails on a path/method/scope mismatch in either direction and on a serializer field the Order schema does not name (three mutations each caught).
+  `docs/OPS-API.md` (ownership row in AGENTS.md §2), OpenAPI
+  3.1 at `/api/ops/v1/openapi.json` from the operations table.
+  -> REQ: REQ-264 · deps: [A-426, A-427] · Done when: a test fails when a
+  registered operation and an OpenAPI path disagree; `npm run docs:check`
+  passes.
+- [x] **A-432** — **Cancelled 2026-10-30** (Paduka: "headless tidak perlu di
+  hapus"). The storefront routes stay; REQ-263 now asks for scope isolation,
+  delivered by A-422 and A-423.
+
+**v1.1**
+
+- [x] **A-433** — **Cancelled 2026-10-30** with A-432; no per-install usage
+  read is needed (PRD A45 Q1 moot).
+- [x] **A-434** — **Done locally 2026-10-31.** Pure `src/lib/utm-link.ts` (Q3 lists, `normalizeUtmTag`, `buildUtmLink`), `UtmLinkBuilder.tsx`, page `/admin/ads/utm` (Iklan & tracking › Link UTM), pages listed as the sitemap lists them on the store's own origin. `utm-link.test.ts`: normalisation (diacritics, symbols, length), encoding, the page's own query and fragment kept, an existing `utm_*` replaced, refusals. Headless Chromium on a seeded `dev:local` store at 1280 and 390 px: medium follows the source, the stored campaign is shown, the copied link equals the field, the target page answers 200 for a product and a landing page, no overflow; Analitik › UTM links to it.
+  UTM link builder in admin (landing/product picker, fixed
+  source/medium list, normalised campaign, copy).
+  -> REQ: REQ-262 · deps: [] · Source/medium list per PRD A45 Q3. Done when: a test of the pure
+  builder proves normalisation and encoding; browser run at 390 and 1280 px.
+
+**v1.1 — native landing pages** (PRD A45 Q5). The CLI works in an install's
+own repository; nothing here builds, deploys or writes to a live store.
+
+**A46 — pickup or drop-off at push** (PRD A46)
+
+- [x] **A-445** — Push dialog (drop-off | pickup: date, hour, motor/mobil) on the
+  order list (row, selection, "Push semua yang siap") and the order page;
+  `parseMengantarPickupChoice`, `scheduledPickup` payload with `time_id` and
+  `volume`, one slot per pickup address per request, accepted orders linked to
+  `pickup_schedules`. -> REQ: REQ-271, REQ-273 · **Done locally 2026-10-31.**
+  Tests: choice parsing and refusals, slot reuse vs booking, payload shape,
+  schedule link (mutation-checked: a misspelt type and a 30-minute lead each
+  fail). Browser against the local stand-in: three ready orders pushed as a
+  14.00 car pickup, one schedule row, three resi. Not yet run against live
+  Mengantar (needs Paduka's approval for one order).
+- [x] **A-446** — `/time` slot per hour and either response shape: the shipping
+  page sends date and hour through the shared picker; `resolveMengantarPickupSlot`
+  no longer sends `"9:00 - 18:00"`. -> REQ: REQ-272 · **Done locally 2026-10-31.**
+
+- [ ] **A-440** — Update manifest names the native landing page paths:
+  install-owned `src/pages/<slug>.astro`, `src/styles/landing-pages/<slug>.css`,
+  `src/components/storefront/landing-pages/<slug>/` per registered slug;
+  `src/data/native-landing-pages.ts` under "Merge by hand"; root `scripts/**`
+  product-owned (`docs/UPDATE-PATH-OWNERSHIP.md`, RELEASE.md §7 step that
+  copies `src/**`).
+  -> REQ: REQ-269 · deps: [] · Done when: a test reads the manifest and fails
+  when any of those paths or `scripts/**` is missing from its section;
+  RELEASE.md §7 names the register merge; `npm run docs:check` passes.
+- [ ] **A-441** — `ops:catalog:read` scope; `GET /api/ops/v1/catalog/products/{slug}`
+  and `GET /api/ops/v1/catalog/landing-pages` (CMS rows from `landing_pages`,
+  native rows from the register, product-page claim), registered in the
+  operations table and the OpenAPI document.
+  -> REQ: REQ-268 (constraints REQ-251, REQ-264) · deps: [A-423, A-431] ·
+  Done when: tests prove a `ops:catalog:read`-only key gets 403 on orders, an
+  inactive product answers 200 `active: false`, an unknown slug 404 with an
+  audit row, and no response carries section bodies.
+- [ ] **A-442** — Pure checker `src/lib/native-landing-check.ts` (file ↔
+  register, `validateNativeLandingPages`, `BaseLayout`, `MetaLandingTracker`,
+  one `GeoIpResolvedForm` in `hybrid` or a waiver comment, no `fbq(`, no strict
+  `catalogProductId(`, rupiah-literal and `noindex`/inactive warnings, named
+  manual items) and `adsbook lp check [<slug>] [--json]`, adding the store-side
+  items through A-441 when logged in. Orphan detection skips reserved and
+  install route slugs.
+  -> REQ: REQ-267 · deps: [A-428; A-441 for the store-side items only] · Done
+  when: a test runs the checker over the shipped tree (no fail: the reserved
+  form and sample routes are not orphans), over `contoh-landing.astro` as a
+  registered entry (no fail), over a copy with one strict
+  `catalogProductId(` (fail naming file and line), with an orphan register
+  entry (fail) and with a second form (fail); the CLI exits non-zero on a fail
+  and `--json` equals the library report.
+- [ ] **A-443** — Template `src/lib/native-landing-scaffold.ts` (pure:
+  slug + product slug → the three file changes) and `adsbook lp new <slug>
+  --product <slug>`: refusals before any write, `isActive: false` entry,
+  offline warning, next steps printed.
+  -> REQ: REQ-266 (constraints REQ-267, REQ-269) · deps: [A-442] · Done when:
+  a test proves the scaffold output passes A-442 with no fail and every
+  refusal writes nothing; in a scratch copy of the repo `adsbook lp new
+  promo-okt --product <seeded product>` then `npm test`, `npm run check`,
+  `npm run build` pass and `/promo-okt` answers 200 in `wrangler dev --local`
+  at 390 and 1280 px with no console error.
+
+**v2 — act**
+
+- [ ] **A-435** — Idempotency store (migration `api_idempotency`: key id +
+  `Idempotency-Key` → status + body, 24 h) and `POST
+  /api/ops/v1/orders/{number}/actions` for confirm, shipping status, cancel,
+  switch payment, transfer received — each calling the admin's own library
+  function.
+  -> REQ: REQ-257 · deps: [A-423] · Done when: tests prove a repeated key
+  returns the first result without a second write, each action matches the
+  admin path's resulting row, and a write without `ops:orders:write` is 403.
+- [ ] **A-436** — Dispatch to Mengantar and pickup scheduling under
+  `ops:shipping:write`, through `mengantar-dispatch.ts`.
+  -> REQ: REQ-257 · deps: [A-435] · Done when: against the local provider
+  simulator, a repeated `Idempotency-Key` dispatch calls Mengantar once.
+- [ ] **A-437** — CLI actions with `--dry-run` and `--yes`.
+  -> REQ: REQ-260 · deps: [A-435, A-436] · Done when: a test proves
+  `--dry-run` sends nothing and an action without `--yes` in a non-TTY exits
+  non-zero.
+
+**v2.1**
+
+- [ ] **A-438** — `GET /api/ops/v1/reports/{summary|landing|products|locations|times|utm}`
+  under `ops:reports:read`, reusing `insights.ts`.
+  -> REQ: REQ-258 · deps: [A-423, A-429] · Done when: each report's totals equal
+  the Analitik screen's for the same period.
+- [ ] **A-439** — Outbound webhooks: owner-only endpoint registration in admin,
+  HMAC-signed events from the write paths via `waitUntil`, cron retries,
+  delivery log.
+  -> REQ: REQ-259 · deps: [A-424] · Done when: a test proves
+  the signature verifies, a failing endpoint is retried and never delays the
+  order write, and the log records each attempt.
+
+## Integration — parallel streams and one release
+
+Added 2026-10-29 after the plan review. A36–A43 run as parallel streams on
+their own branches from `feat/a35-a40-analytics-fit`; this section is how
+they come back together.
+
+**Migration rule for parallel work.** The chain must be gap-free
+(`schema-version.test.ts`). Each stream names its migration `0068_<topic>.sql`
+and sets `schemaVersion` to 69 on its own branch; tests find a migration by
+its `_<topic>.sql` suffix, never by number. Integration renumbers them in merge
+order.
+
+- [ ] **A-419** — **Merged 2026-10-29** on `feat/a35-a40-analytics-fit`:
+  s1 → s2 → s3 → s4 → s5, migrations renumbered `0068`–`0072`, `schemaVersion`
+  73, route map regenerated; 1007 tests, check and build pass; the chain
+  applies to a fresh and an upgraded database (node:sqlite). Browser run on the
+  merged tree at 390/1280 (`scratchpad/evidence/integration*/`): COD order to
+  `/thanks`, order detail (weight, source, warehouse), dashboard icon,
+  `/admin/status`, a second warehouse quoting its province, source deep links.
+  Post-merge fixes (Exceptions A-397/A-408): the admin courier re-quote and its
+  preview quote the order's recorded weight; `/admin/orders` server-renders
+  its deep-link filters. **Open:** A37 backend now passes locally in s1 but is
+  uncommitted and not integrated; Analitik screen code now exists but its
+  browser acceptance is in progress (tool restored; five-report demo smoke
+  passed), and A38 panels remain open.
+  A-363's recent-buyers commit `d408b32` exists in s2 but is not integrated.
+  (2026-10-31: A38 cancelled; `d408b32` discarded, nothing left to integrate.)
+  Upstream `c85fe5b`/`be08fc6` (Kelola backfill / 1.7.14) also remain to be
+  integrated. Upstream CI run 40884103654 is now green. Merged 2026-10-30:
+  STATUS resolved, maps regenerated, BUILD-LOG local entries renumbered 186–189
+  (Entry 190).
+  Before accepting backfill, address/review the proven first-50-row starvation
+  and old-counter/all-age-send mismatch, and verify the settings UI and request
+  duration against a synthetic receiver. No live Kelola call is authorized.
+  This task's Done when cannot close yet.
+  Merge the streams in this order: A36→A37→A38, A39 (+A-379),
+  A41, A43, A42. Renumber migrations gap-free, set `schemaVersion`, regenerate
+  the route map, resolve the known shared files (`auth.ts` route lists,
+  `admin-navigation.ts`, `version.ts`, `order-persistence.ts`).
+  -> REQ: all of A36–A43 · deps: every stream · Done when: `npm test`,
+  `npm run check` and `npm run build` pass on the merged branch; `dev:local`
+  with `dev:seed` passes; a Playwright run covers a COD order through the
+  hybrid form, `/thanks`, the order detail, the dashboard, Analitik, the status
+  page and Gudang at 390 and 1280 px; every protected suite passes unchanged.
+- [ ] **A-420** — One release: version and changelog per `RELEASE.md` naming
+  every migration, `STATUS.md`, `ARCHITECTURE.md`, `MENGANTAR_INTEGRATION_SPEC.md`,
+  and the doc headers re-stamped. Deploying to any install stays a separate,
+  per-install approval (`AGENTS.md` §5).
+  -> REQ: all of A35–A43 · deps: [A-419] · Done when: the release notes list
+  each migration and each behaviour change an operator will see.
+

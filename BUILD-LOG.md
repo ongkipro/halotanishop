@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-10-16 @ `fd652b4`
+> Verified against disk: 2026-10-31 @ `7a8f26e` + fix/stack-review-2026-10-31 working tree (Entry 206; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -6920,3 +6920,1121 @@ noisy; TTFB, LCP and Speed Index are the comparable figures.
   §16.3 (the request, the baseline, how to read it), and the owner's decisions:
   no fabricated match keys, and an optional email field deferred.
 
+### Entry 185: Kelola plugin backfills orders older than the retry window
+
+- An order taken before the Kelola plugin was switched on, or one that kept
+  failing past 24 h, was never pushed: the hourly drain only looks inside its
+  window and the per-order resend needs one click per order. Found on
+  penyembuhan.com, where 11 orders from before the push existed never reached
+  Kelola.
+- `drainKelolaOrders(…, now = null)` drops the window, one batch of 50 per
+  call; abandoned and voided orders are still skipped. `kelolaSyncStatus` now
+  reports `unsynced_older`, counted with a LEFT JOIN because such an order has
+  no `plugin_kelola_orders` row.
+- The plugin settings page shows the count with a "Kirim order lama" button
+  (`action: "backfill"` on `PUT /api/admin/plugins/kelola`). Kelola keys on the
+  order number, so a repeat click cannot create a second sale.
+- Test in `src/plugins/kelola/sync.test.ts`: the windowed drain leaves the old
+  order alone, the backfill sends it once and skips abandoned and voided rows.
+  879 passing, `astro check` clean, build green. The settings page change was
+  not opened in a browser.
+
+### Entry 186: Resume the unfinished Analitik backend (A-348–A-356)
+
+- Resumed existing uncommitted s1 work without replacing it. Kept all protected
+  order, tracking and form modules and their tests unchanged. No migration added.
+- Repaired legacy orphan fixture setup while asserting the normal FK constraint
+  still rejects deletion. Corrected its RTS arithmetic to 5 / (2 + 5) = 71.43%.
+  City labels now prefer a stable stored mixed-case spelling, independent of SQL
+  row order. Product id zero/invalid values are rejected before querying.
+- Added empty/error response and Jakarta boundary cases. Insights uses no-store
+  consistently with existing middleware; the PRD's ineffective browser-cache
+  proposal was corrected, not implemented by weakening the middleware.
+- Added `scripts/measure-insights.ts`: isolated ephemeral workerd D1, full schema,
+  synthetic 20,000 orders/27,000 items, five real route handlers, independent
+  expected aggregates, response minimization, indexed date-bound plans, actual
+  D1 rows-read ceilings, and a disposable covering-index comparison. No remote
+  bindings, real install config, customer data, credentials or live provider calls.
+  Exact results and limits belong to PRD A37; unit fake metadata is not cost proof.
+- Verification: full `npm test` 1024/1024, zero skipped; `npm run check` 511 files,
+  zero errors/warnings/hints; `npm run build` succeeds (local INSTALL_TOKEN warning).
+  Focused insights/dashboard/auth: 39/39. Generated route map: 126 routes.
+  Local D1 route smoke: 2069 leads, 17931 orders, 12238 live units and
+  1,223,800,000 revenue, agreeing across applicable endpoints.
+- Independent review: Codex gpt-5.6-luna, attached-source fallback because its
+  read-only sandbox could not start commands. Requested mixed payment states,
+  independent route aggregate assertions and stricter index-range plan checks;
+  implemented and reran them. Follow-up verdict APPROVE for those fixes and
+  backend/measurement packet; UI/auth files outside that packet were not reviewed.
+  Parent-run real middleware role tests remain the auth evidence.
+- Remaining: A-348 explicitly requires a commit, not authorized here; A-357–A-362
+  UI/browser and final-screen measurement, A38 panels, s2 recent-buyers integration,
+  A-419 integration and A-420 release. No browser proof or release-ready claim.
+  No Git stage/commit/merge/push, deployment or remote database operation.
+  Logs: `scratchpad/evidence/analytics-resume/` (ignored, local evidence).
+
+### Entry 187: Analitik screen implementation; browser gate blocked
+
+- Added five `/admin/analytics` pages through InsightsPage and a coordinated
+  InsightsReport island, using AdminLayout/AdminPageHeader, FilterBar/FilterField,
+  the shared date picker and installed shadcn primitives. Analitik appears only
+  for owner/admin/advertiser. Date query helpers preserve period on screen and
+  command-palette navigation; direct source links remain permission-gated.
+- Added sortable landing table/phone cards, closing bars, channel/follow-up
+  details, product summaries/expandable variants, geography drill-down and
+  numeric hour/weekday heatmap. Trend chart is a separate dynamic import, has
+  one selected unit at a time, previous-period totals and a daily data table.
+- Independent source review (Codex gpt-5.6-luna) found missing lazy-chunk
+  recovery and a permissive absent-context link fallback; both fixed. Focusable
+  table regions now own their horizontal scroll rather than nesting scrollers.
+  Final review APPROVE is code-level only. Province click is explicitly a
+  drill-down on the applied filters, not an unapplied toolbar change.
+- Verification: 1033 passing tests / zero skipped; check 521 files with zero
+  errors, warnings or hints; build complete. Route map regenerated: 131 routes.
+  SSR tests cover all report loading/empty states and populated non-chart views;
+  helper tests cover sorting, period links and safely encoded source drill-down.
+- Browser tool failed before launching: `agent-browser` missing from PATH;
+  `pi-agent-browser-doctor` also unavailable. No alternative runtime was installed.
+  Local dev server at 8795 started successfully and was stopped by its owned
+  process group. No browser login, seed, screenshot or geometry report exists.
+  Responsive, keyboard, hydration, themes, tooltip and live lazy-loading remain
+  UNVERIFIED; A-357–A-360 stay open. Product desktop table refinement, final-screen
+  query budget (including trend selector catalogue reads), A38 and release remain.
+- No dependency, migration, protected checkout/tracking/order-flow change, Git
+  stage/commit/merge/push, deploy or remote data operation. Logs:
+  `scratchpad/evidence/analytics-ui/`. This is not release completion.
+
+### Entry 188: Browser restored, isolated demo, and upstream integration review
+
+- Installed agent-browser 0.38.1 with owner approval; native doctor, local form
+  interaction, keyboard, and light/dark screenshot smoke passed. This supersedes
+  Entry 187's tooling blocker, not its outstanding acceptance criteria.
+- Built the existing analytics worktree and seeded a fresh ignored local state
+  through `scripts/dev-seed.ts`: 11 products, 17 active variants, 18 orders.
+  Existing local store state was preserved. The demo binds to the rich Tailscale
+  interface on port 8795; provider stand-ins stay on loopback port 8796.
+  Login and five reports render, with no observed page errors. Landing screenshots
+  at 390/1366px are in `.wrangler/`; historical/lead/return coverage is not implied.
+- Fetched upstream without merge: collaborator PR #101 adds Kelola historical
+  backfill (`c85fe5b`); `be08fc6` releases 1.7.14. Merge-tree simulations retain
+  A41 recorded weights and schema 73; STATUS and generated route maps conflict.
+  The upstream BUILD-LOG Entry 185 must be reconciled with the local numbering
+  (done at the merge, Entry 190: local entries became 186–189).
+- In an isolated scratch tree, 14 plugin tests passed. Two behavioral probes
+  established that the unbounded backfill also sends recent orders, and that 50
+  old itemless rows block a valid later row across repeated calls. A-419 tracks
+  these acceptance follow-ups; no live Kelola action was performed.
+- At the owner's request the GitHub repository became public, and CI run
+  40884103654 was rerun: check/tests/build passed for upstream 1.7.14. Its earlier
+  failed job had no steps and cited billing/spending limits. This does not verify
+  the unmerged analytics work. No local commit, merge, push or deploy occurred.
+
+### Entry 189: First analytics acceptance pass and desktop product ranking
+
+- Synced STATUS and TASKS with recovered browser tooling, upstream CI and merge
+  follow-ups. Preserved earlier entries as historical evidence.
+- Native browser checks: all five report routes had zero document overflow at
+  390/1366/1536px; sampled controls follow the repo's 44px phone / 40px desktop
+  geometry. Explicit Apply does not change the URL until submitted; the applied
+  seven-day period survives sidebar navigation. Province drill-down works with
+  focus + Enter. No page errors observed in the normal report traversal.
+- Replaced desktop product cards with a shared-primitives ranking table, keeping
+  phone cards and reusable variant details. Keyboard Enter opens the variant
+  detail. Desktop/mobile captures reviewed: columns readable, amounts aligned;
+  expanded variants increase row height deliberately. Phone toolbar channel
+  text can truncate; this is not final visual acceptance.
+- Added a named focusable Landing scroll region; ArrowRight moves the table at
+  1280px without document overflow. No global primitive was changed.
+- Products empty state tested against an empty historical interval, Reset filter
+  restored data; aborting only its insights API request produced the error UI.
+  After removing the browser-only network rule, Coba lagi restored data and kept
+  the seven-day query. The expected aborted request is not a server defect.
+- Verification: 1033 tests pass, none skipped; check 521 files 0/0/0; build and
+  docs:check pass; route map regenerated (131 routes); diff whitespace check clean.
+  `scripts/measure-insights.ts` passes all eight existing local fixture budgets:
+  79670/53971/1361/95660/172118/51791/37931/1121 rows read respectively for landing,
+  trend, source trend, product trend, products, locations, times and one-day landing.
+- Evidence: `.wrangler/analytics-qa-*.json`, `.wrangler/qa-products-{desktop,mobile}.png`,
+  `.wrangler/qa-landing-scroll.png`; command logs `/tmp/analytics-qa-{tests,check,build,measure}.log`.
+  The first geometry collection hit the tool's 25-call cap; a second bounded pass
+  covered the remaining widths. Generic admin-geometry contract report is not
+  executed; scoped native measurements do not substitute for that full report.
+- Remaining: richer historical/source/lead/return fixtures, all-role browser
+  matrix, themes, chart tooltip/lazy-load proof, multi-row sorting/deep links,
+  full screen/selector query budgets, A38, upstream integration and release.
+  Demo Worker restarted against the new build; provider process/data retained.
+  No commit/merge/push/deploy or remote data writes.
+
+### Entry 190: Review fixes, follow-up persistence, date panel and main merged
+
+- Resumed `feat/s1-a36-a38`. The follow-up endpoint test fixture lacked
+  NOT NULL address columns, and the endpoint sent `cache-control` twice
+  (`json()` already sets it); both fixed.
+- A high-effort review of the working tree reported ten findings. All were
+  addressed: province drill-down sends the row key (empty or unmatched
+  provinces open), non-JSON error bodies keep the 401/403/5xx states, a
+  follow-up 409 reloads the stage list, a URL source/product filter on a
+  screen without its control is shown as "Filter aktif" and kept, the period
+  reaches Analitik links on pointerdown/focus and in the palette, both layout
+  instances of an order's follow-up stay in step, shared constants replace
+  literals, and the follow-up route reuses `orderRowSql()` and answers 404 for
+  an order that vanishes mid-save. Closing rate keeps every lead in the
+  denominator; the PRD was amended to match.
+- The period panel opens rightward from the trigger's left edge when it fits,
+  right-aligns otherwise, and spans the content inside a 16px gutter on phones.
+- Merged origin/main (`be08fc6`, 1.7.14 Kelola backfill). Its Entry 185 kept
+  its number; the local Analitik entries became 186–189. Route maps
+  regenerated, not hand-merged. The upstream backfill was integrated, not
+  re-reviewed: TASKS still lists its open questions.
+- Lokasi opens a city to its districts (province › city › kecamatan, breadcrumb).
+  An order counts under a place only once its address form is complete
+  (district filled, the checkout rule); a middle-form order before an operator
+  completes it is one `Alamat belum dilengkapi` row, not credited to its
+  IP-guessed province. Same single grouped read: 51,791 rows on the
+  locations-90d fixture, unchanged, under its 60,000 ceiling. Weight was
+  confirmed already handled: every form records `order_items.weight_grams`
+  through `persistOrder`, and dispatch, re-quote and Kelola read it.
+- Verification and browser evidence: TASKS A37 review note. `astro dev` from
+  this worktree fails on a symlinked `node_modules` (Vite denies files outside
+  the root); the Wrangler demo on the Tailscale address is the working path.
+
+### Entry 191: Operator switches a COD order to transfer/VA (A44, REQ-250)
+
+- Merged PR #102 into main (`cbcadbf`) and deleted `feat/s1-a36-a38`; new work
+  on `feat/invoice-payment-switch`.
+- The demo Worker had served `/_astro` 404s after a rebuild underneath it
+  (Pengiriman and Pembayaran blank); a restart fixed it. Restart after every
+  build.
+- First cut offered the switch to the buyer on `/thanks`; corrected to an
+  operator action on the admin order (PATCH `switch-payment`) and the buyer
+  path removed. Refused once fulfilment touched the order or while its
+  address/courier is not final. Total drops the COD fee; the write repeats
+  every guard and the read total. Migration `0074` adds
+  `payment_switched_from/_at/_by`; `schemaVersion` 75. "Salin link
+  pembayaran" hands the buyer `/payment`.
+- Kelola cannot be updated (resend = duplicate), so the admin order asks for a
+  manual Kelola correction when the switch came after the push.
+- The local AutoLaris simulator now charges the store's fee table (it charged
+  a flat Rp4.000 for every VA) and lists VA Permata.
+- Evidence: TASKS A-421.
+- Independent review (separate agent, code only): four findings, all fixed.
+  An admin re-quote racing a switch could write its COD total over the
+  prepaid order (the re-quote UPDATE now also requires the method and total it
+  read); a resubmitted COD checkout could be handed the switched order back as
+  COD (`checkout_fingerprint` cleared on switch); refusal copy addressed the
+  buyer. `0074` gained `payment_switched_by` after its first push: the branch
+  was unmerged and no install deploys from it; the only D1 that ran the
+  earlier `0074` is the local demo, patched by hand.
+- `/payment` now keeps the server's payment method, so an order an operator
+  moved off COD (or a link opened on another device) reaches `/thanks` as what
+  it is once paid.
+- Demo smoke after restart: 17 pages 200 with every island asset served;
+  admin order APIs 200; expected refusals 400/401/404/409; a COD re-quote on
+  INV-10013 (JNE→J&T) still recomputes the COD total; no console errors.
+### Entry 192: A failing branch warehouse rotates the quote to the primary (A-444)
+
+- Paduka asked that the main warehouse be the default, and that a quote whose
+  other warehouse errors go to the main one. A42 already fell back to the
+  primary when no warehouse covered the buyer, but a covering branch whose
+  Mengantar rate call failed ended a prepaid checkout and sent COD to the city
+  average from that same failing origin.
+- `resolveEligibleShippingRates` now re-quotes once from the primary when the
+  chosen non-primary warehouse fails or returns no usable rate; the order stores
+  the primary. Headless checkout opts out to stay fail-closed (it compares no
+  submitted price). ADR-032 amended, PRD REQ-270, TASKS A-444.
+- Numbering: renumbered from 191 when PR #103 (Entry 191) merged first.
+- Independent review: one medium (an admin re-quote with the order's own
+  warehouse was swapped to the primary at save, unseen by the operator and
+  against REQ-241) — a named warehouse is now never swapped; three lows fixed.
+- Verification: `npm test` 1049 pass / 0 fail, `npm run check` 0 errors,
+  `npm run build` complete, mutation-checked (TASKS A-444).
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+### Entry 193: Operations API v1, read (A-422 to A-427)
+
+- PRD A45 keeps the storefront headless API as it is and adds `/api/ops/v1`
+  beside it for server-to-server tooling, on the same keys, quotas and audit
+  trail (`validateOpsRequest` reuses what `headless-api.ts` now exports). No
+  CORS headers, no origin allowlist, every response `no-store`.
+- Six `ops:` scopes, never granted by default. A key is created or changed only
+  with an explicit scope list (an omitted list on PATCH used to reset an ops key
+  to the storefront defaults), and only the owner issues, changes or revokes a
+  key holding an `ops:` scope. A storefront scope never satisfies an operations
+  route, nor the reverse.
+- Migration `0075` (schema 76): `orders.updated_at`, backfilled from
+  `created_at`, kept by insert/update triggers so the dozen order write paths
+  need no change; index `(updated_at, id)`.
+- `GET /api/ops/v1/orders` (filters, opaque cursor, `updated_since`) and
+  `GET /api/ops/v1/orders/{number}`, serialized by `src/lib/ops-order.ts`; a
+  key without `ops:orders:read_pii` gets no name, phone, email, street address
+  or click-id value. `scripts/measure-ops-orders.ts` on 20k orders: a 90-day
+  page read 399 rows (37,930 when ordered by id), every page under 1,240.
+- Verification: `npm test` 1065 pass / 0 fail, `npm run check` 0 errors
+  (533 files), `npm run build` complete (TASKS A-422 to A-427).
+### Entry 194: Operations API contract and OpenAPI (A-431)
+
+- `docs/OPS-API.md` owns the operations contract (row added to AGENTS.md §2):
+  calling rules, the six scopes and which are live, operations, sync vs browse
+  paging, errors.
+- `GET /api/ops/v1/openapi.json` serves `src/lib/ops-openapi.ts` to a key with
+  `ops:orders:read`; registered in `OPS_OPERATIONS` like every ops route.
+  `// lazy:` a catalogue-only key (A-441) cannot read it until the route
+  accepts any ops scope.
+- `ops-openapi.test.ts`: the document and `OPS_OPERATIONS` agree on name, path,
+  method and scope in both directions; every `$ref` resolves; every field
+  `serializeOpsOrder` writes (with PII) is named in the Order schema.
+  Mutation-checked: a changed scope, a removed table entry and a removed schema
+  field each fail it.
+- Verification: `npm test` 1069 pass / 0 fail, `npm run check` 0 errors
+  (536 files), `npm run docs:check` passed, `npm run build` complete.
+### Entry 195: The `adsbook` CLI, read (A-428)
+
+- `npm run -s adsbook -- login|logout|orders list|orders show`, a client of
+  the operations API only (REQ-260). Logic in `src/lib/adsbook-cli.ts` with
+  its I/O injected; `scripts/adsbook.ts` connects it to the process. No
+  dependency: `node:util` `parseArgs`, `fetch`, `Intl`.
+- `login` verifies the key against `/api/ops/v1/openapi.json` before storing
+  it in `~/.config/adsbook/credentials.json` (0600, directory 0700); it reads
+  the key from stdin or a raw-mode prompt that does not echo. Store URLs must
+  be `https://` except localhost.
+- `--json` prints exactly the API's `data`; the next cursor goes to stderr so
+  stdout stays one JSON value. Human tables show WIB times and rupiah.
+- `ops-api.test.ts` runs the CLI through the real route handlers: list and
+  detail `--json` equal the API, a 401 key is not stored, the file is 0600, no
+  stdout/stderr carries the key. Mutation-checked: a 0644 file and a key in
+  the login message each fail it. Smoke: the real entry through
+  `npm run -s adsbook` with a piped key, and the prompt in a pseudo-terminal.
+- Contract: `docs/OPS-API.md` §5.
+- Verification: `npm test` 1070 pass / 0 fail, `npm run check` 0 errors
+  (538 files), `npm run docs:check` passed, `npm run build` complete.
+### Entry 196: Analitik › UTM (A-429, A-430)
+
+- PRD A45, REQ-261. One grouped read per screen like the other Analitik
+  reports: `utmStatements` groups the period's orders by `utm_source`,
+  `utm_medium`, `utm_campaign` and `utm_content`, each trimmed and
+  lower-cased in SQL with a blank tag counted as missing (`utmTagSql`).
+  `shapeUtm` folds the content split under each campaign, puts the untagged
+  orders in a last "(tanpa UTM)" row, and ranks like the landing report
+  (delivered revenue first). Order, lead and released definitions are the
+  shared `order-metrics.ts` rules, so the totals equal the landing report's.
+- `GET /api/admin/insights/utm` through `answerInsights` (period, channel and
+  source filters, `no-store`, `X-D1-Rows-Read`); access follows the Analitik
+  prefix (owner, admin, advertiser).
+- Screen `/admin/analytics/utm`: campaigns table (cards under `md`), drill to
+  content and back without a second request, the share of orders that carry
+  a tag. The "(tanpa UTM)" label lives in `insights-view.ts` so the island
+  does not bundle the server module.
+- Cost: `utm-90d` reads 79,600 rows on the 20k-order fixture (landing-90d
+  79,670); ceiling 90,000 in `scripts/measure-insights.ts`.
+- Browser (headless Chromium, seeded `dev:local`): 1366 and 390 px, drill and
+  back, empty, error and retry, no overflow; advertiser 200, customer service
+  403. Mutation-checked: dropping `lower` or `NULLIF` fails the tests.
+- Verification: `npm test` 1072 pass / 0 fail, `npm run check` 0 errors
+  (540 files), `npm run docs:check` passed, `npm run build` complete.
+### Entry 197: UTM link builder (A-434)
+
+- PRD A45, REQ-262: Iklan & tracking › Link UTM (`/admin/ads/utm`). The
+  operator picks a landing page or product, a source and medium from the
+  fixed Q3 lists (the medium follows the source), types a campaign and an
+  optional content, and copies the link. Nothing is stored.
+- `src/lib/utm-link.ts` is pure: `normalizeUtmTag` writes lower-case
+  hyphenated ASCII (diacritics folded, symbols to `-`, 100 characters), the
+  form Analitik › UTM groups by, so a campaign built here never splits into
+  two report rows; `buildUtmLink` keeps the page's own query and fragment and
+  replaces any `utm_*` already there.
+- The page list is the sitemap's: active landing pages on their own slug
+  (a product-page takeover listed once, as the product) and active products,
+  on `tenant.siteUrl`, never a fixed domain.
+- Tests: `utm-link.test.ts` (4). Browser (headless Chromium, seeded
+  `dev:local`): 1280 and 390 px, product and landing targets answer 200, the
+  copied link equals the field, no overflow. The design guard caught a grid
+  without declared columns before review.
+- Verification: `npm test` 1076 pass / 0 fail, `npm run check` 0 errors
+  (544 files), `npm run docs:check` passed, `npm run build` complete.
+### Entry 198: Order list and follow-up made compact (REQ-249 amended)
+
+- Paduka asked for an easy, short WhatsApp follow-up and a simpler order list.
+  The old panel stacked ten steps (status, two buttons, a hint each) behind a
+  toggle, plus a ten-button copy grid on the order page: about 1,000 px.
+- Follow-up: `CrmActionGroup` is ten chips, two rows of five, no toggle and
+  no text. A chip is the step's WhatsApp link (the template from Pengaturan ›
+  CRM); tapping it opens WhatsApp and records the step done (server time,
+  session operator, no dialog). Chips are WhatsApp green (#25D366, dark green
+  text: white on it is about 2:1) and grey once sent. The toast offers
+  Batalkan, which opens the existing correction (reason required). PRD
+  REQ-249 amended 2026-10-31. The order page's copy grid is removed.
+- One read per page: `readOrderFollowUpsFor` reads a page of orders' records
+  in one statement; the order list API and the server-rendered first page
+  carry them, and a panel reads its own order only without them (the order
+  page, or a failed list read) and only once it is on screen. Showing chips on
+  every row had put twenty parallel reads on each list load, and `wrangler
+  dev` dropped its connection under them.
+- Order list: the invoice cell carries the payment method with a dot (green
+  paid, orange inside the payment window, red expired or failed, words on
+  hover; none for COD) and the traffic source as plain small text. The
+  delivery column shows a pending prepaid order's payment state instead of
+  "Menunggu konfirmasi", from the same rule as the dot. Method labels match
+  the order page (Virtual Account, Transfer bank manual).
+- Order page: status, risk, source and page-path badges share the `Badge`
+  primitive and dot. The payment switch states why it is unavailable on any
+  COD order that is not void, and its dialog links to Pembayaran › Rekening
+  bank when no store account is active (manual transfer is offered only then).
+- Tests: `order-follow-up.test.ts` (one statement for a page, keyed by order).
+  Browser (headless Chromium, `dev:local` over Tailscale): chips 2×5 at 390
+  and 1440 px with no clipped label; tapping opens WhatsApp and records the
+  step, Batalkan clears it across a reload; no per-order reads on the list;
+  the three dot colours and matching delivery labels; no overflow.
+- Verification: `npm test` 1077 pass / 0 fail, `npm run check` 0 errors /
+  0 hints (544 files), `npm run build` complete.
+### Entry 199: Pickup or drop-off when pushing to Mengantar (A46)
+
+- Paduka asked for a dialog on "Push ke Mengantar": drop-off or pickup, with
+  pickup date and time, for one order or many (by selection, by filter, or
+  every confirmed order). The contract came from the Mengantar documentation
+  repository (`~/Projects/mengantar-documentation`, mirrored from the official
+  docs): `pickup.type` `dropOff` | `scheduledPickup`, the latter with `time_id`
+  from `/time` and a vehicle `volume`.
+- Two existing defects found on the way: `POST /time` was sent the range
+  `"9:00 - 18:00"` (a slot is one hour, `"13:00"`), and its single-object
+  answer was read as `data[0]`, so the shipping page could never get a
+  provider reference. Both came with the fork; neither had evidence.
+- `MengantarPushDialog` (drop-off | pickup, date, hour buttons 09.00–18.00
+  with the 90-minute rule, Motor default, Mobil) on the order list (row,
+  selection, "Push semua yang siap (N)") and the order page; per-order
+  outcome with resi in the dialog. `MengantarPickupFields` is shared with the
+  shipping page. Dispatch stays one order per call under the existing lease;
+  a request books or reuses one slot per pickup address and links accepted
+  orders to a `pickup_schedules` row (warehouse + provider slot id).
+- The local stand-in now follows the documented `/time` shape and refuses a
+  `scheduledPickup` without a known `time_id` and a volume.
+- Verification: `npm test` 1082 pass / 0 fail (new pickup tests in
+  `mengantar-order`, `mengantar-dispatch`, `dev-providers`; mutation-checked),
+  `npm run check` 0 errors / 0 hints, `npm run build` complete. Browser
+  (headless Chromium, `dev:local`): dialog at 390 and 1440 px fits the
+  viewport; three ready orders pushed as a 14.00 car pickup got three resi,
+  one schedule row, and left no ready order. Not run against live Mengantar.
+### Entry 200: Quieter admin topbar; dropdown pickup fields; truck pickup
+
+- Topbar (Paduka): the bell, status and profile were framed, shadowed tiles
+  beside a separate "Owner" pill. They are now borderless icon buttons from
+  one `topbar-styles.ts` definition, the status keeps its tone on the icon
+  only, the role joins the profile control (avatar + role), the search pill
+  loses its border, and badges are smaller with a white ring.
+- Pickup fields are dropdowns (`FilterSelect`, a Radix menu that works inside
+  the push dialog): seven bookable days ("Hari ini, 31 Okt", "Besok, 1 Nov",
+  "Sen, 2 Nov") and only the hours still bookable. The shipping page's
+  warehouse dropdown shows warehouse names (the Base UI Select had no `items`
+  and showed the id); its labels match the other fields.
+- Pickup vehicle: Motor (default), Mobil, Truk (`volumeTruck`).
+- Spacing: an island is `astro-island { display: contents }`, so Tailwind v4
+  `space-y-*` margins never reached it and the next card touched it
+  (Pengaturan › Headless API). `admin.css` makes an island directly inside a
+  `space-y-*` stack a block.
+- Link UTM: the destination is a searchable combobox (name, kind, path shown
+  once chosen), sources are one-tap buttons, the medium is the shared
+  dropdown, and the link with its four tags sits in a right-hand panel that
+  stays in view on wide screens and lists what is still missing until ready.
+- Verification: `npm test` 1083 pass / 0 fail, `npm run check` 0 errors /
+  0 hints, `npm run build` complete. Browser (headless Chromium, `dev:local`):
+  topbar 64 px at 1440/1024 and 60 px at 390 with no overflow; shipping form
+  picks "Gudang Dummy Jakarta" by name; dialog offers Motor | Mobil | Truk;
+  24 px between the developer page island and the API docs card.
+### Entry 201: Analitik tables made consistent and compact
+
+- Paduka asked for tidier Analitik tables (Landing page, Produk, Lokasi,
+  Waktu beli, UTM). An audit in a browser found four table styles on five
+  screens, a verbose "· Perlu perhatian" on every flagged RTS, a progress bar
+  per closing rate, Landing's RTS and channel columns pushed past the edge by
+  a `<details>` column, Lokasi drawn as a grid that repeated its labels on
+  every row (and a long city name that overran into the next cell and could
+  not be clicked), and phone cards of about 250 px per row (Produk 2,694 px).
+- One table anatomy in `InsightsReport.tsx`: a bordered shell that scrolls
+  sideways, upper-case muted headers, right-aligned tabular figures, the name
+  column pinned (slate-50 like admin.css's thead and row hover). Under `md`
+  each row is one compact list item: name and headline figure, then one line
+  of small figures. Drill names (Lokasi, UTM) wrap and keep their text at the
+  top of the phone touch floor.
+- RTS is a figure, red with a dot above the 20% review line, the reason on
+  hover and for screen readers. Closing is a figure. Landing sorts from its
+  headers (a select remains on phones), its channels read as one short line,
+  and the lead follow-up split rides on the Lead cell's title. Produk gains
+  delivered and returned units; a single variant is named inline. Lokasi is a
+  real table with delivered/returned columns and the incomplete-address row
+  inside it. Waktu beli is compact: "–" for an empty hour, hour and day
+  totals, the busiest hour in the summary.
+- Heights at 390 px: Landing 1,698→882, Produk 2,694→1,232, Lokasi
+  1,305→972, UTM 1,671→1,015. No numbers changed (`insights.ts` untouched).
+- Numbered 199 because the open `feat/compact-wa-follow-up` branch carries
+  Entry 198; renumber whichever merges second.
+- Verification: `npm test` 1077 pass / 0 fail (the UTM screen joins the
+  island loading/empty render test), `npm run check` 0 errors / 0 hints,
+  `npm run build` complete. Headless Chromium on a seeded `dev:local` store
+  at 1440 and 390 px: every screen and both drills, horizontal overflow 0, no
+  page errors.
+### Entry 202: Audit fixes H-1 (late payment on a replaced instruction) and M-1 (unknown push outcome)
+
+- From `docs/AUDIT-2026-10-31.md` (branch `audit/repo-review-2026-10-31`).
+- **H-1.** Regenerating an expired QRIS/VA instruction rewrote the order's
+  `payment_transactions` row and erased the old provider `trx_id`; a buyer who
+  paid the old one could reach `paid` by no path. Migration `0076` (schema 77)
+  adds `payment_transaction_attempts`: the old instruction is kept in the same
+  batch that rewrites the row, and that rewrite now runs only while the row is
+  failed or expired, so two simultaneous retries cannot both win. The hourly
+  Advice run also asks about superseded instructions inside its 24-hour
+  recheck window; a paid one goes back on its row (`adoptPaymentAttemptStatements`)
+  and the existing guarded settle statements apply. Manual confirmation accepts
+  a superseded reference with its amount.
+- **M-1.** A timeout, dropped connection, provider 5xx, or unreadable 2xx on
+  `POST /order` was treated as a rejection and the order was pushable again at
+  once, risking a second parcel and a second COD collection. These are now
+  `MengantarOutcomeUnknownError`; the order is marked `DISPATCH_UNKNOWN:` and
+  refused by eligibility, the dispatcher and the D1 claim until an owner or
+  admin, having checked Mengantar, releases it from the order page. A pickup
+  slot failure before `POST /order` stays a plain failure.
+- Tests: `payment-attempts.test.ts` (3, real functions on the full migration
+  chain: regenerate keeps TRX-1, Advice settles it, manual confirm by the old
+  reference, a racing second regeneration does not overwrite), 3 new
+  `mengantar-dispatch` tests (five unknown shapes, a clear refusal stays
+  retryable, a pickup slot failure is not unknown). Mutation-checked: removing
+  the supersede step, the unknown marker, or the re-push block each fails them.
+- Not done: a buyer who pays both the old and the new instruction is still not
+  detected (the second payment's row is already `paid`); RELEASE.md's migration
+  notes (stale since 0066, audit M-10) do not yet describe 0067–0076.
+- Verification: `npm test` 1090 pass / 0 fail, `npm run check` 0 errors /
+  0 hints (548 files).
+### Entry 203: Analitik and mobile polish; browser Purchase gated on server state
+
+- **Tracking (audit 2026-10-31 tracking H-1, L-2, L-6).** `/thanks` opened in
+  a fresh tab had empty `sessionStorage` and defaulted to COD, so unpaid
+  QRIS/VA and cancelled orders fired a Purchase to the Pixel, Google Ads and
+  GTM, and Google got no `transaction_id`. `MetaThanksTracker` now takes the
+  method and state from `/api/order-status` (void → nothing, unpaid prepaid →
+  nothing) and uses the server's `INV-` number as `transaction_id`;
+  `isMetaPurchaseOrderEligible` accepts `settled` and `success` as paid.
+  `meta-purchase-dedup.test.ts` runs the real tracker for a fresh tab
+  (mutation-checked). TRACKING_SPECS §2, §15 item 8 and §16.1 corrected.
+- **Analitik.** `--chart-1` was the shadcn default grey (13% contrast), so the
+  trend line and the purchase-time heatmap were barely visible; the chart
+  tokens are now blue-led (light and dark). Phones fold every filter but the
+  period behind "Filter (n)"; the two-line period/disclaimer block is one
+  line that still names Asia/Jakarta; KPI figures no longer break mid-number;
+  empty totals read "–".
+- **Order list on phones.** The card was ~640 px: a framed RTS block with bar
+  and guidance, a grey info grid, a "WhatsApp CRM" label, a full-width
+  "pilih untuk aksi bulk" box and a separate actions row. It is now ~346 px:
+  checkbox, invoice, actions in one header; a compact RTS pill on the date
+  line; customer, goods/total and delivery/courier as plain lines; the chips.
+  Filters other than search fold behind "Filter (n)". Page height for 12
+  orders 8,809 → 4,909 px; first card at 751 px (was 929).
+- **Products on phones.** Product names wrap to two lines instead of
+  truncating beside the status badge and toggle.
+- **Mobile sweep.** 30 admin pages at 390 px: HTTP 200, no horizontal
+  overflow, no clipped control, no page error (headless Chromium).
+- **Docs.** RELEASE.md migration notes 0067–0076 (0071 and 0075 read/write
+  every order on first request) and schema 77 (audit M-10); the open audit
+  findings are rows in UNIMPLEMENTED_SPECS §1.
+- Verification: `npm test` 1091 pass / 0 fail, `npm run check` 0 errors /
+  0 hints, `npm run build` complete.
+
+### Entry 204: compact-market storefront v2 — less rigid default
+
+Date: 2026-10-31. Branch `feat/storefront-compact-v2`. DESIGN-SYSTEM.md §3
+records the direction and the reasons; §1.1, §2 and §7.4 were rewritten to match.
+
+- **Header.** Three stacked bars became one: an optional one-line tagline and
+  a sticky 56 px header (store mark, name, "Produk"). The "Official Store"
+  check seal is gone; it claimed a verification nobody had performed. The
+  wordmark is the tenant's name in Inter, not Cinzel capitals. The Cinzel
+  import and `@fontsource/cinzel` are removed, so there is one font request
+  fewer on every public page.
+- **Home.** The hero is an inset, rounded card. The caption sits under the
+  photo, so there is no gradient. It is a native `scroll-snap` track: buyers
+  can swipe it, the dots jump to a slide, and it never autoplays. The
+  catalogue has a plain heading, a pill search, category chips (shown only
+  when there is more than one category), and an empty state for a search
+  with no matches. Cards are rounded and use sentence case. "Mulai" appears
+  only when variant prices differ, and the compare price sits inline. The
+  title box always reserves two lines, so prices align across a row.
+- **Product page.** The read-only variant list that duplicated the form's
+  radio cards is gone; the offer shows "N pilihan: …" instead. The generic
+  attribute block (Kategori / Fokus Produk / Ketersediaan) is removed.
+  "Pesan sekarang" sits beside the price, together with the shipping-cost
+  note. "Tentang produk" and the reviews render only from real content. The
+  sticky bar shows the product name and price and respects the iOS safe area.
+- **Everywhere.** Sections are separated by a `#F4F4F5` band, not hairlines.
+  The footer is a two-column link list on a soft surface. On wide screens the
+  480 px column sits on a grey canvas. Breadcrumbs and PageIntro lost their
+  small capitals.
+- Not changed: the checkout form (`form-hybrid.css`), `/thanks`, `/payment`,
+  landing-page templates, tracking, and the edge-cache rules.
+- Verification:
+  - `npm test`: 1091 pass, 0 fail.
+  - `npm run check`: 0 errors, 0 hints.
+  - `npm run build`: complete.
+  - Rendered `/`, `/produk`, `/produk/madu-hutan-dummy` and `/landing-page`
+    at 390 and 1280 px: no overflow, no page errors.
+  - Playwright: chip filter (10 → 3 → 10), search empty state, hero dot →
+    slide, sticky header at `top: 0`.
+  - CDP touch: a vertical swipe that starts on the hero scrolls the page,
+    and a horizontal one changes the slide.
+  - Not verified: real iOS/Android devices.
+
+### Entry 205: Admin UI-actions audit fixes (H1, H2, M1–M7, L1–L8)
+Date: 2026-10-31. Branch `fix/ui-actions-audit` on `feat/storefront-compact-v2`.
+Findings are in `docs/AUDIT-2026-10-31-ui-actions.md`; what is left is in
+`UNIMPLEMENTED_SPECS.md` §1 (`AUD-UI-*`).
+
+- **H1.** The orders list and detail APIs now serve the follow-up context
+  themselves: templates, store name, and bank accounts. The accounts are the
+  order's own snapshot, else the store's active accounts
+  (`crmStoreContext`). Customer service no longer depends on
+  `/api/admin/settings` or `/api/admin/seller-bank-accounts`, which it may
+  not read.
+- **H2.** `buyerOrderLinks` builds absolute buyer links. `{{order_details_link}}`
+  is `/thanks#o=&t=`. `{{epayment_link}}` is `/payment#o=&t=` while the order
+  is payable, the same rule as the admin "link pembayaran". No message
+  carries an `/admin/` path.
+- **M1.** A bulk status change asks first, naming the count and the target.
+  Voiding targets are marked as irreversible. The cancel button reads
+  "Kembali" so it is not confused with the status "Batal". The count is the
+  number of rows validated, because D1 `meta.changes` includes the 0075
+  trigger's update. The message uses the Indonesian label.
+- **M2 (partial).** The list's status, filter and chips use an effective
+  status: a pending order with `stock_restored_at` reads as cancelled. The
+  write path is unchanged (AUD-UI-M2).
+- **M3.** The chip no longer renders a stray `0`.
+- **M4.** Analitik drill-down links always name the period. The order list
+  opens on the `date_filter` its URL names (`adminDateSelectionFromQuery`).
+- **M5.** Migration `0077_orders_mengantar_handover`: dispatch records
+  `drop_off` or `pickup`. The pickup queue and the schedule endpoint skip
+  drop-offs. A pre-0077 NULL keeps the old reading. Schema 78.
+- **M6.** A content validation failure names the fields
+  (`contentValidationMessage`), not the Zod issue JSON.
+- **M7.** The Akses edit and reset forms are shadcn `Dialog`s: Escape closes
+  them, focus is trapped, and labels are bound to their inputs. Role uses
+  `FilterSelect`.
+- **Lows.**
+  - L1: no bell for advertiser.
+  - L2: sync banner names the failed invoices.
+  - L3: "sukses N%" beside the RTS label.
+  - L4: Indonesian duplicate toast.
+  - L5: "Section N:" prefix on landing validation errors.
+  - L6: combobox trigger and clear have names.
+  - L7: default FU 5 typo. Stored templates keep their own text.
+  - L8: shipping table fits at 1366 px. The row action is "Edit", the table
+    minimum is 1000 px, and the cell padding is px-3.
+- Verification:
+  - `npm test`: 1096 pass, 0 fail. One earlier full run failed the PBKDF2
+    timing test at load average about 10; it passed on rerun.
+  - `npm run check`: 0 errors, 0 hints (548 files).
+  - `npm run build`: complete.
+  - Local headless Chromium, as owner:
+    - Detail chips link `/thanks` and `/payment`, use the store name, and
+      contain no `/admin/`.
+    - Bulk confirm reads "Ubah 2 pesanan ke Batal?" with "Kembali" and
+      "Ubah ke Batal", at 1366 and 390 px.
+    - The drill URL opens on "Bulan ini".
+    - The shipping row action is inside the table at 1366 px.
+    - The Akses dialogs close on Escape and keep focus.
+  - As a temporary customer-service user (deleted afterwards): FU 2 carries
+    the store name and the payment link, with no 403.
+  - Not checked: real devices, live Mengantar dispatch of `mengantar_handover`
+    (stand-in only), and a WhatsApp send.
+
+### Entry 206: Review of the PR #111–#115 stack, findings fixed
+
+- Scope: four parallel read-only reviews of PRs #111–#115, then one fix branch
+  on top of `fix/ui-actions-audit`.
+- Medium:
+  - A Mengantar shipment that was accepted but failed to persist locally (a
+    transient D1 error, or a conflict write that matched nothing) was recorded
+    as a plain failure, so the next push created a second parcel. Any failure
+    after the answer is read is now `DISPATCH_UNKNOWN: Mengantar menerima <id>`,
+    and the order detail says not to push again. Such an order is never
+    released (`releaseUnknownMengantarDispatch` refuses the marker); "Tautkan
+    paket Mengantar" links the id to the order instead
+    (`linkAcceptedMengantarShipment`). Found by a second, independent review of
+    the fix commit.
+  - A superseded AutoLaris instruction was marked `settled_at` even when its
+    settle matched nothing. `markPaymentAttemptSettledStatement` now closes the
+    batch and only fires once the row is paid under that instruction's id. The
+    manual-confirmation audit records the row's status from before an adopt.
+  - `/admin/orders` server-rendered its first rows from a restated SELECT that
+    had drifted from the list API: void orders read "Menunggu", `date_filter` was
+    ignored, and WA chips carried the old payment link. The page now runs the
+    list route itself, with one query builder shared with the island
+    (`admin-orders-initial.ts`).
+- Low:
+  - Buyer links use the store's site URL, not the admin's request host.
+  - Pickup slots match "9:00" and "09:00"; an invalid date has no hours; the
+    pickup fields keep state in step with what is shown.
+  - Batal in the push dialog keeps the selection; a cancelled prepaid order
+    reads "Pembayaran dibatalkan"; dispatch markers read as words.
+  - Follow-up chips record per step; the release button is owner and admin
+    only; the payment link clears once paid.
+  - A "Perlu Drop-off" queue; the Analitik mobile sort starts in its natural
+    direction.
+  - Storefront: AA contrast on grey surfaces, `scroll-pt-16` under the sticky
+    header, `aria-current="true"` on a product page, the hidden sticky bar is
+    `inert`, the brand name no longer clips descenders, and no "0 produk" copy.
+- Deferred: double payment across two instructions (UNIMPLEMENTED_SPECS
+  AUD-R1); the Mengantar `/time` spelling still needs one live order.
+- Verification:
+  - `npm test`: 1104 pass, 0 fail. The M1 and M2 tests fail against the
+    unfixed code.
+  - `npm run check`: 0 errors, 0 warnings, 0 hints (548 files).
+  - `npm run build`: complete.
+  - Local headless Chromium on `dev:local`, seeded, at 390 and 1280 px:
+    `/admin/orders` (SSR HTML carries the rows; `?status=pending` excludes
+    the void INV-10004), the order detail, `/admin/shipping` (five queues,
+    drop-off rows labelled), `/admin/analytics`, `/`, `/produk` and a product
+    page. No console errors. The sticky bar is inert while hidden and focusable
+    when shown, and the brand box is 21/21 px.
+  - Not checked: real devices, a live Mengantar or AutoLaris call, a WhatsApp
+    send.
+
+### Entry 207: Shopify-theme storefront palette, login panel motion, product icon
+
+- Storefront colour follows the Shopify theme (Dawn). Dawn's home and product
+  pages were captured on 2026-10-31 as the reference (not committed: third-party
+  screenshots).
+  - The buy actions use ink `#121212` instead of blue `#2C6ECB`, including the
+    `--sf-accent` tokens (ADR-019), the sticky bar and the thanks/payment
+    actions.
+  - The neutral surface is `#F3F3F3`.
+  - A filled field and the selected variant card are grey; an empty field is
+    white.
+  - The discount pill is Dawn's sale blue `#334FB4` (7.2:1), in `rounded-full`.
+  - Checkout errors stay `#D92D20`.
+- Removed the PDP note "Ongkir dihitung otomatis…"; the order form already
+  carries the shipping cost.
+- `/hello` brand panel:
+  - A dot-grid ornament.
+  - The operator loop Iklan → Pesanan → Kirim, drawn with a pulse that lights
+    each node as it passes (4s cycle, measured at 0, 1.6 and 3.2s).
+  - All of it `aria-hidden`, and still under `prefers-reduced-motion`.
+- Product icon: an open book on an iOS-style blue squircle
+  (`images/adsbook-icon.svg`, the login tile). The same artwork is the new
+  shipped default of the merchant-replaceable tab icons (`logo.svg`,
+  `favicon.ico/png`, `favicon-192.png` full-bleed). The admin pages gain an
+  apple-touch icon. The unused `favicon-admin.svg` was deleted.
+- Verification:
+  - `npm test` 1104 pass; `npm run check` 0 errors; `npm run build` complete;
+    `docs:check` passed.
+  - Headless Chromium on `dev:local` at 390 and 1280 px: home, `/produk`, PDP,
+    order form and `/hello`. No console errors; the note is absent; the node
+    lights are measured; under reduced motion the animations are off.
+  - Not checked: real devices, an iOS home-screen install.
+
+### Entry 208: Adaptive legal pages from store settings; header, brand and card refinements
+
+- Legal pages: Kebijakan Privasi, Pengiriman & Retur, Syarat & Ketentuan and
+  Kontak (`src/data/legal.ts`).
+  - Rewritten as generic copy for any store. No city, courier, payment
+    method, return window, delivery time or legal regime is named.
+  - Filled from settings: store name, the site's host, the first CS
+    WhatsApp, and the new support email and business address.
+  - A paragraph whose value is unset is dropped. Privacy, shipping and terms
+    close with "Hubungi Kami" built from the channels that exist, or a pointer
+    to `/kontak`.
+  - Links in paragraphs (a bracketed label followed by an internal path,
+    an email, `+62…`) are parsed by
+    `src/lib/legal-links.ts`; external targets are refused.
+  - `LegalPage` is one reading column, with no box per section.
+- Settings: migration `0078_store_public_contact` (schema 79) adds
+  `stores.support_email` and `stores.business_address`, edited in
+  Pengaturan → Store. The email is checked for shape (`SUPPORT_EMAIL_PATTERN`)
+  and the address is free text; both are optional. The tagline help text no
+  longer says it shows in the header.
+- Header and brand:
+  - The "Official Store" line uses a blue badge-check (owner decision).
+  - The brand is the uploaded logo, or a text wordmark when there is none. The
+    logo is sized inline, because utility sizing rendered it 0x0.
+  - A bare package icon to `/produk`.
+  - The header is not sticky; its rule fades at both edges.
+- Product cards: the price sits under a title clamped to two lines, with no
+  reserved height. The PDP inline "Pesan sekarang" button and the shipping
+  note are gone.
+- Verification:
+  - `npm test` 1106 pass; `npm run check` 0 errors; `npm run build`
+    complete; `docs:check` passed.
+  - Headless Chromium on `dev:local` at 390 px:
+    - Email and address saved through the admin form, with the other fields
+      unchanged.
+    - The four pages render them with no placeholder left.
+    - The links are `wa.me`, `mailto:` and internal pages.
+    - The header logo and text variants were measured.
+    - No console errors.
+  - Not checked: server-side refusal of a malformed email (the browser's
+    `type=email` stopped it first), and real devices.
+
+### Entry 209: Breadcrumb on one line, never cut
+
+- `Breadcrumb.astro`:
+  - Chevrons replace `/`.
+  - The home crumb is a house icon (labelled "Beranda").
+  - The current page is semibold with `aria-current`, in an `<ol>`.
+- A long trail no longer truncates the current page (`max-w-[58%] truncate`).
+  It stays on one line, scrolls sideways with the scrollbar hidden, opens
+  scrolled to its end, and fades its left edge only while something is out of
+  view.
+- DESIGN-SYSTEM §5 corrected: the breadcrumb sets no width and no longer reads
+  the retired template.
+- Verification:
+  - `npm test` 1106 pass; `npm run check` 0 errors; `npm run build`
+    complete.
+  - Headless Chromium on `dev:local` at 320, 390 and 1280 px, PDP and
+    `/kebijakan-privasi`: one line at every width; the current page fully
+    visible; no ellipsis.
+  - At 320 px the PDP trail overflows, opens at its end, and fades.
+  - No console errors.
+
+### Entry 210: Release 1.8.0 (`2026.10-ops`)
+
+- `version.ts` and `package.json` are at 1.8.0, release tag `2026.10-ops`,
+  `lastUpdated` 2026-10-31, schema 79. This is the first release carrying
+  migrations `0067`–`0078`; 1.7.14 shipped schema 67.
+- The admin "What's new" modal has a 1.8.0 entry written from the merged PRs
+  #102–#118:
+  - Analitik and UTM.
+  - One-tap WhatsApp follow-up.
+  - The WhatsApp number rotator.
+  - Multi-warehouse.
+  - Mengantar pickup/drop-off and the unknown-outcome lock.
+  - The COD-to-transfer switch.
+  - Operational status, the ops API and the CLI.
+  - The Shopify-theme storefront.
+  - Adaptive legal pages.
+  - The product icon.
+- The status-icon and payment sentences were checked against
+  `OperationalStatus.tsx` and the attempts change before writing.
+- `RELEASE.md` §3 notes `0078`; the §4 registry is at 1.8.0.
+- Nothing is deployed by this repository. An install takes 1.8.0 through
+  `RELEASE.md` §7. `0072` (multi-warehouse) needs the row count checked on any
+  install with more than one `warehouses` row first.
+
+### Entry 211: Account menu in the top bar; sidebar product card
+
+- The top-bar account control was a link to `/admin/profile`. It now opens a
+  shadcn dropdown with:
+  - The session's username and role, plus the store.
+  - Profil & keamanan.
+  - Pengaturan toko (roles that have settings).
+  - Lihat storefront (until now only in the bar at 1280px and up).
+  - Catatan rilis.
+  - Keluar.
+- Keluar reuses the layout's `data-logout-form` handler, and the item keeps the
+  menu open while it runs. `AdminLayout` passes `adminUsername`.
+- Sidebar footer:
+  - Keluar is gone from the sidebar; the mobile Menu sheet keeps its own.
+  - The version card is the product icon, "AdsBookCMS · Catatan rilis" and a
+    blue version pill.
+  - The collapsed rail shows the product icon.
+  - Within the admin contracts: 12px type floor, no decorative motion.
+- The 1.8.0 changelog names the account menu.
+- Verification:
+  - `npm test` 1106 pass; `npm run check` 0 errors; `npm run build` complete.
+  - Headless Chromium on `dev:local`:
+    - At 1280px: the menu lists the five items under the user header.
+    - Catatan rilis opens the modal.
+    - Keluar lands on `/hello`, and `/admin/dashboard` then redirects there.
+    - At 900px: the rail icon opens the changelog.
+    - At 390px: the Menu sheet still has Keluar.
+    - No console errors.
+
+### Entry 212: Flat product icon and favicons
+
+- The gradient squircle with a line-icon book is replaced by a flat mark, one
+  `#2563EB` rounded square:
+  - A solid white open book: the order book, with a gap at the spine so it
+    reads as a book at 16px.
+  - An up-right arrow cut into the right page: the ad becoming a sale.
+- Chosen over two drafts (an order sheet with a flow arrow, too generic; three
+  joined nodes, no "book") by comparing them at 160/64/32/16px and in a dark tab.
+- Written to `images/adsbook-icon.svg` and the merchant-replaceable defaults:
+  `images/logo.svg`, `favicon.png` (32), `favicon.ico` (16+32, the 16 rendered
+  on its own) and `favicon-192.png` (full-bleed).
+- Verification: rendered at each size and opened; `/hello` and the sidebar
+  card rendered on `dev:local`; `npm test` and `npm run build` pass.
+
+### Entry 213: Old placeholder wordmark removed
+
+- Deleted `public/images/adsbook-mark.webp`, the grey "AdsBookCMS / BELUM
+  DIKONFIGURASI" wordmark that served as the default logo.
+- `DEFAULT_TENANT_LOGO` is now empty: no logo until the store uploads one.
+  - The storefront draws its text wordmark.
+  - The admin shows the store's initial.
+  - Share images (`BaseLayout`) and the /thanks image slot fall back to the
+    store's own icon `/favicon-192.png`, never an empty URL that resolves to
+    the page.
+  - A store row or env still naming the old path reads as no logo
+    (`LEGACY_PLACEHOLDER_LOGO`), so nothing points at a missing file.
+- Composed landing-page rows carry no placeholder image; the home list never
+  drew one.
+- The logo field's placeholder and help text no longer promise a product logo.
+- `UPDATE-PATH-OWNERSHIP.md` no longer lists the file.
+- Test fixtures:
+  - The never-leak catalogue test now uses the current product icon and
+    refuses both.
+  - Two fixtures use a neutral sample path.
+- `tenant.test.ts` covers the legacy path.
+- Verification: `npm test`, `npm run check`, `npm run build`, `docs:check`;
+  `dev:local` rendered the header, the home `og:image` and /hello.
+
+### Entry 214: Login tip-jar QRIS
+
+- Source: the owner's QRIS print (ONGKI COLLECTION, NMID ID1021107138476),
+  downloaded from the owner's Drive link into the scratchpad. It was checked to
+  be a JPEG, and its code was decoded with `jsqr` (scratch install, not a
+  project dependency): payload `000201010211…` (static QRIS) containing the
+  NMID and the merchant name.
+- Asset: the code alone, cropped to the detected module bounds, thresholded to
+  clean black and white, and padded with a white quiet zone. Saved as
+  `public/images/qris-dukung-adsbookcms.webp` (lossless, 560px, 2.3 KB); it
+  decodes after conversion.
+- `/hello` desktop panel:
+  - The code is centred in a white card with a pulsing "scan me" corner frame
+    outside it.
+  - "Dukung AdsBookCMS / CMS-nya gratis. Server-nya juga gratis. / Yang belum
+    gratis cuma kopi developernya. Tau kan QRIS ini buat apa? Hehehe." and the
+    merchant's name.
+  - It replaces the Iklan › Pesanan › Kirim flow.
+  - The image is lazy (phones never fetch it). The frame stops under reduced
+    motion.
+- Every install shows this on its admin login. It is the product author's,
+  not a store's.
+- Verification:
+  - Headless Chromium at 1024x768, 1280x900 and 1440x900: no panel overflow;
+    the QR decodes from the page screenshot at 1024 and 1280 with the same
+    payload; the phone fetches no QRIS; no console errors.
+  - `npm test`, `npm run check` and `npm run build` pass.
+
+### Entry 215: Login page fits one screen
+
+- `/hello` is exactly one viewport tall on phone and desktop. Each column is
+  `100dvh`, and the page itself never scrolls.
+  - The form column centres the form and pins a short footer: "Lupa password?
+    Minta owner mereset di Pengaturan › Akses Pengguna." and the version.
+    Self-service reset stays out of scope per PRD-ADMIN-LOGIN.
+  - The brand column spaces logo, tip jar and a compact "Operator Workspace"
+    caption. The 36px heading that competed with the tip jar is gone.
+  - The QR scales as `clamp(8.5rem, 24vh, 14rem)`.
+- Header:
+  - A store chip "Admin · <store>" and "Masuk ke dashboard".
+  - On a phone, the product icon and the whole header are centred.
+- Fields have placeholders ("Username Anda", "Masukkan password") and a
+  brand-blue focus ring; the button is brand blue and reads "Masuk".
+- Phones no longer get a floating card on grey; the form sits on white.
+- Verification:
+  - Headless Chromium at 1440x900, 1280x800, 1366x768, 1024x768, 390x844,
+    375x667 and 360x640.
+  - At every size: no page scroll, no clipped column, button and footer in
+    view, no console errors.
+  - The QR decodes from the 1366x768 render.
+  - `npm test`, `npm run check` and `npm run build` pass.
+
+### Entry 216: Login cleaned up
+
+- The desktop brand column holds only the tip jar.
+  - The logo row and the "Operator Workspace" caption are gone.
+  - The QR card's blue glow became a plain hairline.
+- The form column carries the brand on every screen: icon and "AdsBookCMS",
+  "Masuk ke dashboard", then "Kelola konten, pesanan, dan pengiriman <store>."
+  This replaces the green-dot store chip, which read as a fake online status.
+- Copy is a joke, not a plea (owner): "CMS gratis. Server gratis. /
+  Satu-satunya yang nggak gratis cuma kopi developernya. Hehehe." and the
+  merchant's name. "Seikhlasnya" and "Dukung AdsBookCMS" are removed.
+- Verification:
+  - Headless Chromium at the seven sizes of Entry 215: no scroll, no
+    clipping, no console errors.
+  - The QR decodes from the 1366x768 render.
+  - `npm test`, `npm run check` and `npm run build` pass.
+- The footer keeps only the version; the reset hint is removed (owner).
+
+### Entry 217: Login tip jar, emphasis and motion
+
+- The title reads "CMS GRATIS. / Server GRATIS." on two lines. Each GRATIS
+  gets a brand-blue highlighter stroke drawn left to right, the second 0.45s
+  after the first, held, then redrawn on a 7s cycle.
+- The background moves outward from the code, not as decorative blobs: three
+  rings leave the card every 1.4s, scale to 1.55 and fade. They sit behind the
+  opaque white card, so the code is never covered.
+- Under reduced motion there are no rings and the highlights show fully.
+- Verification:
+  - Headless Chromium at 1366x768: the QR decodes from frames at 0.3, 0.9, 1.6
+    and 2.6s and from the 1024x768 render.
+  - The seven-size no-scroll check still passes.
+  - No console errors.
+
+### Entry 218: Login QR rebuilt in vector, shown larger
+
+- The QR asset was a 507px crop resized to 560px. That is a non-integer scale,
+  so module edges were uneven.
+- It is now rebuilt from the owner's Drive print:
+  - The first finder column is a 67px dark run, so the module is 9.57px.
+    That gives 53 modules, which is version 9.
+  - Each module is sampled at its centre.
+  - All three finder patterns and both timing patterns match.
+- Written as one SVG path with `crispEdges` (9.9 KB), replacing
+  `qris-dukung-adsbookcms.webp`. The pattern and mask are the print's own, and
+  the decoded payload is byte-identical to the print's.
+- Displayed at `clamp(11rem, 34vh, 18rem)`: 288px at 1280 and 1440, 261px at
+  768px tall.
+- Verification:
+  - Decodes from the 1024x768, 1366x768 and 1280x900 renders and from an
+    animation frame.
+  - The seven-size no-scroll check passes.
+  - No console errors.
+
+### Entry 219: Phone login over the owner's poster, glass card
+
+- Source: the owner's poster from a Drive link (PNG 941x1672, 2.3 MB),
+  downloaded to the scratchpad and opened. It is saved as
+  `public/images/login-bg-mobile.webp`: quality 76, 149 KB, full size.
+- Below 1024px:
+  - The poster is the form column's CSS background, so a desktop never
+    fetches it.
+  - The form sits at the bottom in a glass card (85% white, `blur(20px)
+    saturate(1.4)`, a white border, 1.5rem radius, a soft shadow), leaving the
+    poster's title and face in view on a 390x844 phone.
+  - Card text is checked against #D9D9D9 (subtitle 5.4:1, title 12.6:1). The
+    version under the card is white with a text shadow.
+- The poster ships with the product, so every install's phone login shows it.
+- Verification:
+  - Headless Chromium: the seven-size no-scroll check passes.
+  - 390x844 fetches the poster and 1366x768 does not.
+  - No console errors.
+- Above the form only "Masuk ke dashboard" remains; the AdsBookCMS row and the
+  store line were removed (owner). The version stays in the footer.
+- The heading became the product icon and "AdsBookCMS" (owner), replacing
+  "Masuk ke dashboard".
+- The heading is now a small wordmark (owner: "kecil aja, yang keren"): a 28px
+  icon; "Ads" in brand blue and "Book" in ink at 18px bold; "CMS" as a tracked
+  12px tag after a hairline. Its accessible name is "AdsBookCMS".
+
+### Entry 220: Clearer glass login card on phones
+
+- The phone card is clear glass instead of 85% white:
+  - A 62%→48% white gradient.
+  - `blur(28px) saturate(1.7)`.
+  - A white border with an inset top highlight, 1.75rem radius.
+- Labels and the CMS tag are slate-900, checked against #8C8C8C (the darkest
+  the blurred poster makes the card): 5.3:1. A first cut used slate-800 for the
+  tag, which measures 4.35:1 and fails AA; the 4.7:1 first written here was
+  wrong.
+- Fields stay 92% white, so typed text never sits on the image.
+- Verification: the seven-size no-scroll check passes; no console errors.
+
+### Entry 221: Login tip-jar copy
+
+- The body reads "Kopi developernya yang belum. Boleh dong ditraktir?
+  Hehehe." (owner).
+- A short quote follows as a `figure`: "Satu kopi, satu bug minggat." —
+  pepatah developer.
+- Verification: the seven-size no-scroll check and the QR decode after the
+  change.
+- The quote is credited "by ongki.pro" (owner), replacing "pepatah developer".
+
+### Entry 222: Tests find product migrations by suffix
+
+- Found while updating zvarashop to 1.8.0. Its own catalogue migrations hold
+  0067-0079, so the product's 0067-0078 are renumbered 0080-0091 there.
+  `whatsapp-numbers.test.ts` and `manual-payment-reconciliation.test.ts`
+  opened `0067_whatsapp_numbers.sql` and `0076_payment_transaction_attempts.sql`
+  by number and failed with ENOENT (14 tests), against the rule in RELEASE.md.
+- Both now resolve the file by suffix.
+- A guard in `schema-version.test.ts` fails when any test names a product
+  migration from 0067 on by number (fixture names in `deploy-preflight.test.ts`
+  excepted). It was checked against the unfixed files: it names both.
+- Verification: `npm test`, `npm run check`, `npm run build` and
+  `docs:check` pass.
+
+### Entry 223: 1.8.1 — payment copy, an honest /thanks, a feed Merchant Center accepts
+
+Found by a simulated buyer (COD, VA BCA, manual BCA transfer) on a local store,
+and an audit of the feeds and structured data.
+
+- **/payment.** The VA or account number had the copy button beside it, so a
+  14-digit VA broke onto two lines at phone width (`8808440911 / 0437`). The
+  number now owns its card, grouped by four (`8808 4409 1104 37`, one line at
+  360 px), and a full-width copy button sits under it: check icon, inverted
+  colours, "Nomor VA Tersalin", reset after 2.4 s. The copied value is the raw
+  number. `copyText` falls back to `execCommand` where the Clipboard API is
+  missing. The VA badge said "Verifikasi Admin"; it is "Otomatis" for VA and
+  "Dicek Admin" for a manual transfer, whose holder now has its own line.
+- **/thanks.** The summary did not add up: product − discount + shipping
+  (64.000) beside a total of 70.500 or 66.132, the fee nowhere. A fee row now
+  carries it. An unpaid VA/QRIS order was shown a success check and told to
+  "Kirim Bukti"; it is now "Selesaikan pembayaran" with the payment page as the
+  main action, and only a manual transfer asks for proof. Raw `VABCA`,
+  `pending` and `6281…` are shown as words (`src/lib/payment-display.ts`).
+- **Google feed.** It priced each item from `variants[0]`, the variant entered
+  first, while the product page shows the cheapest — a price mismatch Merchant
+  Center disapproves. It now uses the cheapest variant.
+- **Catalogue fields.** The admin form had no category (hard-coded "Umum"), no
+  brand and no description, so every feed item was "Umum" with the store as its
+  brand. It now edits all three; an update that omits them keeps the stored
+  values. Feeds prefer the merchant's description; with none, the product
+  describes itself from its own name, brand, category and variants.
+- **Structured data.** Product and landing pages use one `buildProductJsonLd`
+  (one Offer per variant, the product's brand). The Organization logo is
+  omitted when unset instead of being the homepage URL; the dead SearchAction
+  and the invalid ListItem `offers` are gone. `og:type` is `product` on a
+  product page; `article:publisher` (a Facebook page field) is gone.
+- **Sitemap and robots.** `lastmod` only when real (landing `updated_at`);
+  `/tentang` listed; a noindex store submits no URLs and robots drops its
+  `Sitemap:` line. AI search and training agents are named in robots.
+- **`/llms.txt`** maps the store for AI assistants from its own catalogue; no
+  admin, API or order-status surface. `llms` is a reserved landing slug.
+- Verification: `npm test` 1121 pass, `npm run check` 0/0/0, `npm run build`;
+  /payment, /thanks (COD, unpaid VA, manual, paid) and the admin product form
+  rendered in a browser; feed, sitemap, robots, llms.txt and product JSON-LD
+  read from a running local store.
+
+### Entry 224: 1.8.2 — Google categories from Google's list, product form, login wordmark
+
+- The variant ID sat in a grey box inside the input grid, a different height
+  and shape from every field beside it, and the remove action was a red link
+  under the grid. Each variant is now a card whose header carries its number,
+  its ID as an outline badge ("Baru" before the first save) and a ghost
+  "Hapus" button. Fields sit on two rows: name and SKU, then price, compare
+  price and weight. Prices take an `Rp` addon and weight a `gram` addon
+  (`InputGroup`), and the compare-price hint shows the saving.
+- The photo field was a native file input styled through `file:` classes. It
+  is now a dashed drop zone (drag-and-drop or click) with the preview, an
+  uploading spinner, and shadcn `Button`s for "Pilih/Ganti foto" and "Hapus
+  foto"; the native input stays in the DOM, visually hidden, for keyboard and
+  screen readers. The hint states the size advice the feeds need (1:1, at
+  least 800×800 px) and fixes the "ototmatis" typo.
+- Verification: `admin-islands-render` and `admin-controls` pass; the edit
+  page rendered at 1366 and 390 px with no horizontal overflow and no console
+  error; a PNG uploaded through the hidden input came back as a WebP URL.
+- **Google product category, exact.** A product had a free-text category, and
+  the feeds sent whatever `ad-taxonomy.ts` guessed from it — often nothing, or
+  a neighbouring category. The form now picks from Google's own taxonomy
+  (`public/data/google-product-taxonomy.json`, 5,595 rows, built from Google's
+  file by `scripts/generate-google-taxonomy.mjs`), searchable in Indonesian
+  through an alias list and by id (`src/lib/google-taxonomy.ts`). Migration
+  `0079` stores the id and path on the product; both feeds send the id as
+  `google_product_category` and the path as `product_type`, and the Meta feed
+  drops the engine's `fb_product_category` guess for such a product, since
+  Meta asks for one of the two. The engine stays the fallback. Google
+  publishes no id-ID list (that URL answers 404). The list ships as a static
+  asset, not a D1 table: identical for every install, and seeding ~5,600 rows
+  would cost every install writes.
+- The store-facing category label follows the first Google pick and stays
+  editable; brand shows the store name as its default.
+- **Login.** The AdsBookCMS wordmark on `/hello` links to the store's homepage,
+  on phones and desktops, with a visible focus ring.
+- **Automatic, then manual.** The form picks a Google category by itself from
+  the product's name and store label (`suggestGoogleCategories`: the keyword
+  engine's confident rule first, then a taxonomy search, with Indonesian
+  phrases such as "minyak kemiri" and "pasta gigi" mapped before single
+  words), marks it "Otomatis", and re-picks while the name changes. The other
+  suggestions are one-click chips (`Button` `size="sm"`); a pick or a clear
+  in the combobox makes it "Manual" and it is never overwritten. A saved
+  category loads as manual.
+- **robots.txt.** AI training crawlers are no longer named with `Allow: /`.
+  Cloudflare's managed robots.txt, on for the fleet's zones, already prepends a
+  `Disallow: /` group for each of them, so the file stated both. Search
+  engines and AI answer agents stay named; training crawlers fall to `*`,
+  which still allows them where the zone has no managed file.

@@ -1,12 +1,13 @@
 import type { APIRoute } from "astro";
 import { jsonError, jsonOk } from "../../../lib/api";
 import { getRuntimeEnv } from "../../../lib/env";
+import { matchesShippingQueue } from "../../../lib/shipping-queue";
 import {
   mapMengantarStatusEvidence,
   MengantarClient,
   selectProviderShippingAdvance,
 } from "../../../lib/mengantar-client";
-import { resolveMengantarPickupSlot } from "../../../lib/mengantar-order";
+import { pickMengantarTimeId, resolveMengantarPickupSlot } from "../../../lib/mengantar-order";
 import { getMengantarDispatchEligibility } from "../../../lib/payment-dispatch-policy";
 import { getProviderConfig } from "../../../lib/provider-config";
 import {
@@ -60,6 +61,7 @@ type ShippingOrderRow = {
   receiverDeliveryRate: number | null;
   receiverRiskLabel: string | null;
   pickupScheduleId: number | null;
+  handover: string | null;
   createdAt: string;
   warehouseName: string;
   pickupScheduledAt: string | null;
@@ -152,6 +154,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
           o.receiver_rts_score AS receiverDeliveryRate,
           o.rts_risk_label AS receiverRiskLabel,
           o.pickup_schedule_id AS pickupScheduleId,
+          o.mengantar_handover AS handover,
           o.created_at AS createdAt,
           w.name AS warehouseName,
           ps.scheduled_at AS pickupScheduledAt,
@@ -206,12 +209,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     const warehouses = warehouseResult.results ?? [];
 
     const readyPickupIds = shipments
-      .filter(
-        (shipment) =>
-          shipment.shippingStatus === "processing" &&
-          shipment.cnoteNo &&
-          !shipment.pickupScheduleId,
-      )
+      .filter((shipment) => matchesShippingQueue(shipment, "needs_pickup"))
       .map((shipment) => shipment.id);
     const dispatchableIds = shipments
       .filter((shipment) => shipment.dispatchEligible)
@@ -556,7 +554,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
     new Date(pickupSlot.scheduledAt).getTime() < minimumPickupTime
   ) {
     return jsonError(
-      "Slot pickup 09.00–18.00 WIB harus dimulai minimal 90 menit dari sekarang.",
+      "Jam pickup 09.00–18.00 WIB, minimal 90 menit dari sekarang.",
       400,
     );
   }
@@ -592,6 +590,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
         AND shipping_status = 'processing'
         AND cnote_no IS NOT NULL
         AND pickup_schedule_id IS NULL
+        AND mengantar_handover IS NOT 'drop_off'
     `,
       )
       .bind(warehouseId, ...orderIds)
@@ -601,7 +600,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
     );
     if (eligibleIds.length !== orderIds.length) {
       return jsonError(
-        "Sebagian order bukan milik gudang terpilih, sudah dijadwalkan, atau belum memiliki resi.",
+        "Sebagian order bukan milik gudang terpilih, sudah dijadwalkan, dikirim lewat drop-off, atau belum memiliki resi.",
         409,
       );
     }
@@ -623,10 +622,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
         date: pickupSlot.date,
         time: pickupSlot.time,
       });
-      const first = Array.isArray(providerSchedule.data)
-        ? providerSchedule.data[0]
-        : undefined;
-      providerReference = String(first?._id || "").trim();
+      providerReference = pickMengantarTimeId(providerSchedule.data, pickupSlot);
       if (!providerReference) {
         return jsonError(
           "Mengantar tidak mengembalikan referensi jadwal; D1 tidak diubah.",

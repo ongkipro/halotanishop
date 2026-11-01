@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- AdsBookCMS product icon, flat: an open book (the store's order book)
+       whose right page carries an up-right arrow (an ad turning into a sale).
+       The login tile and sidebar card; never replaced by a store. The tab
+       icons are the merchant-replaceable copies (images/logo.svg, favicon.*). -->
+  <rect width="1024" height="1024" rx="232" fill="#2563EB"/>
+  <path fill="#FFFFFF" d="M184 306c0-24 20-44 44-44h160c58 0 92 28 104 64v446c-22-28-58-44-104-44H228c-24 0-44-20-44-44z"/>
+  <path fill="#FFFFFF" d="M840 306c0-24-20-44-44-44H636c-58 0-92 28-104 64v446c22-28 58-44 104-44h160c24 0 44-20 44-44z"/>
+  <path fill="none" stroke="#2563EB" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" d="M606 624 746 484M636 480h114v114"/>
+</svg>

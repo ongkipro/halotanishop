@@ -1,4 +1,5 @@
 import { formatIdr } from "@/lib/format-idr";
+import { providerDispatchErrorText } from "@/lib/payment-dispatch-policy";
 import {
   AlertTriangleIcon,
   CalendarClockIcon,
@@ -12,10 +13,13 @@ import {
   PackageIcon,
   RotateCcw,
   Truck,
+  Warehouse,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { SHIPPING_STATUS_LABELS } from "@/lib/shipping-status";
+import { MengantarPickupFields } from "./MengantarPickupFields";
+import { defaultPickupSlot, mengantarPickupSlot } from "@/lib/mengantar-order";
 import { Input } from "../ui/input";
 import { FilterBar, FilterField, FilterSelect, SearchInput } from "./filter-bar";
 import { Checkbox } from "../ui/checkbox";
@@ -27,13 +31,6 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import { ADMIN_CUSTOM_DATE_FILTER } from "../../lib/admin-date-filter";
 import {
   AdminDateRangeFilter,
@@ -67,6 +64,7 @@ type Shipment = {
   receiverDeliveryRate: number | null;
   receiverRiskLabel: string | null;
   pickupScheduleId: number | null;
+  handover?: string | null;
   pickupScheduledAt: string | null;
   pickupStatus: string | null;
   warehouseName: string;
@@ -167,6 +165,14 @@ const shippingQueues: Array<{
     activeTone: "border-sky-500 ring-sky-500/10",
   },
   {
+    id: "needs_drop_off",
+    label: "Perlu Drop-off",
+    note: "Berresi, antar ke counter",
+    icon: PackageIcon,
+    tone: "text-violet-700 bg-violet-50",
+    activeTone: "border-violet-500 ring-violet-500/10",
+  },
+  {
     id: "delivered",
     label: "Sampai Tujuan",
     note: "Pesanan telah diterima",
@@ -182,22 +188,6 @@ const dateTime = (value: string) =>
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-function defaultPickupDate() {
-  const format = (value: Date) =>
-    new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Jakarta",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(value);
-  const now = new Date();
-  const today = format(now);
-  const todaySlot = new Date(`${today}T09:00:00+07:00`);
-  return todaySlot.getTime() >= now.getTime() + 90 * 60 * 1000
-    ? today
-    : format(new Date(now.getTime() + 24 * 60 * 60 * 1000));
-}
-
 function StatusBadge({ status }: { status: string }) {
   const style = statusStyles[status] ?? statusStyles.cancelled;
   return (
@@ -249,7 +239,8 @@ export function ShippingOperations() {
   const [activeQueue, setActiveQueue] = useState<ShippingQueueId>("all");
   const [syncing, setSyncing] = useState(false);
   const [pickupOpen, setPickupOpen] = useState(false);
-  const [pickupAt, setPickupAt] = useState(defaultPickupDate);
+  // One-hour provider slot, 09.00–18.00 WIB, at least 90 minutes ahead.
+  const [pickupSlot, setPickupSlot] = useState(defaultPickupSlot);
   const [warehouseId, setWarehouseId] = useState("");
   const [pickupNotes, setPickupNotes] = useState("");
   const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
@@ -429,9 +420,13 @@ export function ShippingOperations() {
         orderIds: ids,
       });
       const data = payload.data;
+      // Name the failures; a bare count left the operator guessing which rows (audit 2026-10-31 L2).
+      const failures = ((data.results ?? []) as Array<{ orderNumber?: string; error?: string | null }>)
+        .filter((result) => result.error)
+        .map((result) => `${result.orderNumber || "Order tanpa nomor"}: ${result.error}`);
       setNotice({
         tone: data.failed > 0 ? "warning" : "success",
-        message: `Sinkronisasi selesai: ${data.updated} diperbarui, ${data.unchanged} tetap, ${data.failed} gagal dari ${data.results?.length ?? ids.length} order.`,
+        message: `Sinkronisasi selesai: ${data.updated} diperbarui, ${data.unchanged} tetap, ${data.failed} gagal dari ${data.results?.length ?? ids.length} order.${failures.length ? ` Gagal — ${failures.slice(0, 5).join("; ")}${failures.length > 5 ? `; +${failures.length - 5} lainnya` : ""}.` : ""}`,
       });
       await loadData();
     } catch (error) {
@@ -455,7 +450,7 @@ export function ShippingOperations() {
         {
           action: "schedule-pickup",
           warehouseId: Number(warehouseId),
-          scheduledAt: pickupAt,
+          scheduledAt: mengantarPickupSlot(pickupSlot.date, pickupSlot.hour).scheduledAt,
           orderIds: selectedOrderIds,
           notes: pickupNotes,
         },
@@ -477,7 +472,7 @@ export function ShippingOperations() {
   };
 
   const openPickupScheduler = () => {
-    setPickupAt(defaultPickupDate());
+    setPickupSlot(defaultPickupSlot());
     setPickupOpen(true);
     window.requestAnimationFrame(() =>
       document
@@ -574,57 +569,33 @@ export function ShippingOperations() {
               event.preventDefault();
               void schedulePickup();
             }}
-            className="grid grid-cols-1 gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[1fr_1fr_1.3fr_auto] lg:items-end"
+            className="grid grid-cols-1 gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:grid-cols-[1fr_1.7fr_1.3fr_auto] lg:items-end"
           >
-            <label>
-              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                Gudang pickup
-              </span>
-              <Select
+            {/* One dropdown kind for warehouse, date and hour; the warehouse by name. */}
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor="shipping-pickup-warehouse" className="text-sm font-medium">Gudang pickup</label>
+              <FilterSelect
+                id="shipping-pickup-warehouse"
+                icon={Warehouse}
                 value={warehouseId}
-                onValueChange={(val) => setWarehouseId(val ?? "")}
-                required
-              >
-                <SelectTrigger >
-                  <SelectValue placeholder="Pilih gudang" />
-                </SelectTrigger>
-                <SelectContent>
-                  {data.warehouses.map((warehouse) => (
-                    <SelectItem key={warehouse.id} value={String(warehouse.id)}>
-                      {warehouse.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                Tanggal pickup (09.00–18.00 WIB)
-              </span>
-              <Input
-                type="date"
-                value={pickupAt}
-                min={defaultPickupDate()}
-                onChange={(event) => setPickupAt(event.target.value)}
-                
-                required
+                options={[{ value: "", label: "Pilih gudang" }, ...data.warehouses.map((warehouse) => ({ value: String(warehouse.id), label: warehouse.name }))]}
+                onValueChange={setWarehouseId}
               />
-            </label>
-            <label>
-              <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                Catatan kurir
-              </span>
+            </div>
+            <MengantarPickupFields idPrefix="shipping-pickup" date={pickupSlot.date} hour={pickupSlot.hour} onChange={setPickupSlot} />
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <label htmlFor="shipping-pickup-notes" className="text-sm font-medium">Catatan kurir</label>
               <Input
+                id="shipping-pickup-notes"
                 value={pickupNotes}
                 onChange={(event) => setPickupNotes(event.target.value)}
                 maxLength={160}
                 placeholder="Contoh: ambil di loading dock timur"
-                
               />
-            </label>
+            </div>
             <Button
               type="submit"
-              disabled={scheduling || selectedOrderIds.length === 0}
+              disabled={scheduling || selectedOrderIds.length === 0 || !warehouseId}
             >
               {scheduling ? (
                 <LoaderCircleIcon
@@ -645,7 +616,7 @@ export function ShippingOperations() {
       </section>
 
       <section
-        className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4"
+        className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-5"
         aria-label="Antrean operasional pengiriman"
         role="tablist"
       >
@@ -886,6 +857,11 @@ export function ShippingOperations() {
                       <p className="mt-1 break-words text-xs text-slate-500">
                         {shipment.customerName} · {shipment.city}
                       </p>
+                      {data.warehouses.length > 1 && (
+                        <p className="mt-1 break-words text-xs text-slate-500">
+                          Dari {shipment.warehouseName || "—"}
+                        </p>
+                      )}
                     </div>
                     <StatusBadge status={shipment.shippingStatus} />
                   </div>
@@ -912,7 +888,7 @@ export function ShippingOperations() {
                   {shipment.providerDispatchError && (
                     <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
                       <p className="font-semibold mb-1">Kendala Push ke Mengantar:</p>
-                      <p>{shipment.providerDispatchError}</p>
+                      <p>{providerDispatchErrorText(shipment.providerDispatchError)}</p>
                     </div>
                   )}
                   
@@ -979,7 +955,7 @@ export function ShippingOperations() {
             className="hidden overflow-x-auto lg:block"
             aria-label="Tabel pengiriman desktop"
           >
-            <Table className="min-w-[1100px]">
+            <Table className="min-w-[1000px]">
               <TableHeader>
                 <TableRow className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   <TableHead className="w-12 px-4 py-3">
@@ -995,13 +971,13 @@ export function ShippingOperations() {
                       className="size-5 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
                     />
                   </TableHead>
-                  <TableHead className="px-4 py-3 border-r border-slate-200">
+                  <TableHead className="px-3 py-3 border-r border-slate-200">
                     Order & customer
                   </TableHead>
-                  <TableHead className="px-4 py-3">Tujuan</TableHead>
-                  <TableHead className="px-4 py-3">Kurir & resi</TableHead>
-                  <TableHead className="px-4 py-3">Status</TableHead>
-                  <TableHead className="px-4 py-3">Pickup</TableHead>
+                  <TableHead className="px-3 py-3">Tujuan</TableHead>
+                  <TableHead className="px-3 py-3">Kurir & resi</TableHead>
+                  <TableHead className="px-3 py-3">Status</TableHead>
+                  <TableHead className="px-3 py-3">Pickup</TableHead>
                   <TableHead className="px-5 py-3 text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -1011,7 +987,7 @@ export function ShippingOperations() {
                   const selected = selectedOrderIds.includes(shipment.id);
                   return (
                     <TableRow key={shipment.id}>
-                      <TableCell className="px-4 py-4">
+                      <TableCell className="px-3 py-4">
                         {ready ? (
                           <Checkbox
                             checked={selected}
@@ -1029,7 +1005,7 @@ export function ShippingOperations() {
                           <span className="block size-4" />
                         )}
                       </TableCell>
-                      <TableCell className="px-4 py-4 border-r border-slate-200">
+                      <TableCell className="px-3 py-4 border-r border-slate-200">
                         <a
                           href={`/admin/orders/${encodeURIComponent(shipment.orderNumber)}`}
                           className="font-semibold text-slate-950 hover:text-blue-700 hover:underline"
@@ -1043,15 +1019,20 @@ export function ShippingOperations() {
                           {shipment.customerPhone}
                         </p>
                       </TableCell>
-                      <TableCell className="px-4 py-4">
+                      <TableCell className="px-3 py-4">
                         <p className="font-semibold text-slate-900">
                           {shipment.city}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
                           {shipment.province}
                         </p>
+                        {data.warehouses.length > 1 && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Dari {shipment.warehouseName || "—"}
+                          </p>
+                        )}
                       </TableCell>
-                      <TableCell className="px-4 py-4">
+                      <TableCell className="px-3 py-4">
                         <p className="font-semibold text-slate-900">
                           {shipment.courierCode || "Belum dipilih"}{" "}
                           {shipment.courierService
@@ -1065,14 +1046,14 @@ export function ShippingOperations() {
                         </p>
                         {shipment.providerDispatchError && (
                           <p className="mt-1 text-xs text-rose-600 font-semibold max-w-[200px] leading-tight">
-                            Error: {shipment.providerDispatchError}
+                            Error: {providerDispatchErrorText(shipment.providerDispatchError)}
                           </p>
                         )}
                         <p className="mt-1 text-xs text-slate-400">
                           Ongkir {currency(shipment.shippingCost)}
                         </p>
                       </TableCell>
-                      <TableCell className="px-4 py-4 min-w-[200px]">
+                      <TableCell className="px-3 py-4 min-w-[200px]">
                         <StatusBadge status={shipment.shippingStatus} />
                         {shipment.providerOrderId && (
                           <div className="mt-2 text-xs leading-tight text-slate-500">
@@ -1095,7 +1076,7 @@ export function ShippingOperations() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="px-4 py-4">
+                      <TableCell className="px-3 py-4">
                         {shipment.pickupScheduledAt ? (
                           <>
                             <p className="font-semibold text-slate-900">
@@ -1109,9 +1090,9 @@ export function ShippingOperations() {
                           </>
                         ) : (
                           <p
-                            className={`font-semibold ${ready ? "text-sky-700" : "text-slate-400"}`}
+                            className={`font-semibold ${shipment.handover === "drop_off" ? "text-violet-700" : ready ? "text-sky-700" : "text-slate-400"}`}
                           >
-                            {ready ? "Siap dijadwalkan" : "Belum siap"}
+                            {shipment.handover === "drop_off" ? "Drop-off di counter" : ready ? "Siap dijadwalkan" : "Belum siap"}
                           </p>
                         )}
                       </TableCell>
@@ -1122,11 +1103,13 @@ export function ShippingOperations() {
                               Menunggu Resi
                             </span>
                           )}
+                          {/* "Edit", not "Edit order": the longer label pushed the last column past 1366 px (audit 2026-10-31 L8). */}
                           <a
                             href={`/admin/orders/${encodeURIComponent(shipment.orderNumber)}?edit=shipping`}
-                            className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md bg-slate-900 px-3 text-xs font-medium text-slate-50 shadow-sm transition-colors hover:bg-slate-900/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-300"
+                            aria-label={`Edit order ${shipment.orderNumber}`}
+                            className="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-md border border-slate-200 bg-white px-3 text-xs font-medium text-slate-900 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-300"
                           >
-                            Edit order
+                            Edit
                           </a>
                         </div>
                       </TableCell>

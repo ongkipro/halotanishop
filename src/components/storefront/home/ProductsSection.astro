@@ -33,51 +33,62 @@ interface Props {
 }
 
 const { products, heading } = Astro.props;
-
-
+// Chips only when they narrow something: one category is the whole list.
+const categories = [...new Set(products.map((product) => product.category).filter(Boolean))];
+const showChips = categories.length > 1;
+const chipClass =
+  'catalog-chip inline-flex min-h-10 shrink-0 items-center rounded-full border border-[#E5E5E5] bg-white px-3.5 text-sm text-[#111111] transition-colors hover:border-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111] aria-pressed:border-[#111111] aria-pressed:bg-[#111111] aria-pressed:text-white';
 
 const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
 ---
 
-<section id="produk" class="bg-white px-4 py-10">
-  <div class="mb-7 border-l-2 border-[#111111] pl-4">
-    <span class="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#767676]">
-      {heading.eyebrow}
-    </span>
-    <h2 class="mt-2 text-[26px] font-semibold leading-tight tracking-[-0.035em] text-[#111111]">{heading.title}</h2>
-    <p class="mt-2 max-w-[38rem] text-[13px] leading-6 text-[#555555]">{heading.description}</p>
+<section id="produk" class="px-4 pb-6 pt-8">
+  <div class="mb-4">
+    <h2 class="text-xl font-bold tracking-[-0.02em] text-[#111111]">{heading.title}</h2>
+    {heading.description && <p class="mt-1 text-sm leading-6 text-[#555555]">{heading.description}</p>}
   </div>
 
-  <div class="mb-7 flex flex-col gap-3" hidden={products.length === 0}>
+  <div class="mb-4 flex flex-col gap-3" hidden={products.length === 0}>
     <div class="relative w-full">
       <input
-        type="text"
+        type="search"
         id="catalog-search"
-        placeholder="Cari produk pilihan Anda..."
+        placeholder="Cari produk"
         aria-label="Cari produk"
-        class="min-h-12 w-full rounded-none border border-[#E5E5E5] bg-white py-3 pl-11 pr-4 text-base text-[#111111] transition-colors placeholder:text-[#767676] focus:border-[#111111] focus:outline-none focus:ring-1 focus:ring-[#111111]"
+        class="min-h-11 w-full rounded-full border border-[#E5E5E5] bg-[#F3F3F3] py-2.5 pl-11 pr-4 text-base text-[#111111] transition-colors placeholder:text-[#555555] focus:border-[#111111] focus:bg-white focus:outline-none"
       />
       <Icon
         name="lucide:search"
-        class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]"
+        class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]"
         aria-hidden="true"
       />
     </div>
+    {showChips && (
+      <div role="group" aria-label="Kategori" class="catalog-chips -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <button type="button" class={chipClass} data-category="" aria-pressed="true">Semua</button>
+        {categories.map((category) => (
+          <button type="button" class={chipClass} data-category={category} aria-pressed="false">{category}</button>
+        ))}
+      </div>
+    )}
   </div>
 
   {
     products.length === 0 && (
-      <div class="border border-[#E5E5E5] bg-white px-5 py-10 text-center">
-        <p class="text-[13px] font-semibold text-[#111111]">Katalog sedang disiapkan</p>
-        <p class="mx-auto mt-2 max-w-[26rem] text-[12px] leading-6 text-[#555555]">
-          Belum ada produk yang diterbitkan. Produk akan muncul di sini setelah
-          ditambahkan dan varian harganya diisi dari dashboard.
+      <div class="rounded-2xl bg-[#F3F3F3] px-5 py-10 text-center">
+        <p class="text-sm font-semibold text-[#111111]">Katalog sedang disiapkan</p>
+        <p class="mx-auto mt-1 max-w-[26rem] text-sm leading-6 text-[#555555]">
+          Produk akan tampil di sini setelah diterbitkan.
         </p>
       </div>
     )
   }
 
-  <div id="product-grid" class="grid grid-cols-2 gap-3" hidden={products.length === 0}>
+  <p id="catalog-empty" class="hidden rounded-2xl bg-[#F3F3F3] px-5 py-8 text-center text-sm text-[#555555]">
+    Produk tidak ditemukan. Coba kata lain atau pilih kategori Semua.
+  </p>
+
+  <div id="product-grid" class="grid grid-cols-2 gap-x-3 gap-y-5" hidden={products.length === 0}>
     {
       products.map((product, idx) => (
         <div
@@ -105,10 +116,10 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
 
   <div
     id="load-more-container"
-    class="mt-8 flex flex-col items-center gap-3"
+    class="mt-6 flex flex-col items-center gap-3"
     hidden={products.length === 0}
   >
-    <p id="catalog-status" class="text-[11px] font-normal text-[#555555]">
+    <p id="catalog-status" class="text-xs text-[#555555]">
       Menampilkan <span id="product-visible-count">{Math.min(10, products.length)}</span> dari <span id="product-total-count">{products.length}</span> produk
     </p>
     {
@@ -116,9 +127,9 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
         <button
           type="button"
           id="load-more-btn"
-          class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-none border border-[#111111] bg-[#111111] px-6 py-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#000000] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+          class="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-6 text-sm font-semibold text-[#111111] transition-colors hover:border-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
         >
-          <span>Lihat Produk Lainnya</span>
+          <span>Lihat produk lainnya</span>
           <Icon name="lucide:chevron-down" class="h-4 w-4" aria-hidden="true" />
         </button>
       )
@@ -134,7 +145,11 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
     const visibleCountEl = document.getElementById('product-visible-count');
     const totalCountEl = document.getElementById('product-total-count');
 
+    const emptyEl = document.getElementById('catalog-empty');
+    const statusEl = document.getElementById('catalog-status');
+    const chips = document.querySelectorAll<HTMLButtonElement>('.catalog-chip');
     let currentSearch = '';
+    let currentCategory = '';
     let visibleLimit = 10;
 
     function filterAndRender() {
@@ -143,7 +158,9 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
 
       cards.forEach((card) => {
         const searchData = card.getAttribute('data-search') || '';
-        const matchesSearch = !currentSearch || searchData.includes(currentSearch);
+        const matchesSearch =
+          (!currentSearch || searchData.includes(currentSearch)) &&
+          (!currentCategory || card.getAttribute('data-category') === currentCategory);
         if (matchesSearch) matchedCount++;
 
         // Toggle a class rather than writing `style.display`. Showing a card
@@ -156,6 +173,9 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
         card.classList.toggle('hidden', !show);
       });
 
+      emptyEl?.classList.toggle('hidden', cards.length === 0 || matchedCount > 0);
+      // "Menampilkan 0 dari 0" beside the empty message says nothing more.
+      statusEl?.toggleAttribute('hidden', matchedCount === 0);
       if (visibleCountEl) visibleCountEl.textContent = String(currentlyShown);
       if (totalCountEl) totalCountEl.textContent = String(matchedCount);
 
@@ -174,6 +194,15 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
       filterAndRender();
     });
 
+    chips.forEach((chip) =>
+      chip.addEventListener('click', () => {
+        currentCategory = chip.dataset.category ?? '';
+        chips.forEach((other) => other.setAttribute('aria-pressed', String(other === chip)));
+        visibleLimit = 10;
+        filterAndRender();
+      }),
+    );
+
     loadMoreBtn?.addEventListener('click', () => {
       visibleLimit += 10;
       filterAndRender();
@@ -188,3 +217,12 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
     initProductCatalog();
   }
 </script>
+
+<style>
+  .catalog-chips {
+    scrollbar-width: none;
+  }
+  .catalog-chips::-webkit-scrollbar {
+    display: none;
+  }
+</style>

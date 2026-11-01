@@ -31,17 +31,23 @@ interface Props {
 const { product, formatPrice, eager = false } = Astro.props;
 const comparePrice = product.comparePrice ?? 0;
 const hasDiscount = comparePrice > product.price;
+// "Mulai" only when the variants really differ in price; a card that says
+// "from" over one price is hedging for nothing.
+const hasRange = new Set(product.variants.map((variant) => variant.price).filter((price) => typeof price === 'number')).size > 1;
+// The price sits right under the title (one or two lines, clamped), as in
+// the Shopify theme; the cards still line up because the grid stretches each
+// one to its row and the text block fills the rest.
 const discountPercentage = hasDiscount
   ? Math.round((1 - product.price / comparePrice) * 100)
   : 0;
 ---
 
-<article class="group h-full bg-white">
+<article class="group h-full">
   <a
     href={`/produk/${product.slug}`}
-    class="flex h-full flex-col focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+    class="flex h-full flex-col rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
   >
-    <div class="relative aspect-square overflow-hidden border-b border-[#E5E5E5] bg-[#F5F5F5]">
+    <div class="relative aspect-square overflow-hidden rounded-xl bg-[#F3F3F3]">
       <img
         src={cardImageSrc(product.heroImage)}
         alt={`Foto produk ${product.productName}`}
@@ -53,29 +59,20 @@ const discountPercentage = hasDiscount
         decoding="async"
       />
       {discountPercentage > 0 && (
-        <span class="absolute left-2 top-2 bg-[#111111] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-white">
+        <span class="absolute left-2 top-2 rounded-full bg-[#334FB4] px-1.5 py-0.5 text-[11px] font-bold leading-4 text-white">
           -{discountPercentage}%
         </span>
       )}
     </div>
 
-    <div class="flex flex-1 flex-col p-3">
-      <div class="flex items-center justify-between gap-2 text-[9px] font-semibold uppercase tracking-[0.15em] text-[#767676]">
-        <span class="min-w-0 truncate">{product.category}</span>
-        <span class="shrink-0">{product.variants.length} varian</span>
-      </div>
-      <h2 class="mt-1.5 line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-[#111111]">
-        {product.productName}
-      </h2>
-
-      <div class="mt-auto flex items-baseline gap-2 pt-3">
-        <p class="text-sm font-bold leading-5 text-[#111111]">{formatPrice(product.price)}</p>
-        {hasDiscount && (
-          <p class="text-[10px] leading-4 text-[#767676] line-through">
-            {formatPrice(comparePrice)}
-          </p>
-        )}
-      </div>
+    <div class="flex flex-1 flex-col px-0.5 pt-2">
+      <h2 class="line-clamp-2 text-sm leading-5 text-[#111111]" title={product.productName}>{product.productName}</h2>
+      <p class="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 leading-5">
+        {hasRange && <span class="text-xs text-[#555555]">Mulai</span>}
+        <span class="text-[15px] font-bold text-[#111111]">{formatPrice(product.price)}</span>
+        {hasDiscount && <span class="text-xs text-[#767676] line-through">{formatPrice(comparePrice)}</span>}
+      </p>
+      {product.variants.length > 1 && <p class="mt-0.5 text-xs text-[#767676]">{product.variants.length} pilihan</p>}
     </div>
   </a>
 </article>

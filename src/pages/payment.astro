@@ -69,16 +69,21 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
 
           <p id="payment-channel" class="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#767676]">Pembayaran Online</p>
 
-          <div class="mt-3 flex items-center justify-center gap-2">
-            <p id="payment-total" class="text-[32px] font-bold leading-none tracking-[-0.03em] text-[#111111]">—</p>
-            <button id="copy-total" type="button" class="inline-flex items-center gap-1 rounded-none border border-[#E5E5E5] bg-[#F5F5F5] px-2.5 py-1.5 text-[11px] font-semibold text-[#555555] transition-colors hover:bg-[#eef4fc] hover:text-[#1f5199]" title="Salin nominal">
-              <Icon name="lucide:copy" class="size-3.5" aria-hidden="true" />
-              <span id="copy-total-label">Salin</span>
-            </button>
-          </div>
-          <button id="copy-payment-link" type="button" class="mt-3 inline-flex items-center gap-1 rounded-none border border-[#E5E5E5] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[#555555] transition-colors hover:bg-[#eef4fc] hover:text-[#1f5199]" title="Salin tautan halaman pembayaran ini untuk dibuka di perangkat lain" hidden>
-            <Icon name="lucide:link" class="size-3.5" aria-hidden="true" />
-            <span id="copy-payment-link-label">Salin Tautan Pembayaran</span>
+          <!-- The copy control sits under the figure, never beside it. Beside
+               it, a long total or account number had to share one row with
+               the button and broke onto a second line mid-number. -->
+          <p id="payment-total" class="mt-3 text-[32px] font-bold leading-none tracking-[-0.03em] text-[#111111] tabular-nums">—</p>
+          <button
+            id="copy-total"
+            type="button"
+            data-copy
+            data-idle-label="Salin Nominal"
+            data-done-label="Nominal Tersalin"
+            class="mt-3 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-none border border-[#E5E5E5] bg-white px-4 text-[11px] font-semibold text-[#333333] transition-colors duration-150 hover:bg-[#F5F5F5] active:scale-[0.98] data-[copied=true]:border-[#121212] data-[copied=true]:bg-[#121212] data-[copied=true]:text-white"
+          >
+            <Icon name="lucide:copy" class="size-3.5 in-data-[copied=true]:hidden" aria-hidden="true" />
+            <Icon name="lucide:check" class="hidden size-3.5 in-data-[copied=true]:inline" aria-hidden="true" />
+            <span data-copy-label>Salin Nominal</span>
           </button>
 
           <p id="payment-instruction" class="mx-auto mt-2 max-w-[340px] text-xs leading-5 text-[#555555]">
@@ -90,7 +95,7 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
               <dt id="payment-amount-label" class="text-[#555555]">Nominal Pesanan</dt>
               <dd id="payment-amount" class="font-semibold text-[#111111]">—</dd>
             </div>
-            <div class="flex items-center justify-between gap-4">
+            <div id="payment-admin-fee-row" class="flex items-center justify-between gap-4">
               <dt id="payment-admin-fee-label" class="text-[#555555]">Biaya Layanan</dt>
               <dd id="payment-admin-fee" class="font-semibold text-[#111111]">—</dd>
             </div>
@@ -105,7 +110,7 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
           </div>
 
           <div class="mt-3.5 flex flex-wrap items-center justify-center gap-2">
-            <button id="download-qr" type="button" class="inline-flex min-h-11 items-center gap-2 rounded-none bg-[#2c6ecb] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-[#1f5199]">
+            <button id="download-qr" type="button" class="inline-flex min-h-11 items-center gap-2 rounded-none bg-[#121212] px-5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-[#333333]">
               <Icon name="lucide:download" class="size-4" aria-hidden="true" />
               <span id="download-qr-label">Simpan / Unduh Gambar QR</span>
             </button>
@@ -126,18 +131,36 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
         </div>
 
         <!-- Virtual Account / Payment Code Display Section -->
+        <!-- The number owns the full width of its card and the copy button sits
+             under it. Side by side, a 14-digit VA broke onto two lines at phone
+             width (`8808440911 / 0437`), which is exactly the moment a buyer is
+             reading it back against their banking app. -->
         <div id="account-section" class="mt-5 rounded-none border border-[#E5E5E5] bg-[#F5F5F5] p-4" hidden>
           <div class="flex items-center justify-between gap-3">
             <p id="account-label" class="min-w-0 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#555555]">Nomor Virtual Account</p>
-            <span id="account-verification" class="shrink-0 rounded-none border border-[#E5E5E5] bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#555555]">Verifikasi Admin</span>
+            <span id="account-verification" class="shrink-0 rounded-none border border-[#E5E5E5] bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#555555]">Otomatis</span>
           </div>
-          <div class="mt-2 flex items-center justify-between gap-3 rounded-none border border-[#E5E5E5] bg-white p-3">
-            <strong id="account-value" class="min-w-0 break-all font-mono text-xl font-bold tracking-wider text-[#111111]"></strong>
-            <button id="copy-account" type="button" class="inline-flex shrink-0 items-center gap-1.5 rounded-none bg-[#2c6ecb] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-white transition-colors hover:bg-[#1f5199]">
-              <Icon name="lucide:copy" class="size-3.5" aria-hidden="true" />
-              <span id="copy-account-label">Salin VA</span>
-            </button>
+          <div id="account-box" class="mt-2 rounded-none border border-[#E5E5E5] bg-white px-4 py-4 text-center transition-colors duration-150 data-[copied=true]:border-[#121212]">
+            <strong id="account-value" class="block font-mono text-[clamp(17px,5.2vw,24px)] font-bold leading-tight tracking-[0.02em] text-[#111111] tabular-nums [overflow-wrap:anywhere]"></strong>
+            <p id="account-holder-row" class="mt-2 text-[13px] leading-5 text-[#555555]" hidden>
+              a.n. <strong id="account-holder" class="font-semibold text-[#111111]"></strong>
+            </p>
           </div>
+          <button
+            id="copy-account"
+            type="button"
+            data-copy
+            data-idle-label="Salin Nomor VA"
+            data-done-label="Nomor VA Tersalin"
+            class="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-none border border-[#121212] bg-[#121212] px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-white transition-colors duration-150 hover:bg-[#333333] active:scale-[0.99] data-[copied=true]:bg-white data-[copied=true]:text-[#111111]"
+          >
+            <Icon name="lucide:copy" class="size-4 in-data-[copied=true]:hidden" aria-hidden="true" />
+            <Icon name="lucide:check" class="hidden size-4 in-data-[copied=true]:inline" aria-hidden="true" />
+            <span data-copy-label>Salin Nomor VA</span>
+          </button>
+          <p id="copy-account-hint" class="mt-2 text-center text-[11px] leading-5 text-[#555555]" role="status" aria-live="polite">
+            Tempel nomor ini di menu transfer aplikasi bank Anda.
+          </p>
         </div>
 
         <!-- Deep Link Provider App Button -->
@@ -163,10 +186,10 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
             type="button"
             aria-expanded="false"
             aria-controls="instructions-body"
-            class="flex w-full items-center justify-between gap-3 bg-[#F5F5F5] px-4 py-3.5 text-left transition-colors hover:bg-[#eef4fc]"
+            class="flex w-full items-center justify-between gap-3 bg-[#F5F5F5] px-4 py-3.5 text-left transition-colors hover:bg-[#F3F3F3]"
           >
             <span class="flex min-w-0 items-center gap-2">
-              <Icon name="lucide:help-circle" class="size-4 shrink-0 text-[#2c6ecb]" aria-hidden="true" />
+              <Icon name="lucide:help-circle" class="size-4 shrink-0 text-[#121212]" aria-hidden="true" />
               <span class="min-w-0">
                 <span class="block text-[10px] font-semibold uppercase tracking-[0.15em] text-[#111111]">Cara Pembayaran</span>
                 <span id="instruction-channel-name" class="mt-0.5 block truncate text-[11px] font-normal text-[#555555]">Panduan</span>
@@ -193,12 +216,30 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
 
         <!-- Trust & Security Footer Badge -->
         <div class="mt-5 flex items-start gap-3 rounded-none border border-[#E5E5E5] bg-[#F5F5F5] p-4">
-          <Icon name="lucide:shield-check" class="mt-0.5 size-5 shrink-0 text-[#2c6ecb]" aria-hidden="true" />
+          <Icon name="lucide:shield-check" class="mt-0.5 size-5 shrink-0 text-[#121212]" aria-hidden="true" />
           <div class="text-xs leading-5 text-[#555555]">
             <strong id="payment-monitor-title" class="block font-semibold text-[#111111]">Menunggu Verifikasi Pembayaran</strong>
             <span id="payment-monitor-copy">Tim toko memeriksa pembayaran di dashboard AutoLaris dan memperbarui status di CMS. Halaman ini menyegarkan status tiap menit, lalu otomatis berpindah ke halaman terima kasih setelah pembayaran dikonfirmasi.</span>
           </div>
         </div>
+
+        <!-- Tertiary: reopening this page on another device. It used to sit in
+             the amount card between the total and the instruction, competing
+             with the two things a buyer actually needs there. -->
+        <button
+          id="copy-payment-link"
+          type="button"
+          data-copy
+          data-idle-label="Salin tautan halaman ini"
+          data-done-label="Tautan tersalin"
+          title="Salin tautan halaman pembayaran ini untuk dibuka di perangkat lain"
+          class="mx-auto mt-4 flex min-h-10 items-center justify-center gap-1.5 px-3 text-[12px] font-semibold text-[#555555] underline-offset-4 transition-colors hover:text-[#111111] hover:underline data-[copied=true]:text-[#111111]"
+          hidden
+        >
+          <Icon name="lucide:link" class="size-3.5 in-data-[copied=true]:hidden" aria-hidden="true" />
+          <Icon name="lucide:check" class="hidden size-3.5 in-data-[copied=true]:inline" aria-hidden="true" />
+          <span data-copy-label>Salin tautan halaman ini</span>
+        </button>
       </section>
     </div>
   </main>
@@ -207,6 +248,7 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
     import QRCode from 'qrcode';
     import { formatIdr } from '../lib/format-idr';
     import { paymentBrandAsset } from '../lib/payment-brand';
+    import { copyText, groupAccountNumber, paymentChannelLabel } from '../lib/payment-display';
 
     type PaymentDetails = {
       channel_code?: string;
@@ -230,6 +272,7 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
       success?: boolean;
       is_paid?: boolean;
       order_number?: string;
+      payment_method?: string;
       payment_status?: string;
       payment?: PaymentDetails | null;
       error?: string;
@@ -301,9 +344,7 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
     const statusEl = document.getElementById('payment-status')!;
     const totalEl = document.getElementById('payment-total')!;
     const copyTotalBtn = document.getElementById('copy-total') as HTMLButtonElement;
-    const copyTotalLabel = document.getElementById('copy-total-label')!;
     const copyLinkBtn = document.getElementById('copy-payment-link') as HTMLButtonElement | null;
-    const copyLinkLabel = document.getElementById('copy-payment-link-label');
     const channelEl = document.getElementById('payment-channel')!;
     const instructionEl = document.getElementById('payment-instruction')!;
     const breakdownEl = document.getElementById('payment-breakdown')!;
@@ -311,6 +352,7 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
     const adminFeeLabelEl = document.getElementById('payment-admin-fee-label')!;
     const amountEl = document.getElementById('payment-amount')!;
     const adminFeeEl = document.getElementById('payment-admin-fee')!;
+    const adminFeeRow = document.getElementById('payment-admin-fee-row')!;
     const qrSection = document.getElementById('qr-section')!;
     const qrCanvas = document.getElementById('qr-canvas') as HTMLCanvasElement;
     const qrImage = document.getElementById('qr-image') as HTMLImageElement;
@@ -319,7 +361,10 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
     const accountLabel = document.getElementById('account-label')!;
     const accountValue = document.getElementById('account-value')!;
     const copyAccount = document.getElementById('copy-account') as HTMLButtonElement;
-    const copyAccountLabel = document.getElementById('copy-account-label')!;
+    const accountBox = document.getElementById('account-box')!;
+    const accountHolderRow = document.getElementById('account-holder-row')!;
+    const accountHolder = document.getElementById('account-holder')!;
+    const copyAccountHint = document.getElementById('copy-account-hint')!;
     const providerLink = document.getElementById('provider-link') as HTMLAnchorElement;
     const paymentLogo = document.getElementById('payment-logo') as HTMLImageElement;
     const accountVerification = document.getElementById('account-verification')!;
@@ -349,7 +394,7 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
     const URGENT = ['border-[#f2c4c4]', 'bg-[#fdf1f1]', 'text-[#a12626]'];
     const STATUS_TONES = {
       waiting: ['border-[#E5E5E5]', 'bg-white', 'text-[#555555]'],
-      paid: ['border-[#2c6ecb]', 'bg-[#eef4fc]', 'text-[#1f5199]'],
+      paid: ['border-[#121212]', 'bg-[#F3F3F3]', 'text-[#333333]'],
       failed: ['border-[#f2c4c4]', 'bg-[#fdf1f1]', 'text-[#a12626]'],
     } as const;
     const swapTone = (
@@ -365,25 +410,6 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
       countdownBox.classList.toggle('animate-pulse', urgent);
     };
 
-    const channelLabels: Record<string, string> = {
-      QRIS: 'QRIS (Semua Bank & e-Wallet)',
-      VABCA: 'Virtual Account BCA',
-      VAMANDIRI: 'Virtual Account Mandiri',
-      VABNI: 'Virtual Account BNI',
-      VABRI: 'Virtual Account BRI',
-      VAPERMATA: 'Virtual Account Permata',
-      VABSI: 'Virtual Account BSI',
-      VACIMB: 'Virtual Account CIMB Niaga',
-      VADANAMON: 'Virtual Account Danamon',
-      BCA: 'Transfer Bank BCA',
-      MANDIRI: 'Transfer Bank Mandiri',
-      BRI: 'Transfer Bank BRI',
-      BNI: 'Transfer Bank BNI',
-      BSI: 'Transfer Bank BSI',
-      CIMB: 'Transfer Bank CIMB Niaga',
-      DANAMON: 'Transfer Bank Danamon',
-      PERMATA: 'Transfer Bank Permata',
-    };
 
     // Bank-Specific Payment Guides
     const paymentGuides: Record<string, string[]> = {
@@ -539,13 +565,14 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
       if (copyTotalBtn) copyTotalBtn.dataset.value = String(computedTotal);
       const channelCode = text(payment.channel_code).toUpperCase();
       const manualTransfer = Boolean(payment.manual_transfer);
+      const channelName =
+        paymentChannelLabel(channelCode, { manualTransfer }) || text(payment.bank_name) || 'Pembayaran Online';
       const logoAsset = paymentBrandAsset(channelCode);
       if (logoAsset) {
         paymentLogo.src = logoAsset;
-        paymentLogo.alt = channelLabels[channelCode] || channelCode;
+        paymentLogo.alt = channelName;
       }
-      channelEl.textContent =
-        payment.bank_name || channelLabels[channelCode] || channelCode || 'Pembayaran Online';
+      channelEl.textContent = channelName;
       instructionEl.textContent = manualTransfer
         ? `Transfer tepat ${formatRp(payment.total_amount)} ke rekening penerima di bawah. Simpan bukti transfer untuk konfirmasi admin.`
         : channelCode === 'QRIS'
@@ -557,6 +584,8 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
       breakdownEl.hidden = !(amount || adminFee);
       amountLabelEl.textContent = sellerBearsFee ? 'Pesanan + ongkir' : 'Nominal Pesanan';
       amountEl.textContent = formatRp(sellerBearsFee ? payment.total_amount : amount);
+      // A zero fee row only adds a line to read; a manual transfer has none.
+      adminFeeRow.hidden = !adminFee;
       adminFeeLabelEl.textContent = sellerBearsFee ? 'Biaya Layanan (seller)' : 'Biaya Layanan';
       adminFeeEl.textContent = sellerBearsFee && adminFee
         ? `Ditanggung seller (${formatRp(adminFee)})`
@@ -602,21 +631,36 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
               ? 'Batas waktu pembayaran sudah lewat dan instruksi ini tidak berlaku lagi. Buat ulang untuk mendapatkan instruksi pembayaran baru.'
               : payment.error
                 ? payment.error
-                : `Nomor Virtual Account (${channelLabels[channelCode] || channelCode}) belum dapat dibuat secara otomatis. Buat ulang instruksi pembayaran, atau hubungi Admin Toko.`;
+                : `Nomor Virtual Account (${channelName}) belum dapat dibuat secara otomatis. Buat ulang instruksi pembayaran, atau hubungi Admin Toko.`;
           }
         }
       }
       if (account) {
+        const kind = manualTransfer ? 'Rekening' : payment.virtual_account ? 'VA' : 'Kode';
         accountLabel.textContent = manualTransfer
-          ? `Nomor Rekening${payment.account_holder ? ` · a.n. ${payment.account_holder}` : ''}`
+          ? `Nomor Rekening ${text(payment.bank_name) || channelCode}`
           : payment.virtual_account
               ? 'Nomor Virtual Account'
               : 'Kode Pembayaran';
-        accountVerification.textContent = 'Verifikasi Admin';
-        accountValue.textContent = account;
+        // A manual transfer is checked by a person; a VA or payment code is
+        // confirmed by the provider. The badge used to say "Verifikasi Admin"
+        // on both, which told a VA buyer to wait for someone who never comes.
+        accountVerification.textContent = manualTransfer ? 'Dicek Admin' : 'Otomatis';
+        // Read in groups of four; the copied value stays the raw number.
+        accountValue.textContent = groupAccountNumber(account);
+        accountValue.setAttribute('aria-label', account.split('').join(' '));
         copyAccount.dataset.value = account;
-        copyAccount.dataset.label = manualTransfer ? 'Salin Rekening' : 'Salin VA';
-        copyAccountLabel.textContent = copyAccount.dataset.label;
+        copyAccount.dataset.idleLabel = `Salin Nomor ${kind}`;
+        copyAccount.dataset.doneLabel = `Nomor ${kind} Tersalin`;
+        if (copyAccount.dataset.copied !== 'true') {
+          copyAccount.querySelector('[data-copy-label]')!.textContent = copyAccount.dataset.idleLabel;
+        }
+        const holder = text(payment.account_holder);
+        accountHolderRow.hidden = !holder;
+        accountHolder.textContent = holder;
+        copyAccountHint.textContent = manualTransfer
+          ? `Transfer tepat ${formatRp(payment.total_amount)} lalu simpan bukti transfernya.`
+          : 'Tempel nomor ini di menu transfer aplikasi bank Anda.';
       }
       const guideKey = channelCode.startsWith('VA') ? channelCode : channelCode === 'QRIS' ? 'QRIS' : '';
       const guideSteps = manualTransfer
@@ -627,8 +671,7 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
             'Simpan bukti transfer. Admin akan memeriksa dan mengonfirmasi pembayaran.',
           ]
         : paymentGuides[guideKey] || paymentGuides.QRIS;
-      instructionChannelName.textContent =
-        payment.bank_name || channelLabels[channelCode] || channelCode || 'Bank';
+      instructionChannelName.textContent = channelName;
       instructionsList.innerHTML = guideSteps.map(step => `<li>${step}</li>`).join('');
       paymentMonitorCopy.textContent = manualTransfer
         ? 'Pembayaran transfer bank dikonfirmasi oleh admin setelah dana diterima.'
@@ -676,49 +719,48 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
       });
     };
 
-    /* `navigator.clipboard` is undefined on a non-secure origin and rejects when
-       the document is not focused, so every copy goes through here and reports
-       failure instead of leaving the label stuck mid-state. */
-    const copyToClipboard = async (value: string) => {
-      try {
-        await navigator.clipboard.writeText(value);
-        return true;
-      } catch {
-        return false;
-      }
+    /* One behaviour for every copy button: the value lives in `data-value`,
+       the resting and done words in `data-idle-label` / `data-done-label`, and
+       the done state is `data-copied="true"`, which the markup styles (icon
+       swap, inverted colours). Only the dataset changes, so the button comes
+       back exactly as the server rendered it. `copyText` falls back to
+       `execCommand` where the Clipboard API is missing — some in-app browsers,
+       which is where ad traffic lands. */
+    const copyTimers = new WeakMap<HTMLElement, number>();
+    const bindCopy = (button: HTMLButtonElement, valueOf: () => string, onCopied?: (ok: boolean) => void) => {
+      button.addEventListener('click', async () => {
+        const value = valueOf();
+        if (!value) return;
+        const label = button.querySelector('[data-copy-label]');
+        const ok = await copyText(value);
+        if (ok) navigator.vibrate?.(15);
+        button.dataset.copied = ok ? 'true' : 'false';
+        if (label) label.textContent = ok ? button.dataset.doneLabel || 'Tersalin' : 'Gagal menyalin, salin manual';
+        onCopied?.(ok);
+        window.clearTimeout(copyTimers.get(button));
+        copyTimers.set(button, window.setTimeout(() => {
+          delete button.dataset.copied;
+          if (label) label.textContent = button.dataset.idleLabel || 'Salin';
+          onCopied?.(false);
+        }, 2400));
+      });
     };
 
-    // 1-Tap Copy VA Number. Only the label changes: the button keeps the classes
-    // the server rendered it with, so it comes back as the same button.
-    copyAccount.addEventListener('click', async () => {
-      const value = copyAccount.dataset.value || '';
-      if (!value) return;
-      // Read from the dataset, not from the label: a second click inside the
-      // two-second window would otherwise capture "Tersalin" as the resting text.
-      const restore = copyAccount.dataset.label || 'Salin VA';
-      copyAccountLabel.textContent = (await copyToClipboard(value)) ? 'Tersalin' : 'Gagal Menyalin';
-      window.setTimeout(() => {
-        copyAccountLabel.textContent = restore;
-      }, 2000);
+    bindCopy(copyAccount, () => copyAccount.dataset.value || '', (ok) => {
+      // The number's own box confirms what was copied, not just the button.
+      if (ok) accountBox.dataset.copied = 'true';
+      else delete accountBox.dataset.copied;
     });
+    bindCopy(copyTotalBtn, () => copyTotalBtn.dataset.value || '');
 
     // The same page, reopenable elsewhere. Fragment only: never a query string.
     if (copyLinkBtn && orderPk && statusToken && !isPreview) {
       copyLinkBtn.hidden = false;
-      copyLinkBtn.addEventListener('click', async () => {
-        const link = `${window.location.origin}/payment#o=${encodeURIComponent(orderPk)}&t=${encodeURIComponent(statusToken)}`;
-        if (copyLinkLabel) copyLinkLabel.textContent = (await copyToClipboard(link)) ? 'Tautan Tersalin' : 'Gagal Menyalin';
-        window.setTimeout(() => { if (copyLinkLabel) copyLinkLabel.textContent = 'Salin Tautan Pembayaran'; }, 2000);
-      });
+      bindCopy(
+        copyLinkBtn,
+        () => `${window.location.origin}/payment#o=${encodeURIComponent(orderPk)}&t=${encodeURIComponent(statusToken)}`,
+      );
     }
-
-    // 1-Tap Copy Total Amount
-    copyTotalBtn.addEventListener('click', async () => {
-      const value = copyTotalBtn.dataset.value || '';
-      if (!value) return;
-      copyTotalLabel.textContent = (await copyToClipboard(value)) ? 'Tersalin' : 'Gagal';
-      window.setTimeout(() => { copyTotalLabel.textContent = 'Salin'; }, 1800);
-    });
 
     // Accordion Toggle
     toggleInstructionsBtn.addEventListener('click', () => {
@@ -789,6 +831,10 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
         const data = await response.json() as StatusResponse;
         if (!response.ok || data.success === false) throw new Error(data.error || 'Status pembayaran tidak tersedia.');
         orderNumber = text(data.order_number || orderNumber);
+        // The server's method, not the tab's: an order an operator moved off
+        // COD, or one opened from a link on another device, would otherwise
+        // reach /thanks as COD (or the COD default) once paid.
+        if (data.payment_method) stored = { ...stored, payment_method: text(data.payment_method) };
         if (data.is_paid) {
           // Paid is paid, whatever the instruction row says about itself.
           redirectToThanks();

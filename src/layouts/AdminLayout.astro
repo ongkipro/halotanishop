@@ -5,7 +5,7 @@ import { ADMIN_ACCENT } from '../components/admin/admin-navigation';
 
 interface Props {
   title: string;
-  activeMenu: 'dashboard' | 'content' | 'products' | 'orders' | 'shipping' | 'expeditions' | 'scoring' | 'ads' | 'settings' | 'payments' | 'profile';
+  activeMenu: 'dashboard' | 'analytics' | 'content' | 'products' | 'orders' | 'shipping' | 'expeditions' | 'scoring' | 'ads' | 'settings' | 'payments' | 'profile' | 'status';
 }
 
 const { title, activeMenu } = Astro.props;
@@ -33,6 +33,7 @@ const sidebarDefaultOpen = Astro.cookies.get('sidebar_state')?.value !== 'false'
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="icon" type="image/svg+xml" href="/images/logo.svg" />
+    <link rel="apple-touch-icon" href="/favicon-192.png" />
   </head>
   <body
     class="admin-shell flex h-dvh overflow-hidden bg-[#f6f7f9] text-slate-900 antialiased"
@@ -50,6 +51,7 @@ const sidebarDefaultOpen = Astro.cookies.get('sidebar_state')?.value !== 'false'
       currentPath={currentPath}
       siteUrl={Astro.locals.tenant.siteUrl}
       adminRole={adminRole}
+      adminUsername={Astro.locals.admin?.username ?? ''}
       mustChangePassword={mustChangePassword}
       sidebarDefaultOpen={sidebarDefaultOpen}
     >

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { isToastBlocked, type SocialProofBlockers } from "./social-proof-visibility.ts";
 import { recentOrderCount, SOCIAL_PROOF_MIN_ORDERS, socialProofMessage } from "./social-proof.ts";
 
@@ -156,19 +157,26 @@ test("the notice states a real count only at or above the threshold", () => {
 
 test("the count is store-wide, excludes void, cancelled, returned and abandoned orders, and fails to zero", async () => {
   let sql = "";
+  let bound: unknown[] = [];
   const database = {
     prepare(text: string) {
       sql = text;
-      return { first: async () => ({ n: 7 }) };
+      return {
+        bind(...values: unknown[]) {
+          bound = values;
+          return { first: async () => ({ n: 7 }) };
+        },
+      };
     },
   } as unknown as D1Database;
-  assert.equal(await recentOrderCount(database), 7);
+  assert.equal(await recentOrderCount(database, new Date("2026-10-29T12:00:00.000Z")), 7);
   assert.match(sql, /FROM orders/);
   assert.doesNotMatch(sql, /product_id/, "one number per store, true on every landing page");
   assert.match(sql, /stock_restored_at IS NULL/);
   // An abandoned lead never became an order; counting it overstated real buyers.
   assert.match(sql, /NOT IN \('cancelled', 'returned', 'abandoned'\)/);
-  assert.match(sql, /'-24 hours'/);
+  assert.deepEqual(bound, ["2026-10-28T12:00:00.000Z"], "the window is the 24 hours before now");
+  assert.doesNotMatch(sql, /unixepoch\(created_at\)/, "a function on the column defeats the index");
 
   const failing = { prepare() { throw new Error("D1 down"); } } as unknown as D1Database;
   const error = console.error;
@@ -179,6 +187,64 @@ test("the count is store-wide, excludes void, cancelled, returned and abandoned 
     console.error = error;
   }
   assert.equal(await recentOrderCount(undefined), 0);
+});
+
+test("the 24-hour count matches the old predicate on real SQLite and uses the created_at index", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(`
+    CREATE TABLE orders (
+      id INTEGER PRIMARY KEY,
+      shipping_status TEXT NOT NULL,
+      stock_restored_at TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX idx_orders_created_at ON orders(created_at);
+  `);
+  const now = new Date("2026-10-29T12:00:00.000Z");
+  const insert = sqlite.prepare("INSERT INTO orders (shipping_status, stock_restored_at, created_at) VALUES (?, ?, ?)");
+  [
+    ["pending", null, "2026-10-28T11:59:59.999Z"], // just outside
+    ["pending", null, "2026-10-28T12:00:00.000Z"], // exactly on the edge
+    ["pending", null, "2026-10-29T11:59:00.000Z"],
+    ["delivered", null, "2026-10-29T03:00:00.000Z"],
+    ["abandoned", null, "2026-10-29T04:00:00.000Z"],
+    ["cancelled", null, "2026-10-29T05:00:00.000Z"],
+    ["pending", "2026-10-29T06:00:00.000Z", "2026-10-29T06:00:00.000Z"],
+    ["pending", null, "2026-10-20T00:00:00.000Z"],
+  ].forEach((row) => insert.run(...row));
+  const database = {
+    prepare(sql: string) {
+      return {
+        bind(...values: string[]) {
+          return { first: async () => sqlite.prepare(sql).get(...values) };
+        },
+      };
+    },
+  } as unknown as D1Database;
+
+  // The predicate this replaced, evaluated at the same instant.
+  const legacy = sqlite
+    .prepare(
+      `SELECT COUNT(*) AS n FROM orders
+        WHERE stock_restored_at IS NULL
+          AND shipping_status NOT IN ('cancelled', 'returned', 'abandoned')
+          AND unixepoch(created_at) >= unixepoch(?, '-24 hours')`,
+    )
+    .get(now.toISOString()) as { n: number };
+  assert.equal(await recentOrderCount(database, now), 3);
+  assert.equal(legacy.n, 3, "same answer as the unixepoch predicate");
+
+  const plan = sqlite
+    .prepare(
+      `EXPLAIN QUERY PLAN SELECT COUNT(*) AS n FROM orders
+        WHERE created_at >= ? AND stock_restored_at IS NULL
+          AND shipping_status NOT IN ('cancelled', 'returned', 'abandoned')`,
+    )
+    .all("2026-10-28T12:00:00.000Z") as Array<{ detail: string }>;
+  assert.ok(
+    plan.some((row) => /USING (COVERING )?INDEX idx_orders_created_at/.test(row.detail)),
+    `expected an index search, got ${plan.map((row) => row.detail).join(" | ")}`,
+  );
 });
 
 test("both public product surfaces mount the toast against anchors they render", () => {

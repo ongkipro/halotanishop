@@ -76,6 +76,22 @@ export function releasesReservedStock(
 }
 
 /**
+ * Whether an order is void: released once (`stock_restored_at`) or in a
+ * releasing status now. A void order is never dispatched and never reported
+ * to an ad platform as a Purchase, whatever its payment status says.
+ */
+export function isVoidOrder(order: {
+  payment_status: string;
+  shipping_status: string;
+  stock_restored_at?: string | null;
+}) {
+  return (
+    Boolean(order.stock_restored_at) ||
+    releasesReservedStock(order.payment_status, order.shipping_status)
+  );
+}
+
+/**
  * Canonical policy for manual admin lifecycle changes. Provider dispatch and
  * abandoned-order promotion own their state transitions separately because
  * they also create a shipment or reserve inventory.
@@ -131,9 +147,7 @@ export function resolveAdminOrderTransition(
     );
   }
 
-  const currentReleased =
-    Boolean(current.stock_restored_at) ||
-    releasesReservedStock(current.payment_status, current.shipping_status);
+  const currentReleased = isVoidOrder(current);
   const nextReleased = releasesReservedStock(paymentStatus, shippingStatus);
   if (
     currentReleased &&
@@ -299,8 +313,12 @@ export async function updateAdminOrderShippingStatuses(
       ...buildOrderReleaseStatements(database, orderIds, true),
     );
   }
-  const results = await database.batch(statements);
-  return Number(results[0]?.meta?.changes) || 0;
+  await database.batch(statements);
+  // Every selected row was loaded and validated above, and the batch is all or
+  // nothing, so that is the count. D1's `meta.changes` is not: it also counts
+  // the 0075 `updated_at` trigger's own UPDATE, and reported 4 for 2 orders
+  // (audit 2026-10-31 M1).
+  return orders.length;
 }
 
 /**

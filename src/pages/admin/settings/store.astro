@@ -21,17 +21,27 @@ import NativeSelect from '../../../components/ui/NativeSelect.astro';
           <span class="mb-1.5 block text-xs font-semibold text-slate-700">Nama store</span>
           <input id="storeName" required maxlength="120" autocomplete="organization" class="admin-input-flat" />
         </label>
-        <label class="block">
+        <div class="block">
           <span class="mb-1.5 block text-xs font-semibold text-slate-700">WhatsApp customer service</span>
-          <input id="supportWhatsapp" required inputmode="tel" maxlength="16" autocomplete="tel" placeholder="081234567890" class="admin-input-flat font-mono" />
-          <span class="mt-1.5 block text-xs text-slate-500">Gunakan 9–15 digit; awalan + diperbolehkan.</span>
-        </label>
+          <p id="supportWhatsapp" class="admin-input-flat flex items-center font-mono text-slate-700">—</p>
+          <span class="mt-1.5 block text-xs text-slate-500">Nomor pertama yang aktif. <a href="/admin/settings/whatsapp" class="font-semibold text-slate-900 underline underline-offset-2">Kelola nomor WhatsApp</a> untuk menambah atau membagi pembeli ke beberapa CS.</span>
+        </div>
         <label class="flex items-start gap-2.5">
           <input id="thanksWhatsappRedirect" type="checkbox" class="mt-0.5 size-4 shrink-0" />
           <span>
             <span class="block text-xs font-semibold text-slate-700">Arahkan pembeli COD ke WhatsApp setelah order</span>
-            <span class="mt-0.5 block text-xs text-slate-500">Halaman terima kasih membuka chat ke nomor di atas dalam ±3 detik, setelah pixel Purchase terkirim, dengan pesan berisi nomor invoice, nama, dan produk. Pembeli QRIS/VA/transfer tetap di halaman pembayaran.</span>
+            <span class="mt-0.5 block text-xs text-slate-500">Halaman terima kasih membuka chat ke nomor CS (dibagi rata bila lebih dari satu) dalam ±3 detik, setelah pixel Purchase terkirim, dengan pesan berisi nomor invoice, nama, dan produk. Pembeli QRIS/VA/transfer tetap di halaman pembayaran.</span>
           </span>
+        </label>
+        <label class="block">
+          <span class="mb-1.5 block text-xs font-semibold text-slate-700">Email customer service</span>
+          <input id="supportEmail" type="email" inputmode="email" autocomplete="email" maxlength="160" placeholder="cs@tokosaya.com" class="admin-input-flat" />
+          <span class="mt-1.5 block text-xs text-slate-500">Opsional. Tampil di halaman Kontak, Kebijakan Privasi, Pengiriman &amp; Retur, dan Syarat &amp; Ketentuan.</span>
+        </label>
+        <label class="block">
+          <span class="mb-1.5 block text-xs font-semibold text-slate-700">Alamat usaha</span>
+          <textarea id="businessAddress" maxlength="300" rows="2" autocomplete="street-address" class="admin-input-flat min-h-20 py-2"></textarea>
+          <span class="mt-1.5 block text-xs text-slate-500">Opsional. Alamat pengelola toko untuk halaman Kontak dan kebijakan. Kosongkan bila tidak ingin dipublikasikan.</span>
         </label>
         <label class="block">
           <span class="mb-1.5 block text-xs font-semibold text-slate-700">Alamat storefront</span>
@@ -41,7 +51,7 @@ import NativeSelect from '../../../components/ui/NativeSelect.astro';
         <label class="block">
           <span class="mb-1.5 block text-xs font-semibold text-slate-700">Tagline</span>
           <input id="storeTagline" maxlength="120" class="admin-input-flat" />
-          <span class="mt-1.5 block text-xs text-slate-500">Muncul di judul halaman dan header storefront.</span>
+          <span class="mt-1.5 block text-xs text-slate-500">Muncul di judul halaman storefront.</span>
         </label>
         <label class="block">
           <span class="mb-1.5 block text-xs font-semibold text-slate-700">Deskripsi</span>
@@ -50,8 +60,8 @@ import NativeSelect from '../../../components/ui/NativeSelect.astro';
         </label>
         <label class="block">
           <span class="mb-1.5 block text-xs font-semibold text-slate-700">Logo</span>
-          <input id="storeLogo" maxlength="300" placeholder="/images/adsbook-mark.webp" class="admin-input-flat" />
-          <span class="mt-1.5 block text-xs text-slate-500">Kosongkan untuk memakai logo bawaan AdsBookCMS.</span>
+          <input id="storeLogo" maxlength="300" placeholder="/images/logo-toko.png" class="admin-input-flat" />
+          <span class="mt-1.5 block text-xs text-slate-500">Kosongkan untuk menampilkan nama toko sebagai logo teks.</span>
         </label>
         <label class="block">
           <span class="mb-1.5 block text-xs font-semibold text-slate-700">Tampilan storefront</span>
@@ -146,9 +156,11 @@ import NativeSelect from '../../../components/ui/NativeSelect.astro';
   <script>
     const form = document.getElementById('storeForm') as HTMLFormElement | null;
     const name = document.getElementById('storeName') as HTMLInputElement | null;
-    const phone = document.getElementById('supportWhatsapp') as HTMLInputElement | null;
+    const phone = document.getElementById('supportWhatsapp') as HTMLElement | null;
     const thanksRedirect = document.getElementById('thanksWhatsappRedirect') as HTMLInputElement | null;
     const siteUrl = document.getElementById('storeSiteUrl') as HTMLInputElement | null;
+    const supportEmail = document.getElementById('supportEmail') as HTMLInputElement | null;
+    const businessAddress = document.getElementById('businessAddress') as HTMLTextAreaElement | null;
     const tagline = document.getElementById('storeTagline') as HTMLInputElement | null;
     const description = document.getElementById('storeDescription') as HTMLInputElement | null;
     const logo = document.getElementById('storeLogo') as HTMLInputElement | null;
@@ -254,9 +266,11 @@ import NativeSelect from '../../../components/ui/NativeSelect.astro';
       return payload.data.store;
     }).then(data => {
       if (name) name.value = data.name || '';
-      if (phone) phone.value = data.support_whatsapp || '';
+      if (phone) phone.textContent = data.support_whatsapp || 'Belum ada nomor';
       if (thanksRedirect) thanksRedirect.checked = data.thanks_whatsapp_redirect === true;
       if (siteUrl) siteUrl.value = data.site_url || '';
+      if (supportEmail) supportEmail.value = data.support_email || '';
+      if (businessAddress) businessAddress.value = data.business_address || '';
       if (tagline) tagline.value = data.tagline || '';
       if (description) description.value = data.description || '';
       if (logo) logo.value = data.logo || '';
@@ -297,9 +311,10 @@ import NativeSelect from '../../../components/ui/NativeSelect.astro';
           body: JSON.stringify({
             action: 'save-store',
             store_name: name?.value,
-            support_whatsapp: phone?.value,
             thanks_whatsapp_redirect: thanksRedirect?.checked === true,
             site_url: siteUrl?.value,
+            support_email: supportEmail?.value,
+            business_address: businessAddress?.value,
             store_tagline: tagline?.value,
             store_description: description?.value,
             store_logo: logo?.value,

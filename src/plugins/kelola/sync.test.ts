@@ -163,6 +163,7 @@ test("sync status counts the last day and names the latest failure", async () =>
     last_synced_at: now.toISOString(),
     synced_24h: 1,
     failing_24h: 1,
+    unsynced_older: 1,
     last_error: { order_number: "INV-BAD", attempts: 3, message: "HTTP 409: Toko nonaktif" },
   });
 });
@@ -220,6 +221,20 @@ test("push marks the order synced; a failure is recorded and retried by the drai
   assert.equal(calls.length, 2);
 });
 
+test("the Kelola payload carries the order's recorded weight, not the variant's current one", async () => {
+  const { sqlite, database } = migratedStore();
+  const orderId = insertOrder(sqlite, "INV-WEIGHT-1", new Date().toISOString());
+  sqlite.prepare("UPDATE order_items SET weight_grams = 150 WHERE order_id = ?").run(orderId);
+  sqlite.exec("UPDATE product_variants SET weight_grams = 900 WHERE id = 1");
+  let body = "";
+  const fetcher = (async (_url: string, init: RequestInit) => {
+    body = String(init.body);
+    return new Response('{"ok":true}', { status: 201 });
+  }) as unknown as typeof fetch;
+  assert.equal(await pushOrderToKelola(database, config, orderId, fetcher), true);
+  assert.equal(JSON.parse(body).berat, 300);
+});
+
 test("drain skips abandoned, voided and out-of-window orders", async () => {
   const { sqlite, database } = migratedStore();
   const now = new Date();
@@ -232,6 +247,28 @@ test("drain skips abandoned, voided and out-of-window orders", async () => {
   const fetcher = (async () => { calls += 1; return new Response("{}", { status: 201 }); }) as unknown as typeof fetch;
   assert.equal(await drainKelolaOrders(database, config, now, fetcher), 0);
   assert.equal(calls, 0);
+});
+
+test("backfill (no window) sends old orders that never had a plugin row, still never abandoned or voided ones", async () => {
+  const { sqlite, database } = migratedStore();
+  const now = new Date();
+  const longAgo = new Date(now.getTime() - 15 * 24 * 3_600_000).toISOString();
+  const old = insertOrder(sqlite, "INV-OLD", longAgo);
+  const abandoned = insertOrder(sqlite, "ABD-OLD", longAgo);
+  sqlite.prepare("UPDATE orders SET shipping_status = 'abandoned' WHERE id = ?").run(abandoned);
+  const voided = insertOrder(sqlite, "INV-VOID", longAgo);
+  sqlite.prepare("UPDATE orders SET stock_restored_at = ? WHERE id = ?").run(now.toISOString(), voided);
+  const sent: string[] = [];
+  const fetcher = (async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(String(init.body)).code);
+    return new Response("{}", { status: 201 });
+  }) as unknown as typeof fetch;
+  assert.equal(await drainKelolaOrders(database, config, now, fetcher), 0);
+  assert.equal((await kelolaSyncStatus(database, now)).unsynced_older, 1);
+  assert.equal(await drainKelolaOrders(database, config, null, fetcher), 1);
+  assert.deepEqual(sent, ["INV-OLD"]);
+  assert.equal((await kelolaSyncStatus(database, now)).unsynced_older, 0);
+  assert.ok((sqlite.prepare("SELECT synced_at FROM plugin_kelola_orders WHERE order_id = ?").get(old) as { synced_at: string }).synced_at);
 });
 
 test("abandoned orders go to Kelola's lead webhook once, only after the grace period", async () => {

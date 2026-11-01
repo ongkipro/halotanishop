@@ -1,7 +1,8 @@
 export type OrganizationJsonLdInput = {
   name: string;
   url?: string;
-  logo: string;
+  /** Omitted from the graph when empty: the homepage URL is not a logo. */
+  logo?: string;
   description?: string;
   sameAs?: readonly string[];
 };
@@ -34,6 +35,7 @@ export type ProductJsonLdInput = {
   brand?: string;
   ratingValue?: number;
   reviewCount?: number;
+  reviews?: readonly { name: string; rating: number; comment: string }[];
   offers: readonly ProductOfferJsonLdInput[];
 };
 
@@ -87,7 +89,7 @@ export function buildStorefrontJsonLd({
         "@id": organizationId,
         name: organization.name,
         url: organizationUrl,
-        logo: absoluteUrl(organization.logo, siteUrl),
+        ...(organization.logo?.trim() ? { logo: absoluteUrl(organization.logo, siteUrl) } : {}),
         ...(organization.description
           ? { description: organization.description }
           : {}),
@@ -101,11 +103,8 @@ export function buildStorefrontJsonLd({
         name: website.name,
         url: websiteUrl,
         publisher: { "@id": organizationId },
-        potentialAction: {
-          "@type": "SearchAction",
-          target: `${websiteUrl.replace(/\/$/, "")}/produk?q={search_term_string}`,
-          "query-input": "required name=search_term_string",
-        },
+        // No SearchAction: /produk has no `q` search to point at, and Google
+        // retired the sitelinks search box it existed for.
         ...(website.description ? { description: website.description } : {}),
         ...(website.inLanguage ? { inLanguage: website.inLanguage } : {}),
       },
@@ -159,6 +158,16 @@ export function buildProductJsonLd({
             ratingValue: product.ratingValue,
             reviewCount: product.reviewCount,
           },
+        }
+      : {}),
+    ...(product.reviews?.length
+      ? {
+          review: product.reviews.map((review) => ({
+            "@type": "Review",
+            author: { "@type": "Person", name: review.name },
+            reviewRating: { "@type": "Rating", ratingValue: review.rating, bestRating: 5 },
+            reviewBody: review.comment,
+          })),
         }
       : {}),
     offers: offers.length === 1 ? offers[0] : offers,
@@ -219,22 +228,14 @@ export function buildItemListJsonLd({
     "@type": "ItemList",
     name,
     numberOfItems: items.length,
+    // Google's summary-list form: a ListItem carries position, url and name.
+    // `offers` and `image` are not ListItem properties; each product page
+    // carries its own full Product.
     itemListElement: items.map((item, index) => ({
       "@type": "ListItem",
       position: index + 1,
       name: item.name,
       url: absoluteUrl(item.url, siteUrl),
-      ...(item.image ? { image: absoluteUrl(item.image, siteUrl) } : {}),
-      ...(typeof item.price === "number"
-        ? {
-            offers: {
-              "@type": "Offer",
-              price: item.price,
-              priceCurrency: "IDR",
-              availability: "https://schema.org/InStock",
-            },
-          }
-        : {}),
     })),
   };
 }

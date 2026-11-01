@@ -35,6 +35,10 @@ interface Props {
   hideHeader?: boolean;
   hideFooter?: boolean;
   noindex?: boolean;
+  /** With `noindex`: still let crawlers follow this page's links (an HTML sitemap). */
+  follow?: boolean;
+  /** `og:type`; a product page says `product`. */
+  ogType?: string;
   breadcrumbs?: JsonLdProps['breadcrumbs'];
   product?: JsonLdProps['product'];
   faqs?: JsonLdProps['faqs'];
@@ -51,6 +55,8 @@ const {
   hideHeader = false,
   hideFooter = false,
   noindex: noindexProp = false,
+  follow = false,
+  ogType = 'website',
   breadcrumbs,
   product,
   faqs,
@@ -85,7 +91,9 @@ const hasGoogleTag = Boolean(
   adsConfig.googleAdsConversionId
 );
 const canonical = canonicalProp ?? new URL(Astro.url.pathname, publicSiteUrl).toString();
-const imageUrl = new URL(image, publicSiteUrl).toString();
+// A store with no logo and a page with no image share the store's own icon,
+// never the page itself (an empty URL resolves to the page).
+const imageUrl = new URL(image || '/favicon-192.png', publicSiteUrl).toString();
 const preloadImageUrls =
   typeof preloadImages === 'string' || (typeof preloadImages === 'object' && preloadImages !== null && !Array.isArray(preloadImages))
     ? [preloadImages as PreloadImageItem]
@@ -141,11 +149,11 @@ const preloadImageUrls =
       description={description}
       canonical={canonical}
       noindex={noindex}
-      nofollow={noindex}
+      nofollow={noindex && !follow}
       openGraph={{
         basic: {
           title,
-          type: 'website',
+          type: ogType,
           image: imageUrl,
           url: canonical,
         },
@@ -171,7 +179,6 @@ const preloadImageUrls =
           { name: 'theme-color', content: Astro.locals.tenant.themeColor },
           { name: 'author', content: Astro.locals.tenant.name },
           { name: 'publisher', content: Astro.locals.tenant.name },
-          { property: 'article:publisher', content: publicSiteUrl },
         ],
         link: [
           { rel: 'icon', href: '/favicon.png', type: 'image/png' },
@@ -231,13 +238,11 @@ const preloadImageUrls =
          no green painted a solid emerald block across it. Square, like everything
          else on these routes. -->
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-[#111111] focus:text-white focus:px-4 focus:py-2 focus:font-bold">Lewati ke konten utama</a>
-    <div class="flex min-h-screen w-full justify-center">
-      <div
-        class:list={[
-          'min-h-screen w-full bg-white',
-          'max-w-[480px] shadow-[0_0_40px_rgba(15,23,42,0.08)]',
-        ]}
-      >
+    {/* The storefront is a phone-width column on every screen (compact
+        template, DESIGN-SYSTEM §3). On a wide screen the grey canvas says
+        the column is deliberate rather than a page that failed to stretch. */}
+    <div class="flex min-h-screen w-full justify-center bg-[#F3F3F3]">
+      <div class="min-h-screen w-full max-w-[480px] bg-white sm:shadow-[0_0_0_1px_#EDEDED]">
         {!hideHeader && <SiteHeader />}
         <div id="main-content" tabindex="-1" class="outline-none">
           <slot />

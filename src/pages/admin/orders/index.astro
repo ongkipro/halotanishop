@@ -1,8 +1,9 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { OrdersTable, type OrderItem } from '../../../components/admin/OrdersTable';
+import { OrdersTable, mapOrder, type OrderItem } from '../../../components/admin/OrdersTable';
 import AdminPageHeader from '../../../components/admin/AdminPageHeader.astro';
-import { getRuntimeEnv } from '../../../lib/env';
+import { initialOrderListFilters, orderListQuery } from '../../../lib/admin-orders-initial';
+import { GET as listOrders, ORDER_LIST_PREFETCH_HEADER } from '../../api/admin/orders/index';
 
 export const prerender = false;
 
@@ -14,117 +15,18 @@ if (legacyStatus === 'abandoned') {
   return Astro.redirect(`${target.pathname}${target.search}`, 302);
 }
 
-type AdminLocalsWithDatabase = App.Locals & {
-  OMS_DB?: D1Database;
-};
-
-type InitialOrderDatabaseRow = Omit<OrderItem, 'dispatchEligible'> & {
-  dispatchEligible: number;
-};
-
-const localDatabase = (Astro.locals as AdminLocalsWithDatabase).OMS_DB;
-const database =
-  localDatabase ??
-  (getRuntimeEnv(Astro.locals)?.OMS_DB as D1Database | undefined);
 let initialOrders: OrderItem[] | undefined;
-
-if (database?.prepare) {
-  try {
-    const result = await database
-      .prepare(`
-        SELECT
-          CAST(orders.id AS TEXT) AS id,
-          orders.order_number AS orderNumber,
-          orders.customer_name AS customerName,
-          orders.customer_phone AS customerPhone,
-          COALESCE(orders.address, '') AS address,
-          COALESCE((
-            SELECT GROUP_CONCAT(COALESCE(products.title, product_variants.title, ''), ', ')
-            FROM order_items
-            LEFT JOIN product_variants ON product_variants.id = order_items.variant_id
-            LEFT JOIN products ON products.id = product_variants.product_id
-            WHERE order_items.order_id = orders.id
-          ), '') AS productName,
-          COALESCE((
-            SELECT GROUP_CONCAT(product_variants.title, ', ')
-            FROM order_items
-            LEFT JOIN product_variants ON product_variants.id = order_items.variant_id
-            WHERE order_items.order_id = orders.id
-          ), '') AS variantName,
-          COALESCE((
-            SELECT SUM(order_items.quantity * order_items.unit_price)
-            FROM order_items
-            WHERE order_items.order_id = orders.id
-          ), 0) AS productPrice,
-          COALESCE(orders.shipping_cost, 0) AS shippingCost,
-          COALESCE(orders.district, '') AS district,
-          COALESCE(orders.city, '') AS city,
-          COALESCE(orders.province, '') AS province,
-          COALESCE(orders.total_amount, 0) AS totalAmount,
-          COALESCE(orders.payment_method, '') AS paymentMethod,
-          COALESCE(orders.payment_status, '') AS paymentStatus,
-          COALESCE(orders.shipping_status, '') AS shippingStatus,
-          COALESCE(orders.courier_code, '') AS courierCode,
-          COALESCE(orders.cnote_no, '') AS cnoteNo,
-          COALESCE((
-            SELECT stores.name
-            FROM stores
-            WHERE stores.id = orders.store_id
-          ), '') AS sellerName,
-          TRIM(
-            COALESCE(orders.seller_bank_name, '') || ' ' ||
-            COALESCE(orders.seller_account_number, '') ||
-            CASE
-              WHEN orders.seller_account_holder IS NULL OR orders.seller_account_holder = '' THEN ''
-              ELSE ' a.n. ' || orders.seller_account_holder
-            END
-          ) AS bankAccounts,
-          COALESCE((
-            SELECT payment_transactions.provider_payment_url
-            FROM payment_transactions
-            WHERE payment_transactions.order_id = orders.id
-            ORDER BY payment_transactions.id DESC
-            LIMIT 1
-          ), '') AS epaymentLink,
-          COALESCE((
-            SELECT CASE
-              WHEN pt.status = 'pending' AND pt.expires_at IS NOT NULL
-                AND pt.expires_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now') THEN 'expired'
-              ELSE pt.status END
-            FROM payment_transactions pt
-            WHERE pt.order_id = orders.id
-            ORDER BY pt.id DESC
-            LIMIT 1
-          ), '') AS paymentInstructionStatus,
-          COALESCE(orders.receiver_rts_score, -1) AS receiverDeliveryRate,
-          CASE
-            WHEN UPPER(COALESCE(orders.rts_risk_label, '')) LIKE '%HIGH%' THEN 'HIGH'
-            WHEN UPPER(COALESCE(orders.rts_risk_label, '')) LIKE '%MEDIUM%' THEN 'MEDIUM'
-            WHEN UPPER(COALESCE(orders.rts_risk_label, '')) LIKE '%LOW%' THEN 'LOW'
-            ELSE 'UNKNOWN'
-          END AS receiverRiskLabel,
-          orders.created_at AS createdAt,
-          0 AS dispatchEligible,
-          '' AS dispatchReason,
-          orders.provider_dispatch_error AS providerDispatchError,
-          orders.provider_order_id AS providerOrderId,
-          orders.ad_click_ids AS adClickIds
-        FROM orders
-        WHERE orders.shipping_status <> 'abandoned'
-        ORDER BY orders.id DESC
-        LIMIT 20
-      `)
-      .all<InitialOrderDatabaseRow>();
-
-    initialOrders = result.results.map(
-      ({ dispatchEligible, ...order }): OrderItem => ({
-        ...order,
-        dispatchEligible: Boolean(dispatchEligible),
-      }),
-    );
-  } catch (error) {
-    console.error('admin-orders-initial-load', error);
-  }
+try {
+  // The first rows are the list API's own answer to the request the island
+  // makes from this link, so the two cannot disagree on a status, a date
+  // range or a buyer link. A failure leaves the island to fetch them.
+  const url = new URL(`/api/admin/orders?${orderListQuery(initialOrderListFilters(Astro.url.searchParams), 1, false)}`, Astro.url);
+  const request = new Request(url, { headers: { [ORDER_LIST_PREFETCH_HEADER]: '1' } });
+  const response = await listOrders({ url, request, locals: Astro.locals } as Parameters<typeof listOrders>[0]);
+  const payload = (await response.json()) as { success?: boolean; data?: Parameters<typeof mapOrder>[0][] };
+  if (response.ok && payload.success && Array.isArray(payload.data)) initialOrders = payload.data.map(mapOrder);
+} catch (error) {
+  console.error('admin-orders-initial-load', error);
 }
 ---
 
@@ -139,6 +41,6 @@ if (database?.prepare) {
         <a href="/admin/shipping" class="btn-primary">Pengiriman</a>
       </div>
     </AdminPageHeader>
-    <OrdersTable initialOrders={initialOrders} client:load />
+    <OrdersTable initialOrders={initialOrders} initialQuery={Astro.url.search} client:load />
   </div>
 </AdminLayout>

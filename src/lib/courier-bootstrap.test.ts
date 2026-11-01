@@ -32,7 +32,9 @@ function databaseBeforeCourierBootstrap() {
       origin_label TEXT,
       address TEXT NOT NULL,
       city TEXT NOT NULL,
-      province TEXT NOT NULL
+      province TEXT NOT NULL,
+      -- The Expeditions API reads the primary (A42 migration).
+      is_primary INTEGER NOT NULL DEFAULT 0
     );
   `);
   return database;

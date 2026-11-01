@@ -29,10 +29,122 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
+    version: "1.8.2",
+    date: "31 Oktober 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: true,
+    highlight: "Kategori Google resmi untuk setiap produk, form produk yang lebih rapi, dan logo login yang kembali ke beranda.",
+    changes: [
+      {
+        title: "Kategori Google resmi",
+        description: "Kategori Google dipilih otomatis dari nama produk (badge Otomatis), dengan saran lain yang tinggal diklik, atau cari sendiri dari taksonomi resmi Google dalam bahasa Indonesia (mis. sabun, serum wajah, cuka). ID-nya dikirim persis ke feed Google Merchant dan katalog Meta. Label kategori di toko terisi otomatis dan tetap bisa diubah. Merek kosong berarti nama toko.",
+      },
+      {
+        title: "Kartu varian yang rapi",
+        description: "Setiap varian punya kepala sendiri berisi nomor, ID varian (atau \"Baru\"), dan tombol hapus. Harga memakai awalan Rp, berat memakai gram, dan persentase hemat dari harga coret tampil otomatis.",
+      },
+      {
+        title: "Logo login ke beranda",
+        description: "Logo AdsBookCMS di halaman login kini bisa diklik untuk kembali ke beranda toko, di HP maupun desktop.",
+      },
+      {
+        title: "Upload foto tarik-lepas",
+        description: "Foto produk bisa ditarik ke kotak upload atau dipilih lewat tombol. Pratinjau, status mengunggah, serta tombol Ganti dan Hapus foto ada di satu tempat, lengkap dengan saran ukuran untuk feed Google dan Meta.",
+      },
+    ],
+  },
+  {
+    version: "1.8.1",
+    date: "31 Oktober 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
+    highlight: "Halaman pembayaran dan terima kasih lebih jelas, feed Google lebih akurat, dan produk kini punya kategori, merek, serta deskripsi.",
+    changes: [
+      {
+        title: "Salin nomor VA dan rekening lebih mudah",
+        description: "Nomor VA dan rekening tampil penuh satu baris, dikelompokkan per 4 digit. Tombol salin ada di bawah nomor dan berubah jadi \"Tersalin\" saat ditekan. Nama penerima transfer tampil di baris sendiri.",
+      },
+      {
+        title: "Halaman terima kasih yang klop",
+        description: "Ringkasan pembayaran kini menampilkan biaya admin atau biaya layanan COD, jadi totalnya pas. Order VA/QRIS yang belum dibayar diarahkan ke instruksi pembayaran; hanya transfer manual yang diminta kirim bukti.",
+      },
+      {
+        title: "Kategori, merek, dan deskripsi produk",
+        description: "Form produk kini punya kolom Kategori, Merek, dan Deskripsi. Ketiganya tampil di halaman produk dan dikirim ke feed Google dan Meta. Isi untuk setiap produk agar feed tidak lagi memakai \"Umum\" dan nama toko.",
+      },
+      {
+        title: "Feed Google dan SEO",
+        description: "Harga di feed kini mengikuti varian termurah, sama dengan halaman produk, sehingga tidak ditolak Merchant Center karena harga beda. Data terstruktur produk diseragamkan, sitemap lebih jujur, dan toko kini punya /llms.txt untuk asisten AI.",
+      },
+    ],
+  },
+  {
+    version: "1.8.0",
+    date: "31 Oktober 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
+    highlight: "Analitik lengkap, follow-up WhatsApp satu ketuk, multi-gudang, dan tampilan toko baru ala tema Shopify.",
+    changes: [
+      {
+        title: "Analitik: landing page, produk, lokasi, waktu beli, dan UTM",
+        description: "Menu Analitik kini punya enam laporan: Ringkasan, Landing page, Produk, Lokasi, Waktu beli, dan UTM (per source, medium, campaign, sampai content). Setiap baris bisa dibuka ke daftar order dengan periode yang sama. Iklan & tracking › Link UTM membuat link iklan bertag UTM yang konsisten.",
+      },
+      {
+        title: "Follow-up WhatsApp satu ketuk",
+        description: "Chip tahap follow-up (Welcome sampai FU 4) di daftar dan detail order membuka WhatsApp dengan pesan siap kirim dan langsung mencatat tahapnya. Salah ketuk bisa dibatalkan dari notifikasi, dengan alasan koreksi. Daftar order tampil lebih ringkas.",
+      },
+      {
+        title: "Beberapa nomor WhatsApp CS",
+        description: "Pengaturan › Nomor WhatsApp menyimpan lebih dari satu nomor CS. Pembeli COD di halaman terima kasih dibagi rata ke nomor yang aktif, dan bisa diarahkan otomatis ke chat setelah order.",
+      },
+      {
+        title: "Multi-gudang dan pickup Mengantar",
+        description: "Gudang tambahan bisa melayani provinsinya sendiri; bila ongkir dari gudang itu gagal, otomatis memakai gudang utama. Saat push ke Mengantar, pilih drop-off atau jadwal pickup (tanggal, jam, kendaraan). Paket drop-off punya antrean sendiri di Pengiriman: Perlu Drop-off.",
+      },
+      {
+        title: "Push Mengantar yang aman dari paket ganda",
+        description: "Bila hasil push tidak pasti (koneksi putus, atau Mengantar sudah menerima tetapi gagal tersimpan), order dikunci dan tidak bisa dipush ulang. Paket yang sudah diterima Mengantar cukup ditautkan dari detail order; owner atau admin melepas kunci hanya setelah memeriksa dashboard Mengantar.",
+      },
+      {
+        title: "Ganti COD ke transfer atau VA dari detail order",
+        description: "Order COD yang belum dikirim bisa dialihkan ke pembayaran transfer atau virtual account dari detail order. Bila instruksi pembayaran dibuat ulang, pembeli yang terlanjur membayar instruksi lama tetap tercatat lunas.",
+      },
+      {
+        title: "Status operasional dan API operasional",
+        description: "Ikon status di samping lonceng (owner dan admin) merangkum apakah ada yang perlu ditangani atau setup yang belum selesai, beserta waktu pembayaran dan Create Order terakhir serta antrean tertua. API operasional /api/ops/v1 dan CLI adsbook membaca order dengan API key ber-scope.",
+      },
+      {
+        title: "Tampilan toko ala tema Shopify",
+        description: "Tombol beli dan pilihan hitam, abu netral, label diskon biru. Header tidak lagi melekat: baris Official Store, logo toko (atau nama toko bila logo belum diunggah), dan ikon produk. Harga langsung di bawah judul kartu, breadcrumb satu baris dengan ikon, dan catatan ongkir serta tombol pesan ganda di halaman produk dihapus.",
+      },
+      {
+        title: "Halaman kebijakan mengikuti pengaturan toko",
+        description: "Kebijakan Privasi, Pengiriman & Retur, Syarat & Ketentuan, dan Kontak ditulis ulang untuk toko apa pun dan memakai nama toko, domain, WhatsApp, serta email dan alamat usaha baru di Pengaturan › Store. Kalimat yang datanya belum diisi tidak ditampilkan.",
+      },
+      {
+        title: "Ikon, halaman masuk, dan menu akun baru",
+        description: "Ikon AdsBookCMS baru untuk tab browser dan layar utama iOS (toko yang sudah memasang ikonnya sendiri tetap memakainya). Halaman masuk admin dirapikan: muat satu layar di HP dan desktop, dengan QRIS bercanda di sisi kiri (CMS gratis, server gratis). Tombol akun di kanan atas kini membuka menu: profil, pengaturan toko, storefront, catatan rilis, dan Keluar.",
+      },
+    ],
+  },
+  {
+    version: "1.7.14",
+    date: "29 Oktober 2026",
+    releaseTag: "2026.10-plugins",
+    isLatest: false,
+    highlight: "Order lama yang belum pernah masuk Kelola kini bisa dikirim sekali klik.",
+    changes: [
+      {
+        title: "Tombol Kirim order lama di plugin Kelola",
+        description: "Webhook dan sinkron per jam hanya mengirim order 24 jam terakhir, jadi order dari sebelum Kelola disambungkan tidak pernah masuk. Halaman pengaturan plugin Kelola kini menampilkan jumlah order lama yang belum terkirim dan tombol Kirim order lama untuk mengirimnya. Order abandoned dan order yang dibatalkan tetap tidak dikirim.",
+      },
+    ],
+  },
+  {
     version: "1.7.13",
     date: "24 Oktober 2026",
     releaseTag: "2026.10-plugins",
-    isLatest: true,
+    isLatest: false,
     highlight: "Transfer manual bisa dikonfirmasi dari detail order, dan Purchase-nya terkirim ke Meta.",
     changes: [
       {

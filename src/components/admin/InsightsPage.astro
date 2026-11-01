@@ -1,0 +1,37 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import AdminPageHeader from './AdminPageHeader.astro';
+import { InsightsReport } from './InsightsReport';
+import { INSIGHTS_REPORTS, type InsightsReport as Report } from '../../lib/insights-view';
+import { getRuntimeEnv } from '../../lib/env';
+import { canAccessAdminRoute } from '../../lib/auth';
+import { sourceLabelsStatement, sourceLabelsFromRows } from '../../lib/source-slug';
+interface Props { report: Report }
+const { report } = Astro.props;
+const definition = INSIGHTS_REPORTS[report];
+let sources: Array<{ value: string; label: string }> = [];
+let products: Array<{ value: string; label: string }> = [];
+let catalogueUnavailable = false;
+if (report === 'trend') {
+  try {
+    const db = getRuntimeEnv(Astro.locals)?.OMS_DB as D1Database | undefined;
+    if (!db) throw new Error('database-unavailable');
+    const results = await db.batch([
+      sourceLabelsStatement(db),
+      db.prepare('SELECT id, title FROM products ORDER BY title'),
+    ]);
+    const rows = results[0].results as Parameters<typeof sourceLabelsFromRows>[1];
+    sources = [...sourceLabelsFromRows(rows.map((row) => row.slug), rows).values()]
+      .map((row) => ({ value: row.slug, label: row.label }));
+    products = (results[1].results as Array<{ id: number; title: string }>).map((row) => ({ value: String(row.id), label: row.title }));
+  } catch { catalogueUnavailable = true; }
+}
+const mayReadOrders = Boolean(Astro.locals.admin && canAccessAdminRoute(Astro.locals.admin.role, '/admin/orders'));
+---
+<AdminLayout title={`Analitik · ${definition.label}`} activeMenu="analytics">
+  <div class="flex min-w-0 flex-col gap-5">
+    <AdminPageHeader title={`Analitik · ${definition.label}`} description={definition.description} />
+    {catalogueUnavailable && <p role="status" class="text-sm text-muted-foreground">Pilihan katalog belum tersedia. Muat ulang halaman untuk mencoba lagi; laporan tetap dapat dibuka.</p>}
+    <InsightsReport client:only="react" report={report} initialQuery={Astro.url.search} sources={sources} products={products} mayReadOrders={mayReadOrders} />
+  </div>
+</AdminLayout>

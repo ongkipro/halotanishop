@@ -13,6 +13,6 @@ export const prerender = false;
       backHref="/admin/products"
       backLabel="Katalog produk"
     />
-    <ProductForm client:load />
+    <ProductForm storeName={Astro.locals.tenant.name} client:load />
   </div>
 </AdminLayout>

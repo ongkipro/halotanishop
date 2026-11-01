@@ -140,10 +140,22 @@ export async function kelolaSyncStatus(database: D1Database, now = new Date()) {
     )
     .bind(since)
     .first<{ order_number: string; attempts: number; message: string }>();
+  // Orders the cron will never retry: older than the window and not in Kelola.
+  // LEFT JOIN, because an order taken before the plugin was on has no row.
+  const older = await database
+    .prepare(
+      `SELECT COUNT(*) AS n FROM orders o
+       LEFT JOIN plugin_kelola_orders k ON k.order_id = o.id
+       WHERE k.synced_at IS NULL AND o.shipping_status != 'abandoned'
+         AND o.stock_restored_at IS NULL AND o.created_at < ?`,
+    )
+    .bind(since)
+    .first<{ n: number }>();
   return {
     last_synced_at: counts?.last_synced_at ?? null,
     synced_24h: Number(counts?.synced_24h ?? 0),
     failing_24h: Number(counts?.failing_24h ?? 0),
+    unsynced_older: Number(older?.n ?? 0),
     last_error: lastError ?? null,
   };
 }
@@ -215,7 +227,7 @@ export async function pushOrderToKelola(
     const { results: items } = await database
       .prepare(
         `SELECT pv.sku, p.title || CASE WHEN pv.title = p.title THEN '' ELSE ' - ' || pv.title END AS name,
-                oi.quantity, oi.unit_price, pv.weight_grams
+                oi.quantity, oi.unit_price, COALESCE(oi.weight_grams, pv.weight_grams) AS weight_grams
          FROM order_items oi
          JOIN product_variants pv ON pv.id = oi.variant_id
          JOIN products p ON p.id = pv.product_id
@@ -301,14 +313,18 @@ export async function resendOrderToKelola(database: D1Database, config: KelolaCo
     : { ok: false, error: `Kelola belum menerima order ini: ${state.last_error ?? "order tanpa item"}`, state };
 }
 
-/** Cron leg: retry every order Kelola has not accepted inside the window. */
+/**
+ * Cron leg: retry every order Kelola has not accepted inside the window.
+ * `now = null` drops the window — the operator's backfill of orders taken
+ * before the plugin was on, one batch per call.
+ */
 export async function drainKelolaOrders(
   database: D1Database,
   config: KelolaConfig,
-  now = new Date(),
+  now: Date | null = new Date(),
   fetcher: typeof fetch = fetch,
 ): Promise<number> {
-  const since = new Date(now.getTime() - KELOLA_RETRY_WINDOW_HOURS * 3_600_000).toISOString();
+  const since = now ? new Date(now.getTime() - KELOLA_RETRY_WINDOW_HOURS * 3_600_000).toISOString() : "";
   const { results } = await database
     .prepare(
       `SELECT o.id FROM orders o

@@ -13,7 +13,7 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { StoreMark } from "./StoreMark";
-import { ChevronRight, History, LogOut } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import {
   ADMIN_ACCENT,
   getVisibleNavGroups,
@@ -181,50 +181,49 @@ export function AppSidebar({
         ))}
       </SidebarContent>
 
+      {/* The product card: who made this admin and what changed. Keluar moved
+          to the account menu in the top bar. Collapsed (icon rail) it is the
+          product icon alone. */}
       <SidebarFooter className="border-t border-slate-200/70 p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <form method="POST" action="/api/admin/logout" data-logout-form>
-              <SidebarMenuButton asChild tooltip="Keluar dari sistem" className="h-10 text-slate-500 hover:bg-rose-50 hover:text-rose-700">
-                <button type="submit" className="w-full justify-start font-normal">
-                  <LogOut className="size-[17px]" aria-hidden="true" />
-                  <span>Keluar</span>
-                </button>
-              </SidebarMenuButton>
-            </form>
-          </SidebarMenuItem>
-          {onOpenChangelog && (
-            <SidebarMenuItem className="hidden group-data-[collapsible=icon]:block">
+        {onOpenChangelog && (
+          <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
+            <SidebarMenuItem>
               <SidebarMenuButton
                 type="button"
                 onClick={onOpenChangelog}
-                tooltip={`Catatan Rilis v${CMS_VERSION.version}`}
-                className="h-10 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                tooltip={`Catatan rilis AdsBookCMS v${CMS_VERSION.version}`}
+                className="h-10 hover:bg-slate-100"
               >
-                <History className="size-[17px]" aria-hidden="true" />
+                <img src="/images/adsbook-icon.svg" alt="" width="18" height="18" className="shrink-0" />
                 <span>v{CMS_VERSION.version}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          )}
-        </SidebarMenu>
+          </SidebarMenu>
+        )}
         {onOpenChangelog ? (
           <button
             type="button"
             onClick={onOpenChangelog}
             title="Buka catatan rilis AdsBookCMS"
-            className="group mt-2 flex w-full items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50/80 px-2.5 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 group-data-[collapsible=icon]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+            className="group flex w-full items-center gap-2.5 rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-2.5 py-2 text-left shadow-xs transition-[border-color,box-shadow] hover:border-slate-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 group-data-[collapsible=icon]:hidden"
           >
-            <span className="font-medium text-slate-700 group-hover:text-slate-900">
-              AdsBookCMS
+            <img src="/images/adsbook-icon.svg" alt="" width="28" height="28" className="shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] font-semibold leading-4 text-slate-900">AdsBookCMS</span>
+              <span className="mt-0.5 flex items-center gap-0.5 text-xs leading-4 text-slate-500 group-hover:text-slate-700">
+                Catatan rilis
+                <ChevronRight className="size-3" aria-hidden="true" />
+              </span>
             </span>
-            <span className="rounded bg-slate-200/70 px-1.5 py-0.5 font-mono text-xs font-medium text-slate-600 group-hover:bg-slate-200 group-hover:text-slate-900">
+            <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 font-mono text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/15">
               v{CMS_VERSION.version}
             </span>
           </button>
         ) : (
-          <div className="mt-2 flex items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50/80 px-2.5 py-1.5 text-xs font-medium text-slate-500 group-data-[collapsible=icon]:hidden">
-            <span className="font-medium text-slate-700">AdsBookCMS</span>
-            <span className="rounded bg-slate-200/70 px-1.5 py-0.5 font-mono text-xs font-medium text-slate-600">
+          <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 group-data-[collapsible=icon]:hidden">
+            <img src="/images/adsbook-icon.svg" alt="" width="28" height="28" className="shrink-0" />
+            <span className="min-w-0 flex-1 text-[13px] font-semibold text-slate-900">AdsBookCMS</span>
+            <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 font-mono text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/15">
               v{CMS_VERSION.version}
             </span>
           </div>

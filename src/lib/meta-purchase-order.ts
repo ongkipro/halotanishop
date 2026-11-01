@@ -51,7 +51,8 @@ export function isMetaPurchaseOrderEligible(
   if (order.shipping_status === "abandoned") return false;
   if (["failed", "cancelled", "returned"].includes(order.shipping_status)) return false;
   if (["failed", "refunded", "cancelled"].includes(order.payment_status)) return false;
-  return order.payment_method === "cod" || order.payment_status === "paid";
+  // Paid in any of the words the rest of the code accepts (audit 2026-10-31 tracking L-2).
+  return order.payment_method === "cod" || ["paid", "settled", "success"].includes(order.payment_status);
 }
 
 /**

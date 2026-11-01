@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { jsonError, jsonOk } from '../../../lib/api.ts';
 import { getRuntimeEnv } from '../../../lib/env.ts';
+import { ORDER_ROW, RELEASED_ORDER } from '../../../lib/order-metrics.ts';
 
 export const prerender = false;
 
@@ -69,7 +70,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
       ? 'hour'
       : 'day';
 
-  const conditions = ["shipping_status <> 'abandoned'"];
+  const conditions = [ORDER_ROW];
   const params: string[] = [];
 
   if (startParam && endParam) {
@@ -77,13 +78,9 @@ export const GET: APIRoute = async ({ locals, url }) => {
     params.push(startParam, endParam);
   }
   const dateFilter = `WHERE ${conditions.join(' AND ')}`;
-  // An order that no longer represents money in play. Matches the releasing
-  // sets in order-lifecycle.ts: a cancelled or returned shipment gives its
-  // stock back and its COD money never arrives; a cancelled, refunded or
-  // failed payment is not coming. One expression, used by the summary AND
-  // the trends query, so a card and the chart beneath it cannot drift apart.
-  const RELEASED_ORDER =
-    "shipping_status IN ('cancelled', 'returned') OR payment_status IN ('cancelled', 'refunded', 'failed')";
+  // RELEASED_ORDER (src/lib/order-metrics.ts) is used by the summary AND the
+  // trends query, and by the Analitik menu, so a card, the chart beneath it
+  // and a ranking cannot drift apart.
 
   try {
     const row = await (database as D1Database).prepare(`

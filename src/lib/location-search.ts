@@ -139,6 +139,137 @@ export function buildProviderDestinationSearches(
   ].filter((value) => value.length >= 2)));
 }
 
+/** One row of Mengantar `/address/search`, as `mengantar-client.ts` returns it. */
+export type ProviderAddressRow = {
+  _id: string;
+  DISTRICT_NAME?: string;
+  SUBDISTRICT_NAME?: string;
+  CITY_NAME?: string;
+  PROVINCE_NAME?: string;
+  ZIP_CODE?: string;
+};
+
+export type ProviderLocation = {
+  location_id: string;
+  id: string;
+  label: string;
+  district: string;
+  subdistrict_name: string;
+  district_name: string;
+  city: string;
+  city_name: string;
+  province: string;
+  province_name: string;
+  postal_code: string;
+};
+
+export type ProviderLocationsPayload = {
+  success: true;
+  items: ProviderLocation[];
+  locations: ProviderLocation[];
+  alternatives: ProviderLocation[];
+};
+
+/**
+ * The `/api/locations` item shape. Key order is part of the response bytes
+ * the form receives (REQ-247), so every item is built here and nowhere else.
+ */
+export function providerLocation(row: {
+  id: string;
+  district: string;
+  subdistrict: string;
+  city: string;
+  province: string;
+  postalCode: string;
+}): ProviderLocation {
+  // Put kecamatan before kelurahan so autocomplete results scan by district first.
+  const parts = [row.district];
+  if (row.subdistrict && row.subdistrict !== row.district) parts.push(row.subdistrict);
+  parts.push(row.city, row.province);
+  return {
+    location_id: row.id,
+    id: row.id,
+    label: parts.filter(Boolean).join(', '),
+    // DISTRICT_NAME is kecamatan; SUBDISTRICT_NAME is kelurahan/desa.
+    district: row.district || row.subdistrict,
+    subdistrict_name: row.subdistrict,
+    district_name: row.district,
+    city: row.city,
+    city_name: row.city,
+    province: row.province,
+    province_name: row.province,
+    postal_code: row.postalCode,
+  };
+}
+
+/**
+ * Asks the provider for a district (`resolve`, with its catalogue city) or a
+ * free-text query, and shapes the answer `/api/locations` returns. Moved here
+ * unchanged from the route so its bytes can be pinned by a test.
+ */
+export async function fetchProviderLocations(
+  searchAddress: (keyword: string) => Promise<ProviderAddressRow[]>,
+  input: { search: string; city: string; province: string; resolve: boolean },
+): Promise<ProviderLocationsPayload> {
+  const { search, city, province, resolve } = input;
+  const providerSearches = resolve && city
+    ? buildProviderDestinationSearches(search, city, province)
+    : [search];
+  const results: ProviderAddressRow[] = [];
+  for (const providerSearch of providerSearches) {
+    const batch = await searchAddress(providerSearch);
+    results.push(...batch);
+    if (
+      !resolve
+      || resolveProviderDestinations(
+        batch.map((item) => ({
+          label: '',
+          district: String(item.DISTRICT_NAME || '').trim(),
+          district_name: String(item.DISTRICT_NAME || '').trim(),
+          subdistrict_name: String(item.SUBDISTRICT_NAME || '').trim(),
+          city: String(item.CITY_NAME || '').trim(),
+          province: String(item.PROVINCE_NAME || '').trim(),
+        })),
+        search.trim(),
+        city,
+      ).length > 0
+    ) {
+      break;
+    }
+  }
+
+  let items = results
+    .filter((item) => String(item._id || '').trim())
+    .map((item) => providerLocation({
+      id: String(item._id).trim(),
+      district: String(item.DISTRICT_NAME || '').trim(),
+      subdistrict: String(item.SUBDISTRICT_NAME || '').trim(),
+      city: String(item.CITY_NAME || '').trim(),
+      province: String(item.PROVINCE_NAME || '').trim(),
+      postalCode: String(item.ZIP_CODE || '').trim(),
+    }));
+  let alternatives = [...items];
+  if (resolve) {
+    alternatives = filterProviderDestinationAlternatives(items, search.trim(), city);
+    const resolved = resolveProviderDestinations(items, search.trim(), city);
+    if (resolved.length > 0) {
+      items = resolved;
+    } else if (alternatives.length > 0) {
+      items = alternatives;
+    }
+  } else {
+    sortLocationResults(items, search);
+  }
+  items = Array.from(new Map(items.map((item) => [item.id, item])).values()).slice(0, 50);
+  alternatives = Array.from(new Map(alternatives.map((item) => [item.id, item])).values()).slice(0, 50);
+  return {
+    success: true,
+    items,
+    locations: items,
+    alternatives: items.length === 0 ? alternatives : [],
+  };
+}
+
 export function buildProviderDestinationSearch(district: string, city: string) {
   return buildProviderDestinationSearches(district, city)[0] || '';
 }

@@ -3,15 +3,19 @@ import { useConfirm } from "./useConfirm";
 import { paymentInstructionHint } from "../../lib/order-instruction-hint";
 import { TrafficSourceBadge } from "./TrafficSourceBadge";
 import { CrmActionGroup } from "./CrmActionGroup";
-import type { CrmStepKey } from "./CrmActionButton";
-import { useEffect, useMemo, useState } from "react";
+import { MengantarPushDialog, type MengantarPushResult } from "./MengantarPushDialog";
+import type { MengantarPickupChoice } from "../../lib/mengantar-order";
+import type { OrderFollowUp } from "../../lib/order-follow-up";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildWaUrl,
   defaultCrmTemplates,
   renderCrmMessage,
   type CrmOrderItem,
 } from "../../lib/crm-template";
-import { ADMIN_CUSTOM_DATE_FILTER } from "../../lib/admin-date-filter";
+import { initialOrderListFilters, orderListQuery } from "../../lib/admin-orders-initial";
+import { providerDispatchErrorText } from "../../lib/payment-dispatch-policy";
+import { SOURCE_SLUG_NONE_FILTER, SOURCE_SLUG_NONE_LABEL } from "../../lib/source-slug";
 import {
   AdminDateRangeFilter,
   type AdminDateSelection,
@@ -57,12 +61,14 @@ import {
   ChevronDown,
   Eye,
   Truck,
+  Filter,
   Trash2,
   AlertCircle,
   CheckCircle2,
   ShieldAlert,
   CreditCard,
   Megaphone,
+  PanelsTopLeft,
   RotateCcw,
 } from "lucide-react";
 
@@ -102,6 +108,7 @@ export type OrderItem = {
   sellerName: string;
   bankAccounts: string;
   epaymentLink: string;
+  orderDetailsLink: string;
   receiverDeliveryRate: number;
   receiverRiskLabel: RiskLevel;
   createdAt: string;
@@ -110,6 +117,10 @@ export type OrderItem = {
   providerDispatchError: string | null;
   providerOrderId: string | null;
   adClickIds?: string | null;
+  sourcePath?: string | null;
+  sourceLabel?: string | null;
+  /** The page's follow-up records, read with the list; null when that read failed. */
+  followUps?: OrderFollowUp[] | null;
 };
 
 type OrderRow = {
@@ -134,18 +145,20 @@ type OrderRow = {
   courier_code: string | null;
   cnote_no: string | null;
   seller_name: string | null;
-  seller_bank_name: string | null;
-  seller_account_holder: string | null;
-  seller_account_number: string | null;
+  bank_accounts: string;
   epayment_link: string | null;
+  order_details_link: string | null;
   receiver_delivery_rate: number | null;
   receiver_risk_label: string | null;
   created_at: string;
+  follow_ups?: OrderFollowUp[] | null;
   dispatch_eligible?: boolean;
   dispatch_reason?: string;
   provider_dispatch_error?: string | null;
   provider_order_id?: string | null;
   ad_click_ids?: string | null;
+  source_page_path?: string | null;
+  source_label?: string | null;
 };
 
 type OrdersPagination = {
@@ -170,7 +183,7 @@ const toRiskLevel = (value: string | null | undefined): RiskLevel => {
   return "UNKNOWN";
 };
 
-const mapOrder = (row: OrderRow): OrderItem => ({
+export const mapOrder = (row: OrderRow): OrderItem => ({
   id: String(row.id),
   orderNumber: row.order_number,
   customerName: row.customer_name,
@@ -198,25 +211,23 @@ const mapOrder = (row: OrderRow): OrderItem => ({
   courierCode: row.courier_code || "",
   cnoteNo: row.cnote_no || "",
   sellerName: row.seller_name || "",
-  bankAccounts: [
-    row.seller_bank_name,
-    row.seller_account_number,
-    row.seller_account_holder ? `a.n. ${row.seller_account_holder}` : "",
-  ]
-    .filter(Boolean)
-    .join(" "),
+  bankAccounts: row.bank_accounts || "",
   epaymentLink: row.epayment_link || "",
+  orderDetailsLink: row.order_details_link || "",
   receiverDeliveryRate:
     row.receiver_delivery_rate == null
       ? -1
       : Number(row.receiver_delivery_rate),
   receiverRiskLabel: toRiskLevel(row.receiver_risk_label),
   createdAt: row.created_at,
+  followUps: row.follow_ups ?? null,
   dispatchEligible: Boolean(row.dispatch_eligible),
   dispatchReason: row.dispatch_reason || "",
   providerDispatchError: row.provider_dispatch_error || null,
   providerOrderId: row.provider_order_id || null,
   adClickIds: row.ad_click_ids || null,
+  sourcePath: row.source_page_path || null,
+  sourceLabel: row.source_label || null,
 });
 
 const shippingLabels = SHIPPING_STATUS_LABELS;
@@ -384,17 +395,6 @@ function OrderActionMenu({
     </DropdownMenu>
   );
 }
-const paymentLabels: Record<string, string> = {
-  unpaid: "Belum dibayar",
-  pending: "Menunggu pembayaran",
-  paid: "Lunas",
-  settled: "Lunas",
-  success: "Lunas",
-  expired: "Kedaluwarsa",
-  failed: "Gagal",
-  refunded: "Dikembalikan",
-};
-
 // The filter menus list the statuses an operator filters by, labelled once.
 const SHIPPING_FILTER_OPTIONS: FilterOption<string>[] = [
   { value: "all", label: "Semua status" },
@@ -421,7 +421,8 @@ const SOURCE_FILTER_OPTIONS: FilterOption<string>[] = [
 
 const paymentMethodLabels: Record<string, string> = {
   cod: "COD",
-  bank_transfer: "Transfer bank",
+  manual_transfer: "Transfer bank manual",
+  bank_transfer: "Virtual Account",
   qris: "QRIS",
   invoice: "Pembayaran online",
 };
@@ -441,9 +442,12 @@ const crmSteps = ["welcome", "1", "2", "3", "4", "5", "6", "7", "8", "9"] as con
 function RiskBadge({
   level,
   deliveryRate,
+  compact = false,
 }: {
   level?: RiskLevel | string | null;
   deliveryRate?: number | null;
+  /** One small pill for the phone card; the guidance moves to its title. */
+  compact?: boolean;
 }) {
   const safeLevel: RiskLevel =
     level === "HIGH" || level === "MEDIUM" || level === "LOW" ? level : "UNKNOWN";
@@ -477,6 +481,17 @@ function RiskBadge({
   const hasValidRate =
     typeof deliveryRate === "number" && Number.isFinite(deliveryRate) && deliveryRate >= 0;
 
+  if (compact) {
+    return (
+      <span
+        title={styles.guidance}
+        className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold ${styles.badge}`}
+      >
+        RTS {styles.label}{hasValidRate ? ` · sukses ${deliveryRate}%` : ""}
+      </span>
+    );
+  }
+
   return (
     <div
       className="min-w-36"
@@ -492,8 +507,9 @@ function RiskBadge({
         >
           RTS {styles.label}
         </span>
-        <span className="font-mono text-xs font-semibold text-slate-900">
-          {hasValidRate ? `${deliveryRate}%` : "—"}
+        {/* The rate is delivery success, not RTS; unlabelled it read as "RTS 16%" (audit 2026-10-31 L3). */}
+        <span className="text-xs text-slate-500">
+          {hasValidRate ? <>sukses <span className="font-mono font-semibold text-slate-900">{deliveryRate}%</span></> : "—"}
         </span>
       </div>
       <div
@@ -520,68 +536,90 @@ function RiskBadge({
  * were indistinguishable in the list, and an operator would tell a buyer to
  * pay a VA that no longer exists.
  */
-function InstructionHint({ order }: { order: { paymentStatus?: string; paymentInstructionStatus?: string } }) {
+/**
+ * A prepaid order's payment state: paid, still inside its payment window,
+ * expired or failed (the order's own status, or its latest instruction), or
+ * refunded. COD has none: it is paid on delivery. The dot beside the method
+ * and the delivery column read this one rule.
+ */
+function prepaidPaymentState(order: { paymentMethod: string; paymentStatus?: string; paymentInstructionStatus?: string }) {
+  if (order.paymentMethod === "cod") return null;
+  const status = (order.paymentStatus || "").toLowerCase();
   const hint = paymentInstructionHint(order.paymentStatus, order.paymentInstructionStatus);
-  if (!hint) return null;
+  if (["paid", "settled", "success"].includes(status)) return { paid: true, dot: "bg-emerald-500", text: "text-emerald-700", label: "Sudah dibayar" };
+  if (status === "refunded") return { paid: false, dot: "bg-slate-400", text: "text-slate-600", label: "Dikembalikan" };
+  if (status === "cancelled") return { paid: false, dot: "bg-slate-400", text: "text-slate-600", label: "Pembayaran dibatalkan" };
+  if (["failed", "expired"].includes(status) || hint) {
+    const failed = status === "failed" || hint === "failed";
+    return { paid: false, dot: "bg-rose-500", text: "text-rose-700", label: failed ? "Pembayaran gagal" : "Pembayaran kedaluwarsa" };
+  }
+  return { paid: false, dot: "bg-amber-500", text: "text-amber-700", label: "Menunggu pembayaran" };
+}
+
+/** The payment state as one dot beside the method; the words on hover. */
+function PaymentDot({ order }: { order: OrderItem }) {
+  const state = prepaidPaymentState(order);
+  if (!state) return null;
+  return <span role="img" aria-label={state.label} title={state.label} className={`size-2 shrink-0 cursor-help rounded-full ${state.dot}`} />;
+}
+
+/** The payment method under the invoice number; a red dot marks a dead instruction. */
+function OrderPaymentLine({ order, className = "" }: { order: OrderItem; className?: string }) {
   return (
-    <span className="text-xs font-semibold uppercase tracking-wide text-rose-600">
-      {hint === "expired" ? "Instruksi kedaluwarsa" : "Instruksi gagal"}
-    </span>
+    <div className={`flex min-w-0 items-center gap-1.5 text-xs font-medium text-slate-700 ${className}`}>
+      <span className="truncate">{paymentMethodLabels[order.paymentMethod] || order.paymentMethod}</span>
+      <PaymentDot order={order} />
+    </div>
   );
 }
 
-function PaymentBadge({ status }: { status: string }) {
-  const normalized = status.toLowerCase();
-  const paid = ["paid", "settled", "success"].includes(normalized);
-  const failed = ["failed", "expired"].includes(normalized);
-  const refunded = normalized === "refunded";
+/**
+ * The delivery column's status. A pending prepaid order not yet paid shows
+ * its payment state (waiting, expired, failed) instead of the shipping
+ * "Menunggu konfirmasi"; COD and paid orders read their shipping status.
+ */
+function deliveryStatus(order: OrderItem) {
+  const payment = prepaidPaymentState(order);
+  if (order.shippingStatus === "pending" && payment && !payment.paid) return { label: payment.label, tone: payment.text };
+  return { label: shippingLabels[order.shippingStatus] || order.shippingStatus, tone: "text-slate-900" };
+}
 
-  const dotColor = paid
-    ? "bg-emerald-500"
-    : failed
-      ? "bg-rose-500"
-      : refunded
-        ? "bg-purple-500"
-        : "bg-amber-500";
-
-  const badgeStyle = paid
-    ? "bg-emerald-50 text-emerald-900 border-emerald-200"
-    : failed
-      ? "bg-rose-50 text-rose-900 border-rose-200"
-      : refunded
-        ? "bg-purple-50 text-purple-900 border-purple-200"
-        : "bg-amber-50 text-amber-900 border-amber-200";
-
+/** Where the order came from: traffic source and page, plain small text. */
+function OrderSourceLine({ order, className = "" }: { order: OrderItem; className?: string }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider ${badgeStyle}`}
-    >
-      <span className={`size-1.5 shrink-0 rounded-full ${dotColor}`} aria-hidden="true" />
-      {paymentLabels[normalized] || status}
-    </span>
+    <div className={`flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-slate-500 ${className}`}>
+      <TrafficSourceBadge adClickIds={order.adClickIds} plain className="shrink-0" />
+      {order.sourceLabel && (
+        <span className="min-w-0 truncate" title={order.sourcePath ? `${order.sourceLabel} — ${order.sourcePath}` : order.sourceLabel}>
+          · {order.sourceLabel}
+        </span>
+      )}
+    </div>
   );
 }
 
-export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) {
+export function OrdersTable({
+  initialOrders,
+  initialQuery = "",
+}: {
+  initialOrders?: OrderItem[];
+  // The page's own query string, from `Astro.url.search`. Filters start from
+  // it rather than `window.location`, so the server-rendered first paint and
+  // the hydrating client agree (a mismatch is React error #418).
+  initialQuery?: string;
+}) {
+  const [initialFilters] = useState(() => initialOrderListFilters(new URLSearchParams(initialQuery)));
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [orders, setOrders] = useState<OrderItem[]>(initialOrders || []);
-  const [searchTerm, setSearchTerm] = useState(() =>
-    typeof window === "undefined"
-      ? ""
-      : new URLSearchParams(window.location.search).get("search") || "",
-  );
-  const [shippingFilter, setShippingFilter] = useState(() => {
-    if (typeof window === "undefined") return "all";
-    const params = new URLSearchParams(window.location.search);
-    return params.get("status") || params.get("shipping_status") || "all";
-  });
+  const [searchTerm, setSearchTerm] = useState(initialFilters.search);
+  const [shippingFilter, setShippingFilter] = useState(initialFilters.shippingFilter);
   const [paymentFilter, setPaymentFilter] = useState("all");
-  const [dateSelection, setDateSelection] = useState<AdminDateSelection>({
-    filter: "all",
-    start: "",
-    end: "",
-  });
+  const [dateSelection, setDateSelection] = useState<AdminDateSelection>(initialFilters.dateSelection);
   const [sourceFilter, setSourceFilter] = useState("all");
+  // The landing page filter (PRD A36). Opened from Analitik with
+  // `?source_slug=`, so it starts from the URL.
+  const [sourceSlugFilter, setSourceSlugFilter] = useState(initialFilters.sourceSlugFilter);
+  const [sourceSlugOptions, setSourceSlugOptions] = useState<FilterOption<string>[] | null>(null);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<OrdersPagination>({
     page: 1,
@@ -595,7 +633,6 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
     highRiskCount: 0,
     totalValue: 0,
   });
-  const [clickedSteps, setClickedSteps] = useState<Record<string, boolean>>({});
   const [crmTemplates, setCrmTemplates] = useState({ ...defaultCrmTemplates });
   const [updatingOrderId, setUpdatingOrderId] = useState("");
   const [updateNotice, setUpdateNotice] = useState("");
@@ -605,6 +642,8 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
   const [requestVersion, setRequestVersion] = useState(0);
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [dispatching, setDispatching] = useState(false);
+  const [pushIds, setPushIds] = useState<string[] | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [bulkStatusTarget, setBulkStatusTarget] = useState("");
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({
@@ -628,20 +667,11 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
       setRefreshing(true);
       setLoadError("");
       try {
-        const query = new URLSearchParams({ page: String(page), limit: "20" });
-        const search = searchTerm.trim();
-        if (search) query.set("search", search);
-        if (shippingFilter !== "all")
-          query.set("shipping_status", shippingFilter);
-        if (paymentFilter !== "all") query.set("payment_status", paymentFilter);
-        if (dateSelection.filter !== "all") {
-          query.set("date_filter", dateSelection.filter);
-          if (dateSelection.filter === ADMIN_CUSTOM_DATE_FILTER) {
-            query.set("date_start", dateSelection.start);
-            query.set("date_end", dateSelection.end);
-          }
-        }
-        if (sourceFilter !== "all") query.set("source", sourceFilter);
+        const query = orderListQuery(
+          { search: searchTerm, shippingFilter, paymentFilter, dateSelection, sourceFilter, sourceSlugFilter },
+          page,
+          !sourceSlugOptions,
+        );
         const response = await fetch(`/api/admin/orders?${query}`, {
           headers: { Accept: "application/json" },
           signal: controller.signal,
@@ -657,6 +687,14 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
             ...current,
             ...payload.crm_templates,
           }));
+        }
+        if (Array.isArray(payload.source_options)) {
+          setSourceSlugOptions(
+            (payload.source_options as Array<{ value: string; label: string; count: number }>).map((option) => ({
+              value: String(option.value),
+              label: `${option.label} (${Number(option.count) || 0})`,
+            })),
+          );
         }
         setOrders(nextOrders);
         setSelectedOrderIds((current) =>
@@ -711,6 +749,7 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
     shippingFilter,
     dateSelection,
     sourceFilter,
+    sourceSlugFilter,
   ]);
 
   const filteredOrders = orders;
@@ -722,12 +761,20 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
     pagination.totalItems === 0
       ? 0
       : firstVisibleOrder + filteredOrders.length - 1;
+  const activeFilterCount = [
+    dateSelection.filter !== "all",
+    shippingFilter !== "all",
+    paymentFilter !== "all",
+    sourceFilter !== "all",
+    sourceSlugFilter !== "all",
+  ].filter(Boolean).length;
   const hasFilters =
     searchTerm.trim() !== "" ||
     dateSelection.filter !== "all" ||
     shippingFilter !== "all" ||
     paymentFilter !== "all" ||
-    sourceFilter !== "all";
+    sourceFilter !== "all" ||
+    sourceSlugFilter !== "all";
   const handleShippingStatusChange = async (
     orderId: string,
     shippingStatus: string,
@@ -808,6 +855,17 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
   const handleBulkStatusChange = async (shippingStatus: string) => {
     const orderIds = [...selectedOrderIds];
     if (orderIds.length === 0 || !shippingLabels[shippingStatus]) return;
+    // A bulk change is one click away from many orders; voiding ones cannot be undone.
+    const voids = shippingStatus === "cancelled" || shippingStatus === "returned";
+    if (!(await confirm({
+      title: `Ubah ${orderIds.length} pesanan ke ${shippingLabels[shippingStatus]}?`,
+      description: voids
+        ? "Pesanan jadi batal dan tidak bisa dikirim lagi. Langkah ini tidak dapat dibatalkan."
+        : "Status pengiriman pesanan terpilih akan diganti.",
+      confirmLabel: `Ubah ke ${shippingLabels[shippingStatus]}`,
+      cancelLabel: "Kembali",
+      tone: voids ? "destructive" : "default",
+    }))) return;
 
     const previousOrders = orders;
     const previousStatusCounts = statusCounts;
@@ -879,44 +937,43 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
     }
   };
 
-  const dispatchOrders = async (orderIds: string[]) => {
-    if (orderIds.length === 0) return;
-    const singleOrderId = orderIds.length === 1 ? orderIds[0] : null;
-    if (singleOrderId) setUpdatingOrderId(singleOrderId);
-    else setDispatching(true);
+  // Every push opens the dialog first: drop-off or a scheduled pickup (PRD A46).
+  // Whether this dialog sent anything: closing it after Batal keeps the selection.
+  const pushSent = useRef(false);
+  const dispatchOrders = (orderIds: string[]) => {
+    if (!orderIds.length) return;
+    pushSent.current = false;
+    setPushIds(orderIds);
+  };
+  const submitPush = async (pickup: MengantarPickupChoice) => {
+    const orderIds = pushIds ?? [];
+    // Set before the request: a failed answer may still have pushed some.
+    pushSent.current = true;
+    setDispatching(true);
     setUpdateNotice("");
     try {
       const response = await fetch("/api/admin/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "dispatch-orders", orderIds }),
+        body: JSON.stringify({ action: "dispatch-orders", orderIds, pickup }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) {
         throw new Error(payload.error || "Gagal push order ke Mengantar.");
       }
-      const summary = payload.data?.summary as
-        | { failed?: number; unpaid?: number; skipped?: number }
-        | undefined;
-      const partial = Boolean(
-        summary &&
-          (Number(summary.failed) > 0 ||
-            Number(summary.unpaid) > 0 ||
-            Number(summary.skipped) > 0),
-      );
-      setUpdateNotice(payload.message || (partial ? "Push selesai dengan kendala." : "Push berhasil."));
-      setSelectedOrderIds([]);
-      setRequestVersion((v) => v + 1);
-    } catch (error) {
-      setUpdateNotice(
-        error instanceof Error
-          ? error.message
-          : "Gagal push order ke Mengantar.",
-      );
+      const message = payload.message || "Push selesai.";
+      setUpdateNotice(message);
+      return { message, results: (payload.data?.results ?? []) as MengantarPushResult[] };
     } finally {
-      setUpdatingOrderId("");
       setDispatching(false);
     }
+  };
+  const closePush = (open: boolean) => {
+    if (open) return;
+    setPushIds(null);
+    if (!pushSent.current) return;
+    setSelectedOrderIds([]);
+    setRequestVersion((v) => v + 1);
   };
   const deleteOrders = async (orderIds: string[]) => {
     if (orderIds.length === 0) return;
@@ -953,17 +1010,9 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
     setPaymentFilter("all");
     setDateSelection({ filter: "all", start: "", end: "" });
     setSourceFilter("all");
+    setSourceSlugFilter("all");
     setPage(1);
   };
-  const markStepClicked = (orderId: string, step: string) => {
-    setClickedSteps((current) => ({
-      ...current,
-      [`${orderId}_${step}`]: true,
-    }));
-  };
-  const isStepClicked = (orderId: string, step: string) =>
-    Boolean(clickedSteps[`${orderId}_${step}`]);
-
   const crmUrls = useMemo(
     () =>
       new Map(
@@ -989,7 +1038,7 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
                 sellerName: order.sellerName,
                 bankAccounts: order.bankAccounts,
                 epaymentLink: order.epaymentLink,
-                orderDetailsLink: `/admin/orders/${encodeURIComponent(order.orderNumber)}`,
+                orderDetailsLink: order.orderDetailsLink,
               });
               return [
                 String(step),
@@ -1005,17 +1054,11 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
 
   const renderCrmActions = (order: OrderItem) => {
     const urls = crmUrls.get(order.id) || {};
-    const orderClickedSteps: Record<string, boolean> = {};
-    for (const key of ['welcome', '1', '2', '3', '4', '5', '6', '7', '8', '9']) {
-      orderClickedSteps[key] = isStepClicked(order.id, key as CrmStepKey);
-    }
     return (
       <CrmActionGroup
         crmUrls={urls}
-        clickedSteps={orderClickedSteps}
-        onStepClick={(stepKey) => markStepClicked(order.id, stepKey)}
-        size="sm"
-        collapsible={true}
+        orderId={order.id}
+        initialRows={order.followUps}
       />
     );
   };
@@ -1060,6 +1103,12 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
   return (
     <div className="space-y-5">
       {confirmDialog}
+      <MengantarPushDialog
+        open={pushIds !== null}
+        onOpenChange={closePush}
+        orderLabels={(pushIds ?? []).map((id) => ({ id, label: orders.find((order) => order.id === id)?.orderNumber ?? `#${id}` }))}
+        submit={submitPush}
+      />
       {loadError && (
         <div
           className="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-800 sm:flex-row sm:items-center sm:justify-between"
@@ -1213,7 +1262,7 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
             {selectedDispatchIds.length > 0 && (
               <Button
                 type="button"
-                onClick={() => void dispatchOrders(selectedDispatchIds)}
+                onClick={() => dispatchOrders(selectedDispatchIds)}
                 disabled={dispatching || bulkUpdating || updatingOrderId !== ""}
                 className="w-full sm:w-auto"
               >
@@ -1253,6 +1302,12 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
                 }}
               />
             </FilterField>
+            {/* Phones: search stays, the rest folds behind "Filter" so the first
+                order shows on the first screen; `contents` keeps them flex items. */}
+            <Button type="button" variant="outline" className="md:hidden" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}>
+              <Filter aria-hidden="true" />Filter{activeFilterCount ? ` (${activeFilterCount})` : ""}
+            </Button>
+            <div className={filtersOpen ? "contents" : "contents max-md:hidden"}>
             <FilterField label="Periode order" htmlFor="filter-date" size="sm">
               <AdminDateRangeFilter
                 value={dateSelection}
@@ -1298,6 +1353,28 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
                 options={SOURCE_FILTER_OPTIONS}
               />
             </FilterField>
+            <FilterField label="Halaman sumber" htmlFor="filter-source-page" size="sm">
+              <FilterSelect
+                id="filter-source-page"
+                icon={PanelsTopLeft}
+                value={sourceSlugFilter}
+                onValueChange={(value) => {
+                  setSourceSlugFilter(value);
+                  setPage(1);
+                }}
+                options={[
+                  { value: "all", label: "Semua halaman" },
+                  ...(sourceSlugOptions ?? []),
+                  ...(sourceSlugFilter !== "all" &&
+                  sourceSlugFilter !== SOURCE_SLUG_NONE_FILTER &&
+                  !(sourceSlugOptions ?? []).some((option) => option.value === sourceSlugFilter)
+                    ? [{ value: sourceSlugFilter, label: sourceSlugFilter }]
+                    : []),
+                  { value: SOURCE_SLUG_NONE_FILTER, label: SOURCE_SLUG_NONE_LABEL },
+                ]}
+              />
+            </FilterField>
+            </div>
             <Button variant="outline" onClick={resetFilters} disabled={!hasFilters}>
               <RotateCcw aria-hidden="true" /> Reset
             </Button>
@@ -1310,6 +1387,14 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
               ? "Memperbarui…"
               : `Menampilkan ${firstVisibleOrder}–${lastVisibleOrder} dari ${pagination.totalItems} order`}
           </p>
+          {/* lazy: the ready orders of this page and filter (≤ 20), not every page; the
+              endpoint takes 50 a call. Upgrade: a server-side "all ready" query. */}
+          {visibleDispatchableIds.length > 0 && selectedOrderIds.length === 0 && (
+            <Button type="button" variant="outline" className="mt-3" disabled={dispatching} onClick={() => dispatchOrders(visibleDispatchableIds)}>
+              <Truck aria-hidden="true" />
+              Push semua yang siap ({visibleDispatchableIds.length}) ke Mengantar
+            </Button>
+          )}
           {updateNotice && (
             <p className="mt-2 text-xs font-semibold text-slate-600" role="status">
               {updateNotice}
@@ -1325,103 +1410,15 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
             {filteredOrders.map((order) => {
               const selected = selectedOrderIds.includes(order.id);
               return (
+              // Phone card (Paduka, 2026-10-31): one header row with the
+              // selector, invoice and RTS pill; two plain lines for goods and
+              // delivery; the follow-up chips; actions in the header. It was
+              // ~640 px per order.
               <article
                 key={order.id}
-                className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs transition-colors"
+                className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs transition-colors"
               >
-
-
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <a
-                      href={`/admin/orders/${encodeURIComponent(order.orderNumber)}`}
-                      className="break-all font-semibold text-slate-950 hover:text-blue-600 hover:underline"
-                    >
-                      <HighlightSearchMatch
-                        text={order.orderNumber}
-                        query={searchTerm}
-                      />
-                    </a>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {formatDateTime(order.createdAt)}
-                    </p>
-                    <div className="mt-1">
-                      <TrafficSourceBadge adClickIds={order.adClickIds} size="xs" />
-                    </div>
-                  </div>
-                  <RiskBadge
-                    level={order.receiverRiskLabel}
-                    deliveryRate={order.receiverDeliveryRate}
-                  />
-                </div>
-                    <div className="mt-4 border-t border-slate-100 pt-4">
-                  <a
-                    href={`/admin/orders/${encodeURIComponent(order.orderNumber)}`}
-                    className="break-words font-semibold text-slate-900 hover:underline"
-                  >
-                    {order.customerName}
-                  </a>
-                  <p className="mt-1 font-mono text-xs text-slate-500">
-                    {order.customerPhone}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {[order.district, order.city, order.province]
-                      .filter(Boolean)
-                      .join(", ") || "Alamat belum lengkap"}
-                  </p>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs">
-                  <div>
-                    <p className="text-slate-500">Produk & Total</p>
-                    {order.productName && (
-                      <p className="mt-1 text-xs font-semibold text-slate-900 truncate">
-                        {order.productName}
-                      </p>
-                    )}
-                    {order.variantName && (
-                      <p className="text-xs text-slate-500 truncate">
-                        {order.variantName}
-                      </p>
-                    )}
-                    <p className="mt-1 font-semibold text-slate-950 text-sm">
-                      {formatCurrency(order.totalAmount)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Pembayaran</p>
-                    <div className="mt-1">
-                      <PaymentBadge status={order.paymentStatus} />
-                      <InstructionHint order={order} />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Pengiriman</p>
-                    <p className="mt-1 font-semibold text-slate-950">
-                      {shippingLabels[order.shippingStatus] ||
-                        order.shippingStatus}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Kurir / resi</p>
-                    <p className="mt-1 break-all font-semibold text-slate-950">
-                      {order.courierCode}
-                      {order.cnoteNo ? ` · ${order.cnoteNo}` : ""}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    WhatsApp CRM
-                  </p>
-                  {renderCrmActions(order)}
-                </div>
-                {order.providerDispatchError && (
-                  <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
-                    <p className="font-semibold mb-1">Kendala Push ke Mengantar:</p>
-                    <p>{order.providerDispatchError}</p>
-                  </div>
-                )}
-                <label className="mt-3 flex min-h-11 items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-900">
+                <div className="flex items-start gap-2.5">
                   <Checkbox
                     checked={selected}
                     onCheckedChange={(checked) =>
@@ -1432,22 +1429,65 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
                       )
                     }
                     aria-label={`Pilih order ${order.orderNumber}`}
-                    className="size-5 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
+                    className="mt-0.5 size-5 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600"
                   />
-                  Pilih order untuk aksi bulk
-                </label>
-                <div className="mt-4 flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                  <span className="text-xs font-semibold text-slate-500">Aksi & Ekspedisi</span>
+                  <div className="min-w-0 flex-1">
+                    <a
+                      href={`/admin/orders/${encodeURIComponent(order.orderNumber)}`}
+                      className="break-all font-semibold text-slate-950 hover:text-blue-600 hover:underline"
+                    >
+                      <HighlightSearchMatch text={order.orderNumber} query={searchTerm} />
+                    </a>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-xs text-slate-400">{formatDateTime(order.createdAt)}</span>
+                      <RiskBadge level={order.receiverRiskLabel} deliveryRate={order.receiverDeliveryRate} compact />
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                      <OrderPaymentLine order={order} />
+                      <OrderSourceLine order={order} />
+                    </div>
+                  </div>
                   <OrderActionMenu
                     order={order}
                     updatingOrderId={updatingOrderId}
                     dispatching={dispatching}
-                    onDispatch={(id) => void dispatchOrders([id])}
+                    onDispatch={(id) => dispatchOrders([id])}
                     onDelete={(id) => void deleteOrders([id])}
                     onShippingStatusChange={(id, status) => void handleShippingStatusChange(id, status)}
                     onRefreshScoring={(id) => void handleRefreshScoring(id)}
                   />
                 </div>
+
+                <div className="mt-3 border-t border-slate-100 pt-3 text-sm">
+                  <p className="flex min-w-0 items-baseline justify-between gap-2">
+                    <a href={`/admin/orders/${encodeURIComponent(order.orderNumber)}`} className="min-w-0 truncate font-semibold text-slate-900 hover:underline">
+                      {order.customerName}
+                    </a>
+                    <span className="shrink-0 font-mono text-xs text-slate-500">{order.customerPhone}</span>
+                  </p>
+                  <p className="truncate text-xs text-slate-500">
+                    {[order.district, order.city, order.province].filter(Boolean).join(", ") || "Alamat belum lengkap"}
+                  </p>
+                  <p className="mt-2 flex min-w-0 items-baseline justify-between gap-2">
+                    <span className="min-w-0 truncate text-xs text-slate-700">
+                      {[order.productName, order.variantName].filter(Boolean).join(" · ") || "Produk"}
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums text-slate-950">{formatCurrency(order.totalAmount)}</span>
+                  </p>
+                  <p className="mt-0.5 flex min-w-0 items-baseline justify-between gap-2 text-xs">
+                    <span className={`min-w-0 truncate font-semibold ${deliveryStatus(order).tone}`}>{deliveryStatus(order).label}</span>
+                    <span className="shrink-0 font-mono text-slate-500">
+                      {order.courierCode || "—"}{order.cnoteNo ? ` · ${order.cnoteNo}` : ""}
+                    </span>
+                  </p>
+                </div>
+
+                {order.providerDispatchError && (
+                  <p className="mt-2 rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs text-rose-800">
+                    <span className="font-semibold">Kendala push:</span> {providerDispatchErrorText(order.providerDispatchError)}
+                  </p>
+                )}
+                <div className="mt-3">{renderCrmActions(order)}</div>
               </article>
             ); })}
           </div>
@@ -1490,13 +1530,11 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
                   </TableHead>
                   <TableHead className="w-52 px-4 py-3">Pemesan</TableHead>
                   <TableHead className="w-44 px-4 py-3">Risiko RTS</TableHead>
-                  <TableHead className="w-48 px-4 py-3">
-                    Pembayaran & pengiriman
-                  </TableHead>
+                  <TableHead className="w-48 px-4 py-3">Pengiriman</TableHead>
                   <TableHead className="w-48 px-4 py-3 text-right">
                     Produk & Total
                   </TableHead>
-                  <TableHead className="w-56 px-4 py-3">WhatsApp CRM</TableHead>
+                  <TableHead className="w-80 px-4 py-3">WhatsApp CRM</TableHead>
                   {/* The table outgrows a 1440 laptop by ~270px; the row actions stay pinned so they never scroll away. */}
                   <TableHead className="sticky right-0 z-10 w-28 bg-slate-50 px-4 py-3 text-right shadow-[-8px_0_12px_-10px_rgba(15,23,42,0.25)]">
                     Aksi
@@ -1538,9 +1576,10 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
                       <p className="mt-1 text-xs text-slate-400">
                         {formatDateTime(order.createdAt)}
                       </p>
-                      <div className="mt-1">
-                        <TrafficSourceBadge adClickIds={order.adClickIds} size="xs" />
-                      </div>
+                      {/* `w-0 min-w-full`: these rows take the column's width and never
+                          set it, so they wrap instead of widening the invoice column. */}
+                      <OrderPaymentLine order={order} className="mt-2 w-0 min-w-full" />
+                      <OrderSourceLine order={order} className="mt-1 w-0 min-w-full" />
                     </TableCell>
                     <TableCell className="max-w-[210px] px-4 py-4">
                       <a
@@ -1565,17 +1604,8 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
                       />
                     </TableCell>
                     <TableCell className="px-4 py-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <PaymentBadge status={order.paymentStatus} />
-                        <InstructionHint order={order} />
-                        <span className="text-xs font-semibold text-slate-500">
-                          {paymentMethodLabels[order.paymentMethod] ||
-                            order.paymentMethod}
-                        </span>
-                      </div>
-                      <p className="mt-2 font-semibold text-slate-900">
-                        {shippingLabels[order.shippingStatus] ||
-                          order.shippingStatus}
+                      <p className={`font-semibold ${deliveryStatus(order).tone}`}>
+                        {deliveryStatus(order).label}
                       </p>
                       <p className="mt-1 font-mono text-xs text-slate-500">
                         {order.courierCode}
@@ -1585,7 +1615,7 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
                       </p>
                       {order.providerDispatchError && (
                         <p className="mt-1 text-xs text-rose-600 font-semibold max-w-[200px] leading-tight">
-                          Error: {order.providerDispatchError}
+                          Error: {providerDispatchErrorText(order.providerDispatchError)}
                         </p>
                       )}
                     </TableCell>
@@ -1605,14 +1635,15 @@ export function OrdersTable({ initialOrders }: { initialOrders?: OrderItem[] }) 
                       </p>
                     </TableCell>
                     <TableCell className="px-4 py-4">
-                      {renderCrmActions(order)}
+                      {/* The sticky Aksi column covers anything wider. */}
+                      <div className="w-80 whitespace-normal">{renderCrmActions(order)}</div>
                     </TableCell>
                     <TableCell className="sticky right-0 z-10 bg-white px-4 py-4 text-right shadow-[-8px_0_12px_-10px_rgba(15,23,42,0.25)]">
                       <OrderActionMenu
                         order={order}
                         updatingOrderId={updatingOrderId}
                         dispatching={dispatching}
-                        onDispatch={(id) => void dispatchOrders([id])}
+                        onDispatch={(id) => dispatchOrders([id])}
                         onDelete={(id) => void deleteOrders([id])}
                         onShippingStatusChange={(id, status) => void handleShippingStatusChange(id, status)}
                         onRefreshScoring={(id) => void handleRefreshScoring(id)}

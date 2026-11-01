@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  contentValidationMessage,
   homeContentSchema,
   loadPublishedHomeContent,
   mergeRuntimeProductContent,
@@ -137,4 +138,14 @@ test("a home content link cannot carry a script scheme", () => {
   for (const href of ["javascript:alert(1)", " JavaScript:alert(1)", "data:text/html,x", "//evil.example", "/\\evil.example"]) {
     assert.equal(solutions.safeParse([solution(href)]).success, false, href);
   }
+});
+
+test("audit M6: an empty draft is refused with the field names, not the schema's JSON", () => {
+  let caught: unknown;
+  try { validateContent("home", {}); } catch (error) { caught = error; }
+  const message = contentValidationMessage(caught);
+  assert.ok(message?.startsWith("Konten belum lengkap atau tidak valid: "), String(message));
+  assert.match(message!, /hero/);
+  assert.doesNotMatch(message!, /[[{]/);
+  assert.equal(contentValidationMessage(new Error("Content JSON exceeds 64 KiB.")), null);
 });

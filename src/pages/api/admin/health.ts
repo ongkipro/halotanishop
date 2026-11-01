@@ -1,25 +1,26 @@
 import type { APIRoute } from 'astro';
-import { jsonError, jsonOk } from '../../../lib/api';
-import { getEnvValue, getRuntimeEnv } from '../../../lib/env';
-import { collectOperationalHealth } from '../../../lib/operational-health';
-import {
-  alertsFromOperationalHealth,
-  evaluateOperationalAlerts,
-} from '../../../lib/operational-alerts';
+import { jsonError, jsonOk } from '../../../lib/api.ts';
+import { getRuntimeEnv } from '../../../lib/env.ts';
+import { collectOperationalHealth } from '../../../lib/operational-health.ts';
 
 export const prerender = false;
 
 /**
- * Operational health for the admin shell (`OBSERVABILITY.md` §4 item 4).
+ * Operational health, collected live (`OBSERVABILITY.md` §4 item 4).
  *
  * Authentication is the middleware's, like every other `/api/admin/*` route.
  * Role access is the `ADMIN_API_ROUTES` table in `src/lib/auth.ts`, which lists
  * this route: owner and admin reach it, advertiser and customer_service get a
- * 403 that the component treats as "not yours to see" rather than an error.
+ * 403.
+ *
+ * A read and nothing else. It used to evaluate alerts as well, which wrote
+ * alert state to KV and could fire the webhook on any dashboard view; the
+ * hourly run in `src/worker.ts` is now the only place that evaluates them
+ * (PRD A39, REQ-223). The admin icon reads `/api/admin/health/status`.
  *
  * Counts, ages and states only. No order or customer payloads leave here.
  */
-export const GET: APIRoute = async ({ locals, url }) => {
+export const GET: APIRoute = async ({ locals }) => {
   const database = getRuntimeEnv(locals)?.OMS_DB as D1Database | undefined;
   if (!database?.prepare) {
     return jsonError('Database belum tersedia.', 503);
@@ -27,16 +28,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
 
   try {
     const health = await collectOperationalHealth(database, locals);
-    const runtime = getRuntimeEnv(locals);
-    const alerts = await evaluateOperationalAlerts(
-      alertsFromOperationalHealth(health),
-      {
-        store: runtime?.SESSION as KVNamespace | undefined,
-        webhookUrl: getEnvValue('OPS_ALERT_WEBHOOK_URL', runtime),
-        source: url.origin,
-      },
-    );
-    return jsonOk({ health, alerts });
+    return jsonOk({ health });
   } catch (error) {
     console.error('admin-health-get', error);
     return jsonError('Gagal membaca status operasional.', 502);

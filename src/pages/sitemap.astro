@@ -22,6 +22,7 @@ const landingPages = (await listPublicLandingPages(Astro.locals).catch(() => [])
   title={`Sitemap Halaman - ${Astro.locals.tenant.name}`}
   description={`Daftar lengkap halaman penting website ${Astro.locals.tenant.name} untuk memudahkan penelusuran navigasi.`}
   noindex={true}
+  follow
   breadcrumbs={[
     { name: 'Beranda', url: '/' },
     { name: 'Sitemap', url: '/sitemap' },

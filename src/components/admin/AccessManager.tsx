@@ -25,6 +25,7 @@ import { SearchInput } from "@/components/admin/filter-bar";
 import { FilterSelect } from "@/components/admin/filter-bar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { AdminRole } from "../../lib/auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
@@ -45,6 +46,10 @@ const ASSIGNABLE_ROLE_SHORT_LABELS: Record<string, string> = {
   advertiser: "Operator Ads",
   customer_service: "Operator CS",
 };
+const ROLE_EDIT_OPTIONS = Object.entries(ASSIGNABLE_ROLE_SHORT_LABELS).map(([value, label]) => ({
+  value: value as AssignableRole,
+  label,
+}));
 
 
 type AssignableRole = Exclude<AdminRole, "owner">;
@@ -749,148 +754,87 @@ export function AccessManager() {
         </Card>
       </div>
 
-      {/* Edit User Modal Dialog */}
-      {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-2xl ring-1 ring-slate-950/10 animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="text-base font-semibold text-slate-950">
-              Edit Profil & Peran Pengguna
-            </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Perbarui nama, email, dan wewenang akses untuk @{editingUser.username}.
-            </p>
-
-            <form onSubmit={saveUserEdit} className="mt-4 space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Nama Lengkap</label>
-                <Input
-                  required
-                  value={editForm.display_name}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, display_name: e.target.value })
-                  }
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Email</label>
-                <Input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, email: e.target.value })
-                  }
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Role</label>
-                <Select
-                  items={ASSIGNABLE_ROLE_SHORT_LABELS}
-                  value={editForm.role}
-                  onValueChange={(value) =>
-                    value && setEditForm({ ...editForm, role: value as AssignableRole })
-                  }
-                >
-                  <SelectTrigger aria-label="Role" className="mt-1 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ASSIGNABLE_ROLE_SHORT_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingUser(null)}
-                  className="border-slate-200"
-                >
-                  Batal
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={saving}
-                  className="bg-slate-950 text-white"
-                >
-                  {saving ? "Menyimpan…" : "Simpan Perubahan"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Reset Password Modal Dialog */}
-      {resetUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-2xl ring-1 ring-slate-950/10 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center gap-2 text-amber-700">
-              <KeyRound className="size-5" />
-              <h3 className="text-base font-semibold text-slate-950">
-                Reset Password Sementara
-              </h3>
+      {/* Audit 2026-10-31 M7: real dialogs — Escape closes, focus stays inside, labels name their inputs. */}
+      <Dialog open={Boolean(editingUser)} onOpenChange={(open) => { if (!open && !saving) setEditingUser(null); }}>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit profil &amp; peran pengguna</DialogTitle>
+            <DialogDescription>
+              Perbarui nama, email, dan wewenang akses untuk @{editingUser?.username}.
+            </DialogDescription>
+          </DialogHeader>
+          <form id="access-edit-form" onSubmit={saveUserEdit} className="flex min-w-0 flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="access-edit-name" className="text-sm font-medium">Nama lengkap</label>
+              <Input
+                id="access-edit-name"
+                required
+                value={editForm.display_name}
+                onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
+              />
             </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Buat password sementara baru untuk <strong>@{resetUser.username}</strong>. Sesi login aktif pengguna ini akan otomatis dicabut.
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="access-edit-email" className="text-sm font-medium">Email</label>
+              <Input
+                id="access-edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="access-edit-role" className="text-sm font-medium">Role</label>
+              <FilterSelect
+                id="access-edit-role"
+                icon={ShieldCheck}
+                value={editForm.role}
+                options={ROLE_EDIT_OPTIONS}
+                onValueChange={(value) => setEditForm({ ...editForm, role: value })}
+              />
+            </div>
+          </form>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={saving} onClick={() => setEditingUser(null)}>Batal</Button>
+            <Button type="submit" form="access-edit-form" disabled={saving}>{saving ? "Menyimpan…" : "Simpan perubahan"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(resetUser)} onOpenChange={(open) => { if (!open && !saving) setResetUser(null); }}>
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><KeyRound className="size-5 text-amber-700" aria-hidden="true" />Reset password sementara</DialogTitle>
+            <DialogDescription>
+              Buat password sementara baru untuk <strong>@{resetUser?.username}</strong>. Sesi login aktif pengguna ini akan otomatis dicabut.
+            </DialogDescription>
+          </DialogHeader>
+          <form id="access-reset-form" onSubmit={savePasswordReset} className="flex min-w-0 flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor="access-reset-password" className="text-sm font-medium">Password sementara baru</label>
+                <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => setNewPasswordValue(generateRandomPassword())}>
+                  Acak ulang
+                </Button>
+              </div>
+              <Input
+                id="access-reset-password"
+                required
+                minLength={8}
+                value={newPasswordValue}
+                onChange={(e) => setNewPasswordValue(e.target.value)}
+                className="font-mono"
+              />
+            </div>
+            <p className="rounded-lg border border-amber-200/80 bg-amber-50 p-3 text-xs text-amber-900">
+              Berikan password di atas kepada pengguna. Pengguna wajib mengganti password ini pada login berikutnya.
             </p>
-
-            <form onSubmit={savePasswordReset} className="mt-4 space-y-4">
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-700">
-                    Password Sementara Baru
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setNewPasswordValue(generateRandomPassword())}
-                    className="text-xs font-semibold text-emerald-700 hover:underline"
-                  >
-                    Acak Ulang
-                  </button>
-                </div>
-                <Input
-                  required
-                  minLength={8}
-                  value={newPasswordValue}
-                  onChange={(e) => setNewPasswordValue(e.target.value)}
-                  className="mt-1 font-mono"
-                />
-              </div>
-
-              <div className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900 border border-amber-200/80">
-                Berikan password di atas kepada pengguna. Pengguna wajib mengganti password ini pada login berikutnya.
-              </div>
-
-              <div className="mt-6 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setResetUser(null)}
-                  className="border-slate-200"
-                >
-                  Batal
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={saving}
-                  className="bg-amber-600 text-white hover:bg-amber-700"
-                >
-                  {saving ? "Menyimpan…" : "Konfirmasi Reset Password"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          </form>
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={saving} onClick={() => setResetUser(null)}>Batal</Button>
+            <Button type="submit" form="access-reset-form" disabled={saving}>{saving ? "Menyimpan…" : "Konfirmasi reset password"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Permissions Matrix Reference Table */}
       <Card className="min-w-0 rounded-xl border-slate-200 shadow-xs">

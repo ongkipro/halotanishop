@@ -7,6 +7,8 @@ type ConfirmOptions = {
   title: string;
   description: string;
   confirmLabel: string;
+  /** When "Batal" would read as the action itself (setting a status to Batal). */
+  cancelLabel?: string;
   /** For a confirmation that is not a deletion, such as a received payment. */
   tone?: "destructive" | "default";
 };
@@ -46,7 +48,7 @@ export function useConfirm() {
         </DialogHeader>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => settle(false)}>
-            Batal
+            {options?.cancelLabel ?? "Batal"}
           </Button>
           <Button type="button" variant={options?.tone ?? "destructive"} onClick={() => settle(true)}>
             {options?.confirmLabel}

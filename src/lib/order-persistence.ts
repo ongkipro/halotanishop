@@ -241,6 +241,8 @@ export type RecordAbandonedOrderInput = {
   province?: string;
   totalAmount?: number;
   variantId?: number;
+  /** The page the lead was captured on (PRD A36), already clipped. */
+  sourcePagePath?: string | null;
 };
 
 export type RecordedAbandonedOrder = {
@@ -303,7 +305,8 @@ export async function recordAbandonedOrder(
              total_amount = ?,
              payment_status = 'unpaid',
              shipping_status = 'abandoned',
-             created_at = ?
+             created_at = ?,
+             source_page_path = COALESCE(source_page_path, ?)
          WHERE id = ? AND shipping_status = 'abandoned'`,
       )
       .bind(
@@ -312,6 +315,7 @@ export async function recordAbandonedOrder(
         province,
         totalAmount,
         createdAt,
+        input.sourcePagePath || null,
         existing.id,
       )
     ];
@@ -351,14 +355,14 @@ export async function recordAbandonedOrder(
           address, province, city, district,
           payment_method, payment_status, shipping_status,
           total_amount, shipping_cost, discount_amount, cod_service_fee,
-          cod_service_fee_vat, cod_fee_bearer, created_at
+          cod_service_fee_vat, cod_fee_bearer, created_at, source_page_path
         )
         SELECT
           ?, ?, ?, ?,
           ?, ?, '', '',
           'cod', 'unpaid', 'abandoned',
           ?, 0, 0, 0,
-          0, 'buyer', ?
+          0, 'buyer', ?, ?
         WHERE NOT EXISTS (
           SELECT 1
           FROM orders
@@ -376,6 +380,7 @@ export async function recordAbandonedOrder(
         province || "ID-JK",
         totalAmount,
         createdAt,
+        input.sourcePagePath || null,
         customerPhone,
       ),
   ];
@@ -718,8 +723,8 @@ export async function persistOrder(
     statements.push(
       database
         .prepare(
-          `INSERT INTO order_items (order_id, variant_id, quantity, unit_price)
-           SELECT id, ?, ?, ?
+          `INSERT INTO order_items (order_id, variant_id, quantity, unit_price, weight_grams)
+           SELECT id, ?, ?, ?, (SELECT weight_grams FROM product_variants WHERE id = ?)
            FROM orders
            WHERE ${identityPredicate}`,
         )
@@ -727,6 +732,7 @@ export async function persistOrder(
           variant.id,
           input.quantity,
           unitPrice,
+          variant.id,
           ...identityBindings,
         ),
       database

@@ -7,7 +7,17 @@ import { normalizePhoneNumber } from '../../../../lib/order-schema';
 import { isValidWa62 } from '../../../../lib/validation';
 import { getMengantarDispatchEligibility } from '../../../../lib/payment-dispatch-policy';
 import { calculateCodCustomerTotal, calculateCodFeeBreakdown } from '../../../../lib/payment-fee-policy';
-import { dispatchOrderToMengantar } from '../../../../lib/mengantar-dispatch';
+import { dispatchOrderToMengantar, linkAcceptedMengantarShipment, releaseUnknownMengantarDispatch } from '../../../../lib/mengantar-dispatch';
+import { parseMengantarPickupChoice } from '../../../../lib/mengantar-order';
+import { CRM_BANK_ACCOUNTS_SQL, CRM_STORE_SQL, crmStoreContext, formatBankAccount } from '../../../../lib/crm-template.ts';
+import {
+  adminPaymentSwitchView,
+  buyerLinkOrigin,
+  buyerOrderLinks,
+  parsePaymentSwitchTarget,
+  PaymentSwitchError,
+  switchCodOrderPayment,
+} from '../../../../lib/payment-switch.ts';
 import { buildPaymentNotification, recordNotification } from '../../../../lib/notifications';
 import { enqueuePurchaseForPaidOrder, manualTransferBecamePaid } from '../../../../lib/paid-order-purchase.ts';
 import {
@@ -44,7 +54,11 @@ const SHIPPING_STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'ret
 const PAID_STATUSES = new Set(['paid', 'settled', 'success']);
 
 type OrderUpdatePayload = {
-  action?: 'dispatch-order' | 'refresh-scoring' | 'push-kelola';
+  action?: 'dispatch-order' | 'refresh-scoring' | 'push-kelola' | 'switch-payment' | 'release-dispatch-unknown' | 'link-accepted-dispatch';
+  /** `switch-payment`: the prepaid method (src/lib/payment-switch.ts). */
+  switch_payment?: unknown;
+  /** `dispatch-order`: drop-off or a scheduled pickup (PRD A46); absent means drop-off. */
+  pickup?: unknown;
   payment_status?: string;
   shipping_status?: string;
   cnote_no?: string;
@@ -63,6 +77,9 @@ type OrderUpdatePayload = {
 
 type OrderRow = {
   id: number;
+  seller_bank_name: string | null;
+  seller_account_holder: string | null;
+  seller_account_number: string | null;
   order_number: string;
   warehouse_id: number | null;
   pickup_schedule_id: number | null;
@@ -81,6 +98,10 @@ type OrderRow = {
   cod_service_fee_vat: number;
   cod_fee_bearer: string;
   payment_method: string;
+  payment_switched_from: string | null;
+  payment_switched_at: string | null;
+  payment_switched_by: string | null;
+  public_status_token: string | null;
   payment_status: string;
   shipping_status: string;
   confirmed_at: string | null;
@@ -112,6 +133,8 @@ type OrderItemRow = {
   variant_title: string;
   variant_sku: string;
   variant_compare_price: number | null;
+  weight_grams: number | null;
+  weight_recorded: number;
   product_id: number;
   product_title: string;
 };
@@ -168,6 +191,10 @@ async function loadOrder(database: D1Database, rawOrderKey: string) {
       o.cod_service_fee_vat,
       o.cod_fee_bearer,
       o.payment_method,
+      o.payment_switched_from,
+      o.payment_switched_at,
+      o.payment_switched_by,
+      o.public_status_token,
       o.payment_status,
       o.shipping_status,
       o.confirmed_at,
@@ -185,6 +212,9 @@ async function loadOrder(database: D1Database, rawOrderKey: string) {
       o.source_page_path,
       o.stock_restored_at,
       o.created_at,
+      o.seller_bank_name,
+      o.seller_account_holder,
+      o.seller_account_number,
       w.name AS warehouse_name,
       w.pickup_address_id,
       ps.scheduled_at AS pickup_scheduled_at,
@@ -208,7 +238,7 @@ async function loadOrder(database: D1Database, rawOrderKey: string) {
     .first()) as OrderRow | null;
 }
 
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async ({ params, locals, url }) => {
   const orderKey = String(params.id || '').trim();
   if (!orderKey) return jsonError('ID order wajib diisi.', 400);
 
@@ -231,6 +261,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
         pv.title AS variant_title,
         pv.sku AS variant_sku,
         pv.compare_price AS variant_compare_price,
+        COALESCE(oi.weight_grams, pv.weight_grams) AS weight_grams,
+        oi.weight_grams IS NOT NULL AS weight_recorded,
         p.id AS product_id,
         p.title AS product_title
       FROM order_items oi
@@ -247,6 +279,12 @@ export const GET: APIRoute = async ({ params, locals }) => {
       WHERE order_id = ?
       LIMIT 1
     `).bind(order.id).first<PaymentTransactionRow>();
+
+    const [storeResult, bankResult] = await db.batch([db.prepare(CRM_STORE_SQL), db.prepare(CRM_BANK_ACCOUNTS_SQL)]);
+    const crm = crmStoreContext(
+      storeResult.results?.[0] as Parameters<typeof crmStoreContext>[0],
+      (bankResult.results ?? []) as Parameters<typeof crmStoreContext>[1],
+    );
 
     const dispatch = getMengantarDispatchEligibility({
       paymentMethod: order.payment_method,
@@ -296,8 +334,20 @@ export const GET: APIRoute = async ({ params, locals }) => {
         cod_service_fee_vat: order.cod_service_fee_vat,
         cod_fee_bearer: order.cod_fee_bearer === 'seller' ? 'seller' : 'buyer',
         payment_method: order.payment_method,
+        payment_switched_from: order.payment_switched_from,
+        payment_switched_at: order.payment_switched_at,
+        payment_switched_by: order.payment_switched_by,
+        // COD → transfer/VA availability and the buyer's payment link.
+        ...adminPaymentSwitchView(
+          order,
+          ((itemsResult.results ?? []) as OrderItemRow[]).reduce(
+            (sum, item) => sum + Number(item.quantity) * Number(item.unit_price),
+            0,
+          ),
+        ),
         payment_status: order.payment_status,
         shipping_status: order.shipping_status,
+        stock_restored_at: order.stock_restored_at,
         confirmed_at: order.confirmed_at,
         courier_code: order.courier_code,
         courier_service: order.courier_service,
@@ -313,6 +363,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
         ad_click_ids: order.ad_click_ids,
         source_page_path: order.source_page_path,
         created_at: order.created_at,
+        // Everything the follow-up chips need, so a role without settings access sends the same messages.
+        crm: {
+          templates: crm.templates,
+          seller_name: crm.seller_name,
+          bank_accounts:
+            formatBankAccount(order.seller_bank_name, order.seller_account_number, order.seller_account_holder) ||
+            crm.bank_accounts,
+          ...buyerOrderLinks(buyerLinkOrigin(locals.tenant?.siteUrl, url?.origin ?? ""), order),
+        },
         // Absent unless the Kelola plugin is active; OrderDetail then shows no panel.
         kelola: await activeKelolaConfig(db, locals).then((config) =>
           config === undefined ? null : kelolaOrderState(db, config, order.id)),
@@ -335,6 +394,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
           variant_title: item.variant_title,
           variant_sku: item.variant_sku,
           variant_compare_price: item.variant_compare_price,
+          weight_grams: item.weight_grams,
+          weight_recorded: Boolean(item.weight_recorded),
           product_id: item.product_id,
           product_title: item.product_title,
         })),
@@ -364,6 +425,35 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     if (!current) return jsonError('Order tidak ditemukan.', 404);
 
     const action = body.action;
+    // Audit 2026-10-31 M-1: a push whose outcome was unknown blocks the order
+    // until someone has checked Mengantar. Releasing it risks a second parcel,
+    // so it is owner and admin only.
+    // A shipment Mengantar accepted but this store failed to record: link it
+    // to the order. It cannot create a second parcel, so any role here may.
+    if (action === 'link-accepted-dispatch') {
+      const linked = await linkAcceptedMengantarShipment(db, current.id);
+      if (!linked) return jsonError('Order tidak sedang menunggu penautan paket Mengantar.', 409);
+      return jsonOk({ message: `${current.order_number} ditautkan ke paket Mengantar ${linked}.` });
+    }
+    if (action === 'release-dispatch-unknown') {
+      if (locals.admin?.role !== 'owner' && locals.admin?.role !== 'admin') {
+        return jsonError('Hanya owner atau admin yang dapat mengizinkan push ulang.', 403);
+      }
+      const released = await releaseUnknownMengantarDispatch(db, current.id);
+      if (!released) return jsonError('Order tidak sedang menunggu pengecekan Mengantar.', 409);
+      return jsonOk({ message: `${current.order_number} boleh di-push ulang ke Mengantar.` });
+    }
+    if (action === 'switch-payment') {
+      const target = parsePaymentSwitchTarget(body.switch_payment);
+      if (!target) return jsonError('Metode pembayaran pengganti tidak valid.', 400);
+      try {
+        await switchCodOrderPayment(db, locals, current.id, target, locals.admin?.username || 'admin');
+      } catch (error) {
+        if (error instanceof PaymentSwitchError) return jsonError(error.message, error.status);
+        throw error;
+      }
+      return jsonOk({ message: `Pembayaran ${current.order_number} diganti dari COD.` });
+    }
     if (action === 'push-kelola') {
       const config = await activeKelolaConfig(db, locals);
       if (config === undefined) return jsonError('Plugin Kelola CRM belum aktif.', 409);
@@ -572,19 +662,34 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       ) {
         return jsonError('Kecamatan, kurir, dan layanan pengiriman wajib dipilih.', 422);
       }
+      // A-397: an existing order is re-quoted at the weight recorded on its
+      // line, the exact expression dispatch sends (mengantar-dispatch.ts), not
+      // the variant's current weight — an edit to the variant after checkout
+      // would otherwise bill one weight and ship another. It reaches the quote
+      // as an explicit weight with no variant read, the same path OrderDetail's
+      // preview takes (`weight=` on /api/shipping-rates), so preview, save and
+      // dispatch agree.
       const item = await db.prepare(`
-        SELECT variant_id, quantity
-        FROM order_items
-        WHERE order_id = ?
-        ORDER BY id
+        SELECT oi.quantity,
+          MAX(0.001, CAST(COALESCE(oi.weight_grams, pv.weight_grams) AS REAL) / 1000) AS unit_weight_kg
+        FROM order_items oi
+        INNER JOIN product_variants pv ON pv.id = oi.variant_id
+        WHERE oi.order_id = ?
+        ORDER BY oi.id
         LIMIT 1
-      `).bind(current.id).first<{ variant_id: number; quantity: number }>();
+      `).bind(current.id).first<{ quantity: number; unit_weight_kg: number }>();
       if (!item) return jsonError('Item order tidak ditemukan.', 409);
       const quote = await resolveEligibleShippingRates(db, locals, {
         destinationId: resolvedDestinationAreaId,
         paymentMethod: current.payment_method,
-        variantKey: String(item.variant_id),
+        fallbackWeightKg: Number(item.unit_weight_kg),
         quantity: Number(item.quantity),
+        // The order keeps its own warehouse (REQ-241) while it is still
+        // active; one without (a middle-form order) or whose warehouse was
+        // made inactive is chosen by its province. OrderDetail previews the
+        // rates with the same two values.
+        warehouseId: current.warehouse_id || undefined,
+        destinationProvince: nextProvince ?? current.province,
       });
       const selectedRate = selectQuotedRate(
         quote.rates,
@@ -633,6 +738,10 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     const resolvedPaymentStatus = nextPaymentStatus ?? current.payment_status;
     const resolvedShippingStatus = nextShippingStatus ?? current.shipping_status;
 
+    // Refused before anything is written: a bad slot must not half-apply an edit.
+    const pickupChoice = action === 'dispatch-order' ? parseMengantarPickupChoice(body.pickup) : null;
+    if (pickupChoice && !pickupChoice.ok) return jsonError(pickupChoice.reason, 400);
+
     if (action === 'dispatch-order') {
       const resolvedCustomerName = nextCustomerName ?? current.customer_name;
       const resolvedCustomerPhone = nextCustomerPhone ?? current.customer_phone;
@@ -676,19 +785,28 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
 
     let metaPurchase: Awaited<ReturnType<typeof enqueuePurchaseForPaidOrder>> | null = null;
     if (assignments.length > 0) {
+      // A re-quote writes a COD total computed from the order as read; an
+      // operator switching the payment (src/lib/payment-switch.ts) during the
+      // provider quote must not get that total written over a prepaid order.
+      const quoteGuard = hasShippingSelection ? `
+        AND payment_method = ? AND total_amount = ?` : '';
       const destinationEditGuard =
         hasCustomerChanges || hasShippingSelection
           ? `
         AND provider_order_id IS NULL
         AND provider_dispatch_claimed_at IS NULL
-        AND shipping_status = 'pending'`
+        AND shipping_status = 'pending'${quoteGuard}`
           : '';
       const mutation = db.prepare(`
         UPDATE orders
         SET ${assignments.join(', ')}
         WHERE id = ?
         ${destinationEditGuard}
-      `).bind(...values, current.id);
+      `).bind(
+        ...values,
+        current.id,
+        ...(hasShippingSelection ? [current.payment_method, current.total_amount] : []),
+      );
       const hasLifecycleChange =
         action !== 'dispatch-order' &&
         (nextPaymentStatus !== undefined || nextShippingStatus !== undefined);
@@ -708,7 +826,9 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       if (!updated) {
         return destinationEditGuard
           ? jsonError(
-              'Data tujuan tidak dapat diubah karena order sedang atau sudah diproses ke Mengantar.',
+              hasShippingSelection
+                ? 'Order berubah saat ongkir dihitung ulang (diproses ke Mengantar atau pembayarannya diganti). Muat ulang halaman.'
+                : 'Data tujuan tidak dapat diubah karena order sedang atau sudah diproses ke Mengantar.',
               409,
             )
           : jsonError('Order tidak ditemukan.', 404);
@@ -753,7 +873,10 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
 
     let dispatchOutcome: Awaited<ReturnType<typeof dispatchOrderToMengantar>> | undefined;
     if (action === 'dispatch-order') {
-      dispatchOutcome = await dispatchOrderToMengantar(db, locals, current.id);
+      dispatchOutcome = await dispatchOrderToMengantar(db, locals, current.id, {
+        choice: pickupChoice?.ok ? pickupChoice.choice : { type: 'dropOff' },
+        timeIds: new Map(),
+      });
       if (!['dispatched', 'unpaid', 'already_dispatched'].includes(dispatchOutcome.status)) {
         return jsonError(
           dispatchOutcome.error || 'Mengantar belum menerima shipment.',
@@ -778,6 +901,8 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
                 : ''
           }`,
       data: {
+        // The push dialog shows it per order (PRD A46).
+        ...(dispatchOutcome ? { dispatch_status: dispatchOutcome.status } : {}),
         id: updated.id,
         order_number: updated.order_number,
         customer_name: updated.customer_name,
@@ -798,6 +923,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
         cod_fee_bearer: updated.cod_fee_bearer,
         payment_status: updated.payment_status,
         shipping_status: updated.shipping_status,
+        stock_restored_at: updated.stock_restored_at,
         confirmed_at: updated.confirmed_at,
         courier_code: updated.courier_code,
         courier_service: updated.courier_service,

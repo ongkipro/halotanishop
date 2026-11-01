@@ -34,6 +34,8 @@ export function DistrictCombobox({
   disabled,
   invalid,
   describedBy,
+  searchingText = "Mencari kecamatan…",
+  emptyText = "Kecamatan tidak ditemukan.",
 }: {
   id: string;
   value: DistrictOption | null;
@@ -44,6 +46,9 @@ export function DistrictCombobox({
   disabled?: boolean;
   invalid?: boolean;
   describedBy?: string;
+  /** List states, for a search over something other than districts. */
+  searchingText?: string;
+  emptyText?: string;
 }) {
   const [query, setQuery] = React.useState(value?.label ?? "");
   const [items, setItems] = React.useState<DistrictOption[]>(value ? [value] : []);
@@ -121,14 +126,14 @@ export function DistrictCombobox({
           <ComboboxEmpty>
             {loading ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Mencari kecamatan…
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" /> {searchingText}
               </span>
             ) : failed ? (
               failed
             ) : short ? (
               `Ketik minimal ${minChars} huruf.`
             ) : (
-              "Kecamatan tidak ditemukan."
+              emptyText
             )}
           </ComboboxEmpty>
           <ComboboxList>

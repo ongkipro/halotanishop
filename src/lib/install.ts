@@ -5,6 +5,7 @@ import {
   validateNewAdminPassword,
 } from "./admin-credentials.ts";
 import { STOREFRONT_TEMPLATE_IDS } from "./tenant-contract.ts";
+import { normalizeWhatsappPhone } from "./whatsapp-numbers.ts";
 import { isAcceptedSiteProtocol } from "./tenant.ts";
 
 export interface InstallInput {
@@ -209,6 +210,7 @@ export async function runInstall(
     };
   }
 
+  const installPhone = normalizeWhatsappPhone(plan.supportWhatsapp);
   try {
     const [storeResult, credentialResult] = await database.batch([
       database
@@ -254,6 +256,16 @@ export async function runInstall(
              )`,
         )
         .bind(plan.slug),
+      // The rotator's list starts with the number the installer was given
+      // (PRD A35); an install without a usable one starts empty and /thanks
+      // hides its WhatsApp button until a number is added.
+      database
+        .prepare(
+          `INSERT INTO whatsapp_numbers (phone, created_at)
+           SELECT ?, ?
+           WHERE ? IS NOT NULL AND NOT EXISTS (SELECT 1 FROM whatsapp_numbers)`,
+        )
+        .bind(installPhone, now, installPhone),
     ]);
 
     if (!storeResult.meta.changes || !credentialResult.meta.changes) {

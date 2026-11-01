@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildWaUrl,
+  crmStoreContext,
   defaultCrmTemplates,
   parseCrmTemplates,
   renderCrmMessage,
@@ -186,4 +187,16 @@ test("the strike price is never invented", () => {
   assert.equal(renderCrmMessage("{{compare_price}}", plain), "Rp 150.000");
   assert.equal(renderCrmMessage("{{compare_price}}", { productName: "Gel" }), "Rp 0");
   assert.equal(renderCrmMessage("{{compare_price}}", { ...plain, comparePrice: 200000 }), "Rp 200.000");
+});
+
+test("audit H1: the store context the orders API serves carries the store's templates, name and active accounts", () => {
+  const crm = crmStoreContext(
+    { name: " Toko Dummy ", crm_templates: JSON.stringify({ welcome: "AUDITMARK {{name}}" }) },
+    [{ bank_code: "BCA", account_number: "123", account_holder: "Budi" }, { bank_code: "BRI", account_number: "456", account_holder: null }],
+  );
+  assert.equal(crm.templates.welcome, "AUDITMARK {{name}}");
+  assert.equal(crm.templates["1"], defaultCrmTemplates["1"]);
+  assert.equal(crm.seller_name, "Toko Dummy");
+  assert.equal(crm.bank_accounts, "BCA 123 a.n. Budi, BRI 456");
+  assert.deepEqual(crmStoreContext(null, []), { templates: defaultCrmTemplates, seller_name: "", bank_accounts: "" });
 });

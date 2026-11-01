@@ -226,6 +226,99 @@ function mapPaymentRecord(row: PaymentTransactionRow): AutoLarisPaymentRecord {
   };
 }
 
+/**
+ * Keeps an instruction's provider identity before its row is rewritten
+ * (audit 2026-10-31 H-1). The row is reused for a new instruction, but money
+ * can still arrive on the old one, so the old `trx_id` must stay matchable by
+ * the hourly Advice run and by manual confirmation. A row without a provider id
+ * never reached AutoLaris and is not kept.
+ */
+export function supersedePaymentTransactionStatement(database: D1Database, transactionId: number, supersededAt: string) {
+  return database
+    .prepare(
+      `INSERT INTO payment_transaction_attempts (
+        payment_transaction_id, order_id, provider_transaction_id, reference_id, channel_code,
+        amount, admin_fee, total_amount, expires_at, superseded_at
+      )
+      SELECT id, order_id, provider_transaction_id, reference_id, channel_code,
+        amount, admin_fee, total_amount, expires_at, ?
+      FROM payment_transactions
+      WHERE id = ? AND provider_transaction_id IS NOT NULL AND trim(provider_transaction_id) <> ''
+      ON CONFLICT(provider_transaction_id) DO NOTHING`,
+    )
+    .bind(supersededAt, transactionId);
+}
+
+/** A superseded instruction as stored, for settling it after the fact. */
+export type PaymentTransactionAttempt = {
+  id: number;
+  payment_transaction_id: number;
+  provider_transaction_id: string;
+  reference_id: string;
+  channel_code: string;
+  amount: number;
+  admin_fee: number;
+  total_amount: number;
+  expires_at: string | null;
+};
+
+/**
+ * Puts a superseded instruction that turned out to be paid back on its
+ * transaction row, the current instruction going to the attempts table in
+ * its place (the same batch runs `supersedePaymentTransactionStatement`
+ * first). After this the row says what the buyer actually paid, so every
+ * existing settle statement, guarded on `provider_transaction_id`, applies.
+ * `status` becomes `expired`: the instruction is past its window; settling
+ * moves it to `paid`. Close the batch with `markPaymentAttemptSettledStatement`.
+ */
+export function adoptPaymentAttemptStatements(database: D1Database, attempt: PaymentTransactionAttempt, now: string) {
+  return [
+    supersedePaymentTransactionStatement(database, attempt.payment_transaction_id, now),
+    database
+      .prepare(
+        `UPDATE payment_transactions SET
+          provider_transaction_id = ?, reference_id = ?, channel_code = ?, amount = ?,
+          admin_fee = ?, total_amount = ?, expires_at = ?, status = 'expired',
+          virtual_account = NULL, qr_payload = NULL, payment_code = NULL,
+          provider_payment_url = NULL, failed_reason = NULL, updated_at = ?
+        WHERE id = ? AND status <> 'paid'`,
+      )
+      .bind(
+        attempt.provider_transaction_id,
+        attempt.reference_id,
+        attempt.channel_code,
+        attempt.amount,
+        attempt.admin_fee,
+        attempt.total_amount,
+        attempt.expires_at,
+        now,
+        attempt.payment_transaction_id,
+      ),
+  ];
+}
+
+/**
+ * Marks a superseded instruction settled, last in the batch that adopted it,
+ * and only once its row is `paid` under that instruction's own provider id.
+ * Run unconditionally, a settle that matched nothing (the order changed
+ * mid-run) would hide the attempt from every later recheck while no money had
+ * been recorded for it.
+ */
+export function markPaymentAttemptSettledStatement(database: D1Database, attemptId: number, now: string) {
+  return database
+    .prepare(
+      `UPDATE payment_transaction_attempts SET settled_at = ?
+      WHERE id = ? AND settled_at IS NULL
+        AND EXISTS (
+          SELECT 1 FROM payment_transactions pt
+          WHERE pt.id = payment_transaction_attempts.payment_transaction_id
+            AND pt.provider_transaction_id = payment_transaction_attempts.provider_transaction_id
+            AND pt.status = 'paid'
+        )`,
+    )
+    .bind(now, attemptId);
+}
+
 /** Hourly: a pending instruction past its expiry becomes `expired` for every reader. */
 export async function expirePendingPaymentTransactions(database: D1Database, now = new Date()) {
   const iso = now.toISOString();
@@ -397,6 +490,24 @@ export const PENDING_AUTOLARIS_INQUIRY_SQL = `SELECT pt.id AS transaction_id, pt
       ORDER BY (pt.status = 'pending') DESC, pt.created_at DESC, pt.id DESC
       LIMIT ?`;
 
+/**
+ * Superseded instructions (H-1) still inside the recheck window, on orders
+ * still waiting for money. Binds: the recheck cutoff (ISO), then the limit.
+ */
+export const SUPERSEDED_AUTOLARIS_INQUIRY_SQL = `SELECT a.id AS attempt_id, a.payment_transaction_id AS transaction_id,
+        pt.order_id, o.order_number, o.customer_name, a.provider_transaction_id, a.total_amount,
+        a.reference_id, a.channel_code, a.amount, a.admin_fee, a.expires_at
+      FROM payment_transaction_attempts a
+      INNER JOIN payment_transactions pt ON pt.id = a.payment_transaction_id
+      INNER JOIN orders o ON o.id = pt.order_id
+      WHERE a.settled_at IS NULL AND a.expires_at >= ?
+        AND pt.provider = 'autolaris' AND pt.status <> 'paid'
+        AND o.payment_status IN ('pending', 'unpaid')
+        AND o.shipping_status = 'pending'
+        AND o.stock_restored_at IS NULL
+      ORDER BY a.expires_at DESC, a.id DESC
+      LIMIT ?`;
+
 export async function reconcileAutoLarisPaymentStatuses(
   database: D1Database,
   locals: App.Locals,
@@ -421,10 +532,33 @@ export async function reconcileAutoLarisPaymentStatuses(
       Math.max(1, Math.min(100, Math.trunc(limit))),
     )
     .all<PendingAutoLarisInquiryRow>();
+  const cutoff = new Date(now.getTime() - AUTOLARIS_EXPIRED_RECHECK_HOURS * 3_600_000).toISOString();
+  const superseded = await database
+    .prepare(SUPERSEDED_AUTOLARIS_INQUIRY_SQL)
+    .bind(cutoff, Math.max(1, Math.min(100, Math.trunc(limit))))
+    .all<PendingAutoLarisInquiryRow & Omit<PaymentTransactionAttempt, "id" | "payment_transaction_id"> & { attempt_id: number }>();
   const client = new AutoLarisClient(config.apiKey, config.baseUrl);
   const paidAt = now.toISOString();
 
-  for (const row of rows.results || []) {
+  const queue: Array<PendingAutoLarisInquiryRow & { attempt?: PaymentTransactionAttempt }> = [
+    ...(rows.results || []),
+    ...(superseded.results || []).map((row) => ({
+      ...row,
+      attempt: {
+        id: row.attempt_id,
+        payment_transaction_id: row.transaction_id,
+        provider_transaction_id: row.provider_transaction_id,
+        reference_id: row.reference_id,
+        channel_code: row.channel_code,
+        amount: row.amount,
+        admin_fee: row.admin_fee,
+        total_amount: row.total_amount,
+        expires_at: row.expires_at,
+      },
+    })),
+  ];
+
+  for (const row of queue) {
     try {
       const inquiry = await client.inquirePayment(row.provider_transaction_id);
       result.checked += 1;
@@ -452,7 +586,11 @@ export async function reconcileAutoLarisPaymentStatuses(
         continue;
       }
 
-      const changes = await database.batch([
+      // A paid superseded instruction first goes back on its row (H-1); the
+      // settle statements below then match it by its own provider id.
+      const adopt = row.attempt ? adoptPaymentAttemptStatements(database, row.attempt, paidAt) : [];
+      const settled = await database.batch([
+        ...adopt,
         database
           .prepare(
             `UPDATE payment_transactions
@@ -488,8 +626,9 @@ export async function reconcileAutoLarisPaymentStatuses(
               )`,
           )
           .bind(row.order_id, row.transaction_id),
+        ...(row.attempt ? [markPaymentAttemptSettledStatement(database, row.attempt.id, paidAt)] : []),
       ]);
-      if (Number(changes[0]?.meta?.changes || 0) < 1) continue;
+      if (Number(settled[adopt.length]?.meta?.changes || 0) < 1) continue;
 
       result.paidOrderIds.push(row.order_id);
       await recordNotification(database, {
@@ -583,28 +722,40 @@ export async function createAutoLarisPaymentForOrder(
   const expectedBilledTotal = requestAmount + expectedAdminFee;
 
   if (existing) {
-    await database
-      .prepare(
-        `UPDATE payment_transactions SET
-          reference_id = ?, channel_code = ?, fee_bearer = ?, status = 'pending', amount = ?,
-          admin_fee = ?, total_amount = ?, provider_transaction_id = NULL,
-          virtual_account = NULL, qr_payload = NULL, payment_code = NULL,
-          provider_payment_url = NULL, failed_reason = NULL, expires_at = ?,
-          updated_at = ?
-        WHERE id = ?`,
-      )
-      .bind(
-        referenceId,
-        input.channelCode,
-        feeBearer,
-        requestAmount,
-        expectedAdminFee,
-        expectedBilledTotal,
-        expiresAt.toISOString(),
-        createdAt,
-        existing.id,
-      )
-      .run();
+    // The old instruction is kept before the row is rewritten (H-1), and the
+    // rewrite only happens while the row is still failed or expired: two
+    // simultaneous retries used to each create a provider instruction, and
+    // only the last id survived.
+    const reused = await database.batch([
+      supersedePaymentTransactionStatement(database, existing.id, createdAt),
+      database
+        .prepare(
+          `UPDATE payment_transactions SET
+            reference_id = ?, channel_code = ?, fee_bearer = ?, status = 'pending', amount = ?,
+            admin_fee = ?, total_amount = ?, provider_transaction_id = NULL,
+            virtual_account = NULL, qr_payload = NULL, payment_code = NULL,
+            provider_payment_url = NULL, failed_reason = NULL, expires_at = ?,
+            updated_at = ?
+          WHERE id = ?
+            AND (status IN ('failed', 'expired')
+              OR (status = 'pending' AND expires_at IS NOT NULL AND expires_at <= ?))`,
+        )
+        .bind(
+          referenceId,
+          input.channelCode,
+          feeBearer,
+          requestAmount,
+          expectedAdminFee,
+          expectedBilledTotal,
+          expiresAt.toISOString(),
+          createdAt,
+          existing.id,
+          createdAt,
+        ),
+    ]);
+    if (!Number(reused[1]?.meta?.changes || 0)) {
+      throw new Error("Instruksi pembayaran baru sedang dibuat. Muat ulang halaman sebentar lagi.");
+    }
   } else {
     try {
       await database

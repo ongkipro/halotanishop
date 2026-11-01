@@ -53,7 +53,7 @@ export const defaultCrmTemplates: Record<string, string> = {
   5:
     'Hai {{name}}, ini adalah pengingat terakhir untuk pesanan kamu atas {{product_variant}} (Harga: {{product_price}}). Kalau masih ingin lanjut, bisa selesaikan pembayaran via: {{epayment_link}}\nAtau transfer ke: {{bank_accounts}}\n\nKalau belum bisa, tidak masalah. Terima kasih banyak sudah mampir! {{seller_name}}',
   6:
-    'Hai {{name}}, kami belum menerima pembayaran untuk pesanan kamu atas {{product_variant}} (Harga: {{product_price}}). Kalau kamu mebutuhkan bantuan atau ada pertanyaan, tinggal hubungi kami ya. Terima kasih sudah tertarik dengan produk kami! {{seller_name}}',
+    'Hai {{name}}, kami belum menerima pembayaran untuk pesanan kamu atas {{product_variant}} (Harga: {{product_price}}). Kalau kamu membutuhkan bantuan atau ada pertanyaan, tinggal hubungi kami ya. Terima kasih sudah tertarik dengan produk kami! {{seller_name}}',
   7:
     'Hai {{name}}, pembayaran kamu untuk {{product_variant}} sebesar {{total_price}} telah kami terima. Pesanan kamu sedang kami proses dan akan segera dikirim ke:\n{{address}}, {{district}}, {{city}}\n\nAkan kami update lagi kalau sudah dikirim ya, {{seller_name}}',
   8:
@@ -93,6 +93,36 @@ export function parseCrmTemplates(value: string | null) {
   } catch {
     return { ...defaultCrmTemplates };
   }
+}
+
+/** One account as a CRM message names it: "BCA 123 a.n. Budi". */
+export function formatBankAccount(bank?: string | null, number?: string | null, holder?: string | null) {
+  return [bank, number, holder ? `a.n. ${holder}` : ''].filter(Boolean).join(' ');
+}
+
+/** The store row and its active bank accounts, read beside an order (list or detail). */
+export const CRM_STORE_SQL = 'SELECT name, crm_templates FROM stores ORDER BY id LIMIT 1';
+export const CRM_BANK_ACCOUNTS_SQL =
+  'SELECT bank_code, account_number, account_holder FROM seller_bank_accounts WHERE is_active = 1 ORDER BY id';
+
+/**
+ * What every follow-up message needs from the store, served by the orders
+ * API itself so a role that may read orders but not settings (customer
+ * service) sends the store's own templates, name and accounts — audit
+ * 2026-10-31 H1 found it sending the built-in defaults and "Toko Kami".
+ */
+export function crmStoreContext(
+  store: { name?: string | null; crm_templates?: string | null } | null | undefined,
+  accounts: Array<{ bank_code?: string | null; account_number?: string | null; account_holder?: string | null }>,
+) {
+  return {
+    templates: parseCrmTemplates(store?.crm_templates ?? null),
+    seller_name: String(store?.name || '').trim(),
+    bank_accounts: accounts
+      .map((account) => formatBankAccount(account.bank_code, account.account_number, account.account_holder))
+      .filter(Boolean)
+      .join(', '),
+  };
 }
 
 const normalizeUtf8 = (value: string): string => value.normalize('NFC');

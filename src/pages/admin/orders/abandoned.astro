@@ -16,6 +16,6 @@ export const prerender = false;
         Lihat order
       </a>
     </AdminPageHeader>
-    <AbandonedOrders client:load />
+    <AbandonedOrders initialQuery={Astro.url.search} client:load />
   </div>
 </AdminLayout>

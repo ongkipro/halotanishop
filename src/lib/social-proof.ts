@@ -29,17 +29,27 @@ export function socialProofMessage(count: number): string | null {
  * who had not. Any failure reads as 0, so the notice is omitted rather than
  * guessed.
  */
-export async function recentOrderCount(database: D1Database | undefined): Promise<number> {
+export async function recentOrderCount(
+  database: D1Database | undefined,
+  now: Date = new Date(),
+): Promise<number> {
   if (!database?.prepare) return 0;
   try {
+    // `created_at >= ?` rather than `unixepoch(created_at) >= ...`: a function
+    // on the column cannot use `idx_orders_created_at`, so every page view
+    // scanned the whole table (2.1M rows read a day across the fleet, STATUS
+    // 2026-10-29). Every writer stores `toISOString()`, so string order is
+    // time order.
+    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const row = await database
       .prepare(
         `SELECT COUNT(*) AS n
            FROM orders
-          WHERE stock_restored_at IS NULL
-            AND shipping_status NOT IN ('cancelled', 'returned', 'abandoned')
-            AND unixepoch(created_at) >= unixepoch('now', '-24 hours')`,
+          WHERE created_at >= ?
+            AND stock_restored_at IS NULL
+            AND shipping_status NOT IN ('cancelled', 'returned', 'abandoned')`,
       )
+      .bind(since)
       .first<{ n: number }>();
     return Number(row?.n ?? 0);
   } catch (error) {

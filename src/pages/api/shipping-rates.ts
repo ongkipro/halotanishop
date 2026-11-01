@@ -69,6 +69,10 @@ export const GET: APIRoute = async ({ request, url, locals }) => {
         variantKey: variantKey || undefined,
         fallbackWeightKg,
         quantity,
+        // Admin previews only (order edit, lead conversion): the storefront
+        // forms send neither, and their warehouse follows `city` (PRD A42).
+        destinationProvince: url.searchParams.get("province") || undefined,
+        warehouseId: Number(url.searchParams.get("warehouse_id")) || undefined,
       });
     const items = eligibleRates.map((rate, index) => ({
       courier_service_id: index + 1,

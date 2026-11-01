@@ -1,6 +1,7 @@
 import * as React from "react";
 import { buttonVariants } from "../ui/button";
 import { StoreMark } from "./StoreMark";
+import { TOPBAR_ICON_BUTTON } from "./topbar-styles";
 import {
   SidebarInset,
   SidebarProvider,
@@ -24,9 +25,21 @@ import {
 } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/sonner";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ArrowUpRight,
+  ChevronDown,
   ChevronRight,
   History,
+  Settings,
+  Store,
   LogOut,
   Menu,
   Search,
@@ -35,13 +48,16 @@ import {
 import { AppSidebar } from "./AppSidebar";
 import { ChangelogModal } from "./ChangelogModal";
 import { NotificationBell } from "./NotificationBell";
+import { OperationalStatusIcon } from "./OperationalStatusIcon";
 import { CMS_VERSION } from "@/lib/version";
+import { withInsightsPeriod } from "@/lib/insights-view";
 import {
   ADMIN_ACCENT,
   getSearchableNavItems,
   getVisibleNavGroups,
   isAdminNavHrefActive,
   profileNavItem,
+  statusNavItem,
   type AdminRole,
 } from "./admin-navigation";
 
@@ -55,6 +71,8 @@ interface AdminShellProps {
   currentPath: string;
   siteUrl: string;
   adminRole: AdminRole;
+  /** Shown in the account menu's header; the session's own username. */
+  adminUsername?: string;
   mustChangePassword?: boolean;
   sidebarDefaultOpen?: boolean;
 }
@@ -69,11 +87,13 @@ export function AdminShell({
   currentPath,
   siteUrl,
   adminRole,
+  adminUsername = "",
   mustChangePassword = false,
   sidebarDefaultOpen = true,
 }: AdminShellProps) {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const roleLabel = adminRole === "owner" ? "Owner" : adminRole === "admin" ? "Admin" : adminRole === "customer_service" ? "CS" : "Advertiser";
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [expandedMobileMenus, setExpandedMobileMenus] = React.useState<Set<string>>(
     () => new Set([activeMenu]),
@@ -84,7 +104,7 @@ export function AdminShell({
   const groups = mustChangePassword ? [] : getVisibleNavGroups(adminRole);
   const searchItems = mustChangePassword ? [] : getSearchableNavItems(adminRole);
   const allItems = groups.flatMap((group) => group.items);
-  const currentItem = [...allItems, profileNavItem].find(
+  const currentItem = [...allItems, profileNavItem, statusNavItem].find(
     (item) => item.id === activeMenu,
   );
   const mobilePrimaryIds = adminRole === "advertiser"
@@ -158,7 +178,7 @@ export function AdminShell({
                 value={`${item.label} ${item.description} ${item.keywords} ${item.group}`}
                 onSelect={() => {
                   handleSearchOpenChange(false);
-                  window.location.assign(item.href);
+                  window.location.assign(withInsightsPeriod(item.href, window.location.pathname, window.location.search));
                 }}
                 className="min-h-14 px-3 py-2.5"
               >
@@ -197,12 +217,12 @@ export function AdminShell({
           onOpenChangelog={() => setChangelogOpen(true)}
         />
         <SidebarInset className="min-w-0 bg-transparent">
-          <header className="admin-topbar sticky top-0 z-30 flex h-[60px] shrink-0 items-center border-b border-slate-200/80 bg-white/95 px-3 backdrop-blur-xl md:h-[68px] md:px-6">
+          <header className="admin-topbar sticky top-0 z-30 flex h-[60px] shrink-0 items-center border-b border-slate-200/70 bg-white/90 px-3 backdrop-blur-xl md:h-16 md:px-6">
             <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
               <button
                 type="button"
                 onClick={() => setMenuOpen(true)}
-                className="grid size-9 shrink-0 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 md:hidden"
+                className={`${TOPBAR_ICON_BUTTON} md:hidden`}
                 aria-label="Buka menu navigasi"
               >
                 <Menu className="size-5" aria-hidden="true" />
@@ -223,46 +243,106 @@ export function AdminShell({
             {!mustChangePassword && <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="group mx-4 hidden min-h-10 w-full max-w-lg flex-1 items-center gap-2.5 rounded-xl border border-slate-200/90 bg-slate-50/70 px-3 text-left text-sm font-medium text-slate-500 transition hover:border-slate-300 hover:bg-white hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 md:flex xl:mx-6"
+              className="group mx-4 hidden h-9 w-full max-w-md flex-1 items-center gap-2.5 rounded-lg bg-slate-100/80 px-3 text-left text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 md:flex xl:mx-6"
             >
-              <Search className="size-4 text-slate-400 transition group-hover:text-slate-600" aria-hidden="true" />
+              <Search className="size-4 text-slate-400 transition-colors group-hover:text-slate-600" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate">Cari halaman atau tugas…</span>
-              <kbd className="inline-flex items-center gap-0.5 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-500 shadow-xs">
+              <kbd className="rounded bg-white px-1.5 py-0.5 font-sans text-xs font-medium text-slate-400 ring-1 ring-slate-200">
                 ⌘K
               </kbd>
             </button>}
 
-            <div className="flex flex-1 items-center justify-end gap-1.5 md:gap-2">
-              {!mustChangePassword && <span className="hidden items-center rounded-full border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-medium text-slate-600 lg:inline-flex">
-                {adminRole === "owner" ? "Owner" : adminRole === "admin" ? "Admin" : adminRole === "customer_service" ? "CS" : "Advertiser"}
-              </span>}
+            <div className="flex flex-1 items-center justify-end gap-1">
               {!mustChangePassword && <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="grid size-10 place-items-center rounded-xl text-slate-600 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 md:hidden"
+                className={`${TOPBAR_ICON_BUTTON} md:hidden`}
                 aria-label="Cari halaman admin"
               >
                 <Search className="size-[18px]" aria-hidden="true" />
               </button>}
-              {!mustChangePassword && <a href="/" target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "ghost", className: "hidden text-slate-600 xl:inline-flex" })}>
+              {!mustChangePassword && <a href="/" target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "ghost", className: "hidden h-9 gap-1 font-normal text-slate-500 xl:inline-flex" })}>
                 Lihat storefront <ArrowUpRight className="size-3.5" aria-hidden="true" />
               </a>}
-              {/* A first-run session may only rotate its password; the bell
-                  hides itself for roles the endpoint refuses. */}
-              {!mustChangePassword && <NotificationBell />}
-              <a
-                href="/admin/profile"
-                aria-current={activeMenu === "profile" ? "page" : undefined}
-                className={`grid size-10 place-items-center rounded-xl border shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 ${
-                  activeMenu === "profile"
-                    ? "border-blue-600 bg-blue-50 text-blue-600 font-semibold"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950"
-                }`}
-                aria-label="Buka profil & integrasi admin"
-                title="Profil & Integrasi"
-              >
-                <UserRound className="size-[18px]" aria-hidden="true" />
-              </a>
+              {!mustChangePassword && <span className="mx-1 hidden h-5 w-px bg-slate-200 xl:block" aria-hidden="true" />}
+              {/* A first-run session may only rotate its password. Advertiser
+                  may not read notifications; asking logged a 403 on every page
+                  (audit 2026-10-31 L1). */}
+              {!mustChangePassword && adminRole !== "advertiser" && <NotificationBell />}
+              {/* Owner and admin only: the other roles send no status request (A39). */}
+              {!mustChangePassword && (adminRole === "owner" || adminRole === "admin") && (
+                <OperationalStatusIcon active={activeMenu === "status"} />
+              )}
+              {/* The account menu: who is signed in, their profile, the store's
+                  settings (roles that have them), the storefront, the release
+                  notes, and Keluar - which used to sit at the foot of the sidebar. */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className={`ml-1 flex h-9 shrink-0 items-center gap-2 rounded-full pl-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 lg:pr-2.5 data-[state=open]:bg-slate-100 ${
+                    activeMenu === "profile" ? "bg-slate-100 text-slate-900" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  }`}
+                  aria-label={`Menu akun (${roleLabel})`}
+                >
+                  <span className="grid size-8 place-items-center rounded-full bg-slate-900 text-white" aria-hidden="true">
+                    <UserRound className="size-4" />
+                  </span>
+                  {!mustChangePassword && <span className="hidden text-sm font-medium lg:inline">{roleLabel}</span>}
+                  <ChevronDown className="hidden size-3.5 text-slate-400 lg:block" aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={8} className="w-60">
+                  <DropdownMenuLabel className="flex items-center gap-2.5 py-2">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-900 text-white" aria-hidden="true">
+                      <UserRound className="size-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-slate-900">{adminUsername || roleLabel}</span>
+                      <span className="block truncate text-xs font-normal text-slate-500">{roleLabel} · {siteName || adminName}</span>
+                    </span>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem asChild>
+                      <a href={profileNavItem.href}>
+                        <UserRound aria-hidden="true" />
+                        {mustChangePassword ? "Keamanan akun" : "Profil & keamanan"}
+                      </a>
+                    </DropdownMenuItem>
+                    {!mustChangePassword && allItems.some((item) => item.id === "settings") && (
+                      <DropdownMenuItem asChild>
+                        <a href="/admin/settings/store">
+                          <Settings aria-hidden="true" />
+                          Pengaturan toko
+                        </a>
+                      </DropdownMenuItem>
+                    )}
+                    {!mustChangePassword && (
+                      <DropdownMenuItem asChild>
+                        <a href="/" target="_blank" rel="noopener noreferrer">
+                          <Store aria-hidden="true" />
+                          Lihat storefront
+                          <ArrowUpRight className="ml-auto text-slate-400" aria-hidden="true" />
+                        </a>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onSelect={() => setChangelogOpen(true)}>
+                      <History aria-hidden="true" />
+                      Catatan rilis
+                      <span className="ml-auto font-mono text-xs text-slate-400">v{CMS_VERSION.version}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  {/* The layout's data-logout-form handler does the request and
+                      relabels the button; the item keeps the menu open meanwhile. */}
+                  <form method="POST" action="/api/admin/logout" data-logout-form>
+                    <DropdownMenuItem asChild variant="destructive" onSelect={(event) => event.preventDefault()}>
+                      <button type="submit" className="w-full">
+                        <LogOut aria-hidden="true" />
+                        Keluar
+                      </button>
+                    </DropdownMenuItem>
+                  </form>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
 

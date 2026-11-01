@@ -3,6 +3,7 @@ import { jsonError, jsonOk } from "../../../../lib/api";
 import {
   generateApiKeySecret,
   hashApiKeySecret,
+  hasOpsScope,
   isApiKeyActive,
   maskApiKeySecret,
   normalizeApiKeyName,
@@ -34,6 +35,16 @@ type HeadlessApiAuditRow = {
   status_code: number;
   created_at: string;
 };
+
+const OWNER_ONLY = "Hanya owner yang dapat mengelola API key operasional (scope ops:).";
+
+async function keyHasOpsScope(database: D1Database, id: number) {
+  const row = await database
+    .prepare("SELECT scopes FROM developer_api_keys WHERE id = ? LIMIT 1")
+    .bind(id)
+    .first<{ scopes: string | null }>();
+  return row ? hasOpsScope(parseStoredApiKeyScopes(row.scopes)) : false;
+}
 
 function getDatabase(locals: App.Locals): D1Database | null {
   const database = getRuntimeEnv(locals)?.OMS_DB;
@@ -103,10 +114,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (name.length < 2) {
     return jsonError("Nama API key minimal 2 karakter.", 422);
   }
+  // A new key names its scopes (REQ-252); only a key stored before scopes
+  // existed falls back to the storefront defaults.
+  if (!Array.isArray(body.scopes) || body.scopes.length === 0) {
+    return jsonError("Pilih minimal satu scope API.", 400);
+  }
   const policyResult = normalizeApiKeyPolicy(body);
   if (!policyResult.valid) return jsonError(policyResult.error, 422);
   const policy = policyResult.policy;
-
+  if (hasOpsScope(policy.scopes) && locals.admin?.role !== "owner") {
+    return jsonError(OWNER_ONLY, 403);
+  }
 
   try {
     const secret = generateApiKeySecret();
@@ -178,11 +196,19 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
   if (!body || !Number.isInteger(id) || id < 1) {
     return jsonError("ID API key tidak valid.", 400);
   }
+  // An omitted list would otherwise reset the key to the storefront defaults,
+  // silently dropping its ops: scopes.
+  if (!Array.isArray(body.scopes) || body.scopes.length === 0) {
+    return jsonError("Pilih minimal satu scope API.", 400);
+  }
   const policyResult = normalizeApiKeyPolicy(body);
   if (!policyResult.valid) return jsonError(policyResult.error, 422);
   const policy = policyResult.policy;
 
   try {
+    if (locals.admin?.role !== "owner" && (hasOpsScope(policy.scopes) || (await keyHasOpsScope(database, id)))) {
+      return jsonError(OWNER_ONLY, 403);
+    }
     const result = await database
       .prepare(
         `UPDATE developer_api_keys
@@ -229,6 +255,9 @@ export const DELETE: APIRoute = async ({ request, locals }) => {
   }
 
   try {
+    if (locals.admin?.role !== "owner" && (await keyHasOpsScope(database, id))) {
+      return jsonError(OWNER_ONLY, 403);
+    }
     const revokedAt = new Date().toISOString();
     const result = await database
       .prepare(

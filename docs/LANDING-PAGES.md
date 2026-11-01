@@ -1,6 +1,6 @@
 # Building a landing page
 
-> Verified against disk: 2026-10-07 @ `515e81b` + autolaris-readiness/landing-thumbnail working tree
+> Verified against disk: 2026-10-30 @ `5ef5f76` + docs/a45-ops-api working tree
 
 There are two kinds of landing page in this CMS and they are not
 interchangeable. Pick the right one before writing anything.
@@ -89,25 +89,29 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import MetaLandingTracker from '../components/storefront/tracking/MetaLandingTracker.astro';
 import GeoIpResolvedForm from '../components/storefront/forms/GeoIpResolvedForm.astro';
 import { getStorefrontProduct } from '../lib/catalog';
-import { catalogProductId } from '../lib/catalog-feed';
+import { defaultCatalogContentId } from '../lib/catalog-feed';
+import { nativeLandingCanonicalPath } from '../lib/landing-pages';
 import '../styles/landing-pages/landing.css';
 
 export const prerender = false;
 
+const SLUG = 'ganti-slug-halaman';
 const product = await getStorefrontProduct(Astro.locals, 'ganti-slug-produk');
 if (!product) return Astro.rewrite('/404');
+const canonical = `${Astro.locals.tenant.siteUrl}${await nativeLandingCanonicalPath(Astro.locals, SLUG)}`;
 ---
 
 <BaseLayout
   title={`${product.productName} - ${Astro.locals.tenant.name}`}
   description={product.seoDescription}
   image={product.heroImage}
+  canonical={canonical}
   hideHeader={false}
 >
   <MetaLandingTracker
-    slug="ganti-slug-produk"
-    contentId={catalogProductId(product.productId)}
-    contentName={product.productName}
+    slug={SLUG}
+    contentId={defaultCatalogContentId(product)}
+    contentName={product.contentName}
     price={product.price}
   />
 

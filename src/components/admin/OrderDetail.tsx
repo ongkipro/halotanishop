@@ -1,10 +1,15 @@
 import { formatIdr } from "@/lib/format-idr";
+import { isVoidOrder } from "@/lib/order-lifecycle";
+import { acceptedShipmentId, isDispatchOutcomeUnknown } from "@/lib/payment-dispatch-policy";
 import { useConfirm } from "./useConfirm";
 import { calculateCodCustomerTotal, calculateCodFeeBreakdown } from "@/lib/payment-fee-policy";
 import { TrafficSourceBadge } from "./TrafficSourceBadge";
 import { type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildWaUrl, defaultCrmTemplates, renderCrmMessage } from "../../lib/crm-template";
 import { CrmActionGroup } from "./CrmActionGroup";
+import { PaymentSwitchDialog } from "./PaymentSwitchDialog";
+import { MengantarPushDialog } from "./MengantarPushDialog";
+import type { MengantarPickupChoice } from "@/lib/mengantar-order";
 import { CRM_STEPS } from "./CrmActionButton";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
@@ -18,6 +23,14 @@ import { courierServiceLabel } from "@/lib/courier-names";
 import { DistrictCombobox, type DistrictOption } from "@/components/admin/DistrictCombobox";
 import { FilterSelect } from "@/components/admin/filter-bar";
 import { etaLabel } from "@/lib/rate-check";
+import {
+  CURRENT_WEIGHT_LABEL,
+  RECORDED_WEIGHT_LABEL,
+  formatGrams,
+  formatWeight,
+  quoteUnitWeightKg,
+  summarizeOrderWeight,
+} from "@/lib/weight";
 import { cn } from "@/lib/utils";
 import { groupLocationResults } from "../../lib/location-search";
 import {
@@ -48,6 +61,8 @@ type OrderItem = {
   variant_title: string | null;
   variant_sku: string | null;
   variant_compare_price?: number | null;
+  weight_grams?: number | null;
+  weight_recorded?: boolean;
   product_title: string | null;
 };
 
@@ -76,13 +91,6 @@ type PaymentDetails = {
   failed_reason: string | null;
 };
 
-type SellerBankAccount = {
-  bank_code: string;
-  account_holder: string;
-  account_number: string;
-  is_active: number | boolean;
-};
-
 type Order = {
   id: number | string;
   order_number: string;
@@ -103,8 +111,26 @@ type Order = {
   cod_service_fee_vat: number;
   cod_fee_bearer: "buyer" | "seller";
   payment_method: string;
+  /** Set when an operator moved this order off COD (src/lib/payment-switch.ts). */
+  payment_switched_from?: string | null;
+  payment_switched_at?: string | null;
+  payment_switched_by?: string | null;
+  /** COD only: whether it can still move to transfer/VA, and the total then. */
+  payment_switch?: { available: boolean; reason: string | null; total_amount: number } | null;
+  /** The buyer's /payment page for an unpaid prepaid order (fragment locator). */
+  payment_link?: string | null;
+  /** Follow-up context served with the order (templates, store, accounts, buyer links). */
+  crm?: {
+    templates?: Record<string, string>;
+    seller_name?: string;
+    bank_accounts?: string;
+    epayment_link?: string | null;
+    order_details_link?: string | null;
+  };
   payment_status: string;
   shipping_status: string;
+  /** Set once the order is void; see `isVoidOrder`. */
+  stock_restored_at?: string | null;
   confirmed_at: string | null;
   courier_code: string | null;
   courier_service: string | null;
@@ -296,9 +322,20 @@ function EditCustomerDialog({
     const params = new URLSearchParams({
       destination_id: formData.destination_area_id,
       payment_method: order.payment_method || "cod",
-      variant_id: String(firstItem?.variant_id || 1),
       quantity: String(firstItem?.quantity || 1),
     });
+    // The weight recorded on the order line, not the variant's current one:
+    // the save re-quotes and dispatch ships at this weight (A-397). Sent in kg,
+    // which the rate route reads as kg up to 100 kg a unit.
+    // lazy: a unit over 100 kg would be read as grams; the save caps variants
+    // at 50 kg (A-398). Upgrade path: an explicit unit on the rate route.
+    const unitWeightKg = quoteUnitWeightKg(firstItem.weight_grams);
+    if (unitWeightKg === null) params.set("variant_id", String(firstItem.variant_id || 1));
+    else params.set("weight", String(unitWeightKg));
+    // The same warehouse the save re-quotes from (PRD A42, REQ-241): the
+    // order's own while it is active, else the one chosen by province.
+    if (order.warehouse_id) params.set("warehouse_id", String(order.warehouse_id));
+    if (formData.province) params.set("province", formData.province);
     setRatesLoading(true);
     void fetch(`/api/shipping-rates?${params}`, {
       headers: { Accept: "application/json" },
@@ -338,7 +375,9 @@ function EditCustomerDialog({
   }, [
     firstItem,
     formData.destination_area_id,
+    formData.province,
     open,
+    order.warehouse_id,
     order.courier_code,
     order.courier_service,
     courierEditable,
@@ -778,18 +817,24 @@ function EditCustomerDialog({
   );
 }
 
-export function OrderDetail({ invoice }: { invoice: string }) {
+export function OrderDetail({
+  invoice,
+  mayReleaseDispatch = false,
+}: {
+  invoice: string;
+  // Owner and admin only; the API refuses anyone else (403).
+  mayReleaseDispatch?: boolean;
+}) {
   const { confirm, dialog: confirmDialog } = useConfirm();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
+  const pushAccepted = useRef(false);
   const [notice, setNotice] = useState("");
   const [copiedTarget, setCopiedTarget] = useState("");
-  const [crmTemplates, setCrmTemplates] = useState({ ...defaultCrmTemplates });
-  const [crmSellerName, setCrmSellerName] = useState("");
-  const [crmBankAccounts, setCrmBankAccounts] = useState("");
-  const [clickedSteps, setClickedSteps] = useState<Record<string, boolean>>({});
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -817,62 +862,16 @@ export function OrderDetail({ invoice }: { invoice: string }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [invoice]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetch("/api/admin/settings", {
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !payload.success) return;
-        if (payload.data?.crm_templates) {
-          setCrmTemplates((current) => ({
-            ...current,
-            ...payload.data.crm_templates,
-          }));
-        }
-        setCrmSellerName(String(payload.data?.store?.name || "").trim());
-      })
-      .catch(() => undefined);
-
-    void fetch("/api/admin/seller-bank-accounts", {
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !payload.success || !Array.isArray(payload.data)) return;
-        const accounts = payload.data as SellerBankAccount[];
-        setCrmBankAccounts(
-          accounts
-            .filter((account) => Boolean(account.is_active))
-            .map((account) =>
-              [
-                account.bank_code,
-                account.account_number,
-                account.account_holder ? `a.n. ${account.account_holder}` : "",
-              ]
-                .filter(Boolean)
-                .join(" ")
-            )
-            .filter(Boolean)
-            .join(", ")
-        );
-      })
-      .catch(() => undefined);
-    return () => controller.abort();
-  }, []);
+  }, [invoice, reloadKey]);
 
   const allCrmMessages = useMemo<Record<string, string>>(() => {
     if (!order) return {};
+    const crm = order.crm;
     const safePhone = String(order.customer_phone || "").trim();
     const items = Array.isArray(order.items) ? order.items : [];
     const messages: Record<string, string> = {};
     for (const step of CRM_STEPS) {
-      messages[step.key] = renderCrmMessage(crmTemplates[step.key] || "", {
+      messages[step.key] = renderCrmMessage(crm?.templates?.[step.key] || defaultCrmTemplates[step.key] || "", {
         customerName: order.customer_name || "Pelanggan",
         customerPhone: safePhone,
         address: order.address || undefined,
@@ -902,14 +901,14 @@ export function OrderDetail({ invoice }: { invoice: string }) {
         totalAmount: order.total_amount || 0,
         courierCode: order.courier_code || "",
         cnoteNo: order.cnote_no || undefined,
-        sellerName: crmSellerName,
-        bankAccounts: crmBankAccounts,
-        epaymentLink: "",
-        orderDetailsLink: `/admin/orders/${encodeURIComponent(order.order_number)}`,
+        sellerName: crm?.seller_name || "",
+        bankAccounts: crm?.bank_accounts || "",
+        epaymentLink: crm?.epayment_link || "",
+        orderDetailsLink: crm?.order_details_link || "",
       });
     }
     return messages;
-  }, [order, crmTemplates, crmSellerName, crmBankAccounts]);
+  }, [order]);
 
   const allCrmUrls = useMemo<Record<string, string>>(() => {
     if (!order) return {};
@@ -1009,7 +1008,13 @@ export function OrderDetail({ invoice }: { invoice: string }) {
       if (!response.ok || !payload.success) {
         throw new Error(payload.error || "Konfirmasi transfer gagal disimpan.");
       }
-      setOrder((current) => (current ? { ...current, ...payload.data } : current));
+      // A paid order has nothing left to pay: the FU chips must stop sending
+      // the payment link, as the server stops issuing one (buyerPaymentPath).
+      setOrder((current) =>
+        current
+          ? { ...current, ...payload.data, crm: current.crm && { ...current.crm, epayment_link: null } }
+          : current,
+      );
       setNotice(payload.message || "Transfer dikonfirmasi.");
       toast.success(payload.message || "Transfer dikonfirmasi.");
     } catch (reason) {
@@ -1021,31 +1026,80 @@ export function OrderDetail({ invoice }: { invoice: string }) {
     }
   };
 
-  const pushToMengantar = async () => {
-    if (!order) return;
+  // The push opens the dialog first: drop-off or a scheduled pickup (PRD A46).
+  const pushToMengantar = () => {
+    if (order) setPushOpen(true);
+  };
+  const submitPush = async (pickup: MengantarPickupChoice) => {
+    if (!order) throw new Error("Order belum dimuat.");
     setSaving(true);
-    setNotice("Mengirim order ke Mengantar…");
     try {
-      const response = await fetch(
-        `/api/admin/orders/${encodeURIComponent(String(order.id))}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "dispatch-order" }),
-        }
-      );
+      const response = await fetch(`/api/admin/orders/${encodeURIComponent(String(order.id))}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "dispatch-order", pickup }),
+      });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || !payload.success) {
         throw new Error(payload.error || "Order gagal dikirim ke Mengantar.");
       }
       setOrder((current) => (current ? { ...current, ...payload.data } : current));
-      setNotice(payload.message || "Shipment diterima Mengantar.");
-      toast.success(payload.message || "Shipment diterima Mengantar.");
-      window.location.assign(`/admin/shipping?order=${encodeURIComponent(order.order_number)}`);
-    } catch (reason) {
-      const message = reason instanceof Error ? reason.message : "Pesanan gagal dikonfirmasi.";
+      pushAccepted.current = true;
+      const message = payload.message || "Shipment diterima Mengantar.";
       setNotice(message);
-      toast.error(message);
+      return {
+        message,
+        results: [{ orderId: order.id, status: payload.data?.dispatch_status || "dispatched", cnoteNo: payload.data?.cnote_no || undefined }],
+      };
+    } finally {
+      setSaving(false);
+    }
+  };
+  const closePush = (open: boolean) => {
+    if (open) return;
+    setPushOpen(false);
+    if (pushAccepted.current && order) window.location.assign(`/admin/shipping?order=${encodeURIComponent(order.order_number)}`);
+  };
+
+  const linkAcceptedDispatch = async () => {
+    if (!order) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/admin/orders/${encodeURIComponent(String(order.id))}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "link-accepted-dispatch" }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Gagal menautkan paket Mengantar.");
+      toast.success(payload.message || "Paket Mengantar ditautkan.");
+      setReloadKey((value) => value + 1);
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Gagal menautkan paket Mengantar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const releaseUnknownDispatch = async () => {
+    if (!order) return;
+    if (!(await confirm({
+      title: "Izinkan push ulang?",
+      description: `Pastikan ${order.order_number} tidak ada di dashboard Mengantar. Kalau ternyata sudah ada, push ulang membuat paket kedua.`,
+      confirmLabel: "Sudah dicek, izinkan",
+    }))) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/admin/orders/${encodeURIComponent(String(order.id))}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "release-dispatch-unknown" }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.success) throw new Error(payload.error || "Gagal mengizinkan push ulang.");
+      toast.success(payload.message || "Order boleh di-push ulang.");
+      setReloadKey((value) => value + 1);
+    } catch (reason) {
+      toast.error(reason instanceof Error ? reason.message : "Gagal mengizinkan push ulang.");
     } finally {
       setSaving(false);
     }
@@ -1174,12 +1228,12 @@ export function OrderDetail({ invoice }: { invoice: string }) {
   const waNumber = safePhone.replace(/\D/g, "").replace(/^0/, "62");
   const riskValue = String(order.receiver_risk_label || "").toUpperCase();
   const risk = riskValue.includes("HIGH")
-    ? { label: "Risiko tinggi", style: "bg-rose-100 text-rose-800 border-rose-200" }
+    ? { label: "Risiko tinggi", style: "bg-rose-50 text-rose-800 border-rose-200", dot: "bg-rose-500" }
     : riskValue.includes("MEDIUM")
-    ? { label: "Risiko sedang", style: "bg-amber-100 text-amber-800 border-amber-200" }
+    ? { label: "Risiko sedang", style: "bg-amber-50 text-amber-900 border-amber-200", dot: "bg-amber-500" }
     : riskValue.includes("LOW")
-    ? { label: "Risiko rendah", style: "bg-emerald-100 text-emerald-800 border-emerald-200" }
-    : { label: "Belum dinilai", style: "bg-slate-100 text-slate-700 border-slate-200" };
+    ? { label: "Risiko rendah", style: "bg-emerald-50 text-emerald-800 border-emerald-200", dot: "bg-emerald-500" }
+    : { label: "Belum dinilai", style: "bg-slate-50 text-slate-700 border-slate-200", dot: "bg-slate-400" };
 
   const paymentStatus = String(order.payment_status || "unpaid").toLowerCase();
   const paymentPaid = ["paid", "settled", "success"].includes(paymentStatus);
@@ -1232,6 +1286,7 @@ export function OrderDetail({ invoice }: { invoice: string }) {
       : ["processing", "shipped", "delivered", "returned", "cancelled"];
 
   const items = Array.isArray(order.items) ? order.items : [];
+  const weight = summarizeOrderWeight(items);
   const formattedAddress = [
     order.address,
     order.district,
@@ -1246,6 +1301,12 @@ export function OrderDetail({ invoice }: { invoice: string }) {
   return (
     <div className="space-y-6 pb-16">
       {confirmDialog}
+      <MengantarPushDialog
+        open={pushOpen}
+        onOpenChange={closePush}
+        orderLabels={[{ id: order.id, label: order.order_number }]}
+        submit={submitPush}
+      />
       {/* Top Navigation & Action Header */}
       <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -1283,15 +1344,16 @@ export function OrderDetail({ invoice }: { invoice: string }) {
                 <span className={`size-1.5 shrink-0 rounded-full ${shippingStatusDots[order.shipping_status] || "bg-slate-400"}`} aria-hidden="true" />
                 {shippingLabels[order.shipping_status] || order.shipping_status}
               </Badge>
-              <Badge variant="outline" className={`text-xs font-medium ${risk.style}`}>
+              <Badge variant="outline" className={`gap-1.5 text-xs font-medium ${risk.style}`}>
+                <span className={`size-1.5 shrink-0 rounded-full ${risk.dot}`} aria-hidden="true" />
                 {risk.label}
               </Badge>
               <TrafficSourceBadge adClickIds={order.ad_click_ids} />
               {order.source_page_path && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full border bg-violet-50 text-violet-700 border-violet-200">
-                  <span className="size-1.5 rounded-full bg-current opacity-80 shrink-0" />
+                <Badge variant="outline" className="max-w-full gap-1.5 truncate border-violet-200 bg-violet-50 text-xs font-medium text-violet-700" title={order.source_page_path}>
+                  <span className="size-1.5 shrink-0 rounded-full bg-current opacity-80" aria-hidden="true" />
                   {order.source_page_path}
-                </span>
+                </Badge>
               )}
             </div>
 
@@ -1446,7 +1508,9 @@ export function OrderDetail({ invoice }: { invoice: string }) {
                   Rincian item produk belum tersedia.
                 </div>
               ) : (
-                items.map((item) => (
+                items.map((item, index) => {
+                  const itemWeight = weight.items[index];
+                  return (
                   <div key={item.id} className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
                     <div className="min-w-0">
                       <h3 className="font-semibold text-sm text-slate-950 truncate">
@@ -1455,6 +1519,20 @@ export function OrderDetail({ invoice }: { invoice: string }) {
                       <p className="mt-0.5 text-xs text-slate-500 font-medium">
                         {item.variant_title || "Standard"}
                         {item.variant_sku ? ` · SKU: ${item.variant_sku}` : ""}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        Berat:{" "}
+                        {itemWeight?.unit != null && itemWeight.line != null ? (
+                          <>
+                            {item.quantity > 1 ? `${item.quantity} x ${formatGrams(itemWeight.unit)} = ` : ""}
+                            <span className="font-semibold text-slate-700">
+                              {formatWeight(itemWeight.line)}
+                            </span>
+                            {` · ${itemWeight.recorded ? RECORDED_WEIGHT_LABEL : CURRENT_WEIGHT_LABEL}`}
+                          </>
+                        ) : (
+                          "tidak diketahui (varian sudah dihapus)"
+                        )}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -1466,7 +1544,23 @@ export function OrderDetail({ invoice }: { invoice: string }) {
                       </p>
                     </div>
                   </div>
-                ))
+                  );
+                })
+              )}
+              {items.length > 0 && (
+                <div className="p-4 sm:px-5 bg-slate-50/50">
+                  <p className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
+                    <span className="font-medium text-slate-600">Total berat</span>
+                    <span className="font-semibold text-slate-950">
+                      {weight.total != null ? formatWeight(weight.total) : "Tidak diketahui"}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {weight.recorded
+                      ? "Berat saat order, dipakai saat kirim ke Mengantar."
+                      : "Berat varian saat ini, dipakai saat kirim ke Mengantar."}
+                  </p>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1532,18 +1626,40 @@ export function OrderDetail({ invoice }: { invoice: string }) {
                 </div>
               </div>
 
-              {order.provider_dispatch_error && (
+              {order.provider_dispatch_error && isDispatchOutcomeUnknown(order.provider_dispatch_error) ? (
+                // Audit 2026-10-31 M-1: Mengantar may have created the shipment.
+                <div role="status" className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                  <p className="font-semibold">Hasil push ke Mengantar belum pasti</p>
+                  {acceptedShipmentId(order.provider_dispatch_error) ? (
+                    <>
+                      <p className="leading-relaxed">Mengantar sudah menerima paket ini (ID {acceptedShipmentId(order.provider_dispatch_error)}), tetapi hasilnya gagal disimpan di sini. Jangan push ulang: tautkan paketnya, lalu resi terisi saat sinkron status.</p>
+                      <Button type="button" variant="outline" className="self-start" disabled={saving} onClick={() => void linkAcceptedDispatch()}>
+                        Tautkan paket Mengantar
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="leading-relaxed">Koneksi terputus atau respons tidak terbaca, jadi paket mungkin sudah dibuat. Cari {order.order_number} di dashboard Mengantar. Push ulang hanya kalau paketnya memang belum ada, supaya tidak terkirim dua kali.</p>
+                  )}
+                  {acceptedShipmentId(order.provider_dispatch_error) ? null : mayReleaseDispatch ? (
+                    <Button type="button" variant="outline" className="self-start" disabled={saving} onClick={() => void releaseUnknownDispatch()}>
+                      Sudah dicek, izinkan push ulang
+                    </Button>
+                  ) : (
+                    <p className="leading-relaxed">Setelah dicek, owner atau admin yang dapat mengizinkan push ulang.</p>
+                  )}
+                </div>
+              ) : order.provider_dispatch_error ? (
                 <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-800">
                   <p className="font-semibold text-rose-900">Gagal Push ke Mengantar:</p>
                   <p className="mt-0.5 font-normal leading-relaxed">{order.provider_dispatch_error}</p>
                 </div>
-              )}
+              ) : null}
 
               {order.shipping_status === "pending" ? (
                 <div className="pt-2">
                   <Button
                     type="button"
-                    onClick={() => void pushToMengantar()}
+                    onClick={pushToMengantar}
                     disabled={saving || !canConfirm}
                     className="w-full"
                   >
@@ -1587,6 +1703,37 @@ export function OrderDetail({ invoice }: { invoice: string }) {
                 </span>
               </div>
 
+              {order.payment_switched_at && (
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-slate-600">
+                  Diganti dari {String(order.payment_switched_from || "cod").toUpperCase()} pada {formatDate(order.payment_switched_at)}
+                  {order.payment_switched_by ? ` oleh ${order.payment_switched_by}` : ""}.
+                </p>
+              )}
+              {order.payment_switch?.available ? (
+                <PaymentSwitchDialog
+                  invoice={order.order_number}
+                  totalAmount={order.payment_switch.total_amount}
+                  onSwitched={() => setReloadKey((value) => value + 1)}
+                />
+              ) : order.payment_switch?.reason && !isVoidOrder(order) ? (
+                <p className="text-slate-500">Ganti ke transfer/VA tidak tersedia: {order.payment_switch.reason}</p>
+              ) : null}
+              {order.payment_link && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(`${window.location.origin}${order.payment_link}`)
+                      .then(() => toast.success("Link pembayaran disalin. Kirim ke pembeli."))
+                      .catch(() => toast.error("Link gagal disalin."));
+                  }}
+                >
+                  Salin link pembayaran
+                </Button>
+              )}
+
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Status Pembayaran</span>
                 <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium ${paymentStatusStyle}`}>
@@ -1598,8 +1745,7 @@ export function OrderDetail({ invoice }: { invoice: string }) {
               {order.payment_method === "manual_transfer" &&
                 !paymentPaid &&
                 !paymentFailed &&
-                !paymentRefunded &&
-                paymentStatus !== "cancelled" && (
+                !isVoidOrder(order) && (
                   <Button
                     type="button"
                     onClick={() => void confirmManualTransfer()}
@@ -1712,10 +1858,19 @@ export function OrderDetail({ invoice }: { invoice: string }) {
               </CardHeader>
               <CardContent className="p-5 sm:p-6 space-y-3 text-xs">
                 {order.kelola.synced_at ? (
-                  <p className="flex items-center gap-2 font-medium text-emerald-700">
-                    <Check className="size-4" aria-hidden="true" />
-                    Terkirim {formatDate(order.kelola.synced_at)}
-                  </p>
+                  <>
+                    <p className="flex items-center gap-2 font-medium text-emerald-700">
+                      <Check className="size-4" aria-hidden="true" />
+                      Terkirim {formatDate(order.kelola.synced_at)}
+                    </p>
+                    {/* Kelola answers a resend of the same order code as a
+                        duplicate, so a switch after the push cannot reach it. */}
+                    {order.payment_switched_at && order.payment_switched_at > order.kelola.synced_at && (
+                      <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 font-medium text-amber-900">
+                        Pembayaran diganti ke {paymentMethodLabels[order.payment_method] || order.payment_method} setelah order terkirim. Kelola masih mencatat COD — perbarui pembayaran dan nilai COD di Kelola secara manual.
+                      </p>
+                    )}
+                  </>
                 ) : order.kelola.voided ? (
                   <p className="text-slate-500">Order dibatalkan, tidak dikirim ke Kelola.</p>
                 ) : (
@@ -1758,43 +1913,8 @@ export function OrderDetail({ invoice }: { invoice: string }) {
             <CardContent className="p-4 sm:p-5">
               <CrmActionGroup
                 crmUrls={allCrmUrls}
-                clickedSteps={clickedSteps}
-                onStepClick={(stepKey) => setClickedSteps((current) => ({ ...current, [stepKey]: true }))}
-                size="md"
+                orderId={order.id}
               />
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <p className="mb-2 text-xs text-slate-500">
-                  Salin pesan CRM
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {CRM_STEPS.map((step) => {
-                    const target = `crm-${step.key}`;
-                    const copied = copiedTarget === target;
-                    return (
-                      <button
-                        key={step.key}
-                        type="button"
-                        onClick={() =>
-                          void copyToClipboard(
-                            allCrmMessages[step.key] || "",
-                            target,
-                            `Template ${step.fullLabel}`,
-                          )
-                        }
-                        className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800"
-                        title={`Salin ${step.title}`}
-                      >
-                        {copied ? (
-                          <Check className="size-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="size-3.5" />
-                        )}
-                        {copied ? "Tersalin" : step.fullLabel}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>

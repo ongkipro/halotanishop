@@ -91,7 +91,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       );
       return jsonOk(
         {
-          message: `Landing page duplicated as /${result.slug}`,
+          message: `Landing page diduplikasi sebagai /${result.slug}.`,
           data: result,
         },
         201,

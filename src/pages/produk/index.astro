@@ -12,7 +12,7 @@ const INITIAL_COUNT = 10;
 
 <BaseLayout
   title={`Produk - ${Astro.locals.tenant.name}`}
-  description={`Pilih produk ${Astro.locals.tenant.name}, lihat varian, stok, dan harga sebelum memesan.`}
+  description={`Pilih produk ${Astro.locals.tenant.name}, lihat varian dan harga sebelum memesan.`}
   breadcrumbs={[
     { name: 'Beranda', url: '/' },
     { name: 'Produk', url: '/produk' },
@@ -21,15 +21,17 @@ const INITIAL_COUNT = 10;
   <main id="konten-utama" class="min-h-screen bg-white text-[#111111]">
     <PageIntro
       badge="Semua Produk"
-      title={`Produk ${Astro.locals.tenant.name}`}
-      description="Pilih produk berdasarkan kebutuhan Anda, lalu lihat varian dan harga sebelum memesan."
+      title="Semua produk"
+      description={products.length > 0
+        ? `${products.length} produk dari ${Astro.locals.tenant.name}. Pilih untuk melihat varian dan memesan.`
+        : `Produk ${Astro.locals.tenant.name} akan tampil di sini.`}
       breadcrumbs={[{ label: 'Beranda', href: '/' }, { label: 'Produk' }]}
     />
 
-    <section aria-label="Daftar produk" class="mx-auto max-w-[480px] px-4 py-8">
+    <section aria-label="Daftar produk" class="px-4 pb-8 pt-4">
       {products.length > 0 ? (
         <>
-          <div class="grid grid-cols-2 gap-3" id="product-grid">
+          <div class="grid grid-cols-2 gap-x-3 gap-y-5" id="product-grid">
             {products.map((product, index) => (
               <div class={`product-card-item ${index >= INITIAL_COUNT ? 'hidden' : ''}`} data-index={index}>
                 {/* Two rows, not one: at 390x844 the second row is fully
@@ -42,22 +44,22 @@ const INITIAL_COUNT = 10;
 
           {products.length > INITIAL_COUNT && (
             <div class="mt-8 flex flex-col items-center gap-3" id="load-more-container">
-              <p class="text-[11px] font-normal text-[#555555]">
+              <p class="text-xs text-[#767676]">
                 Menampilkan <span id="visible-count" class="font-semibold text-[#111111]">{Math.min(INITIAL_COUNT, products.length)}</span> dari <span id="total-count" class="font-semibold text-[#111111]">{products.length}</span> produk
               </p>
               <button
                 id="load-more-btn"
                 type="button"
-                class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-none border border-[#111111] bg-[#111111] px-6 py-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#000000] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+                class="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-[#E5E5E5] bg-white px-6 text-sm font-semibold text-[#111111] transition-colors hover:border-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
               >
-                <span>Lihat Produk Lainnya</span>
+                <span>Lihat produk lainnya</span>
                 <Icon name="lucide:chevron-down" class="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           )}
         </>
       ) : (
-        <div class="border-fade-y py-10 text-center">
+        <div class="rounded-2xl bg-[#F3F3F3] px-5 py-10 text-center">
           <h2 class="text-lg font-semibold text-[#111111]">Katalog sedang disiapkan</h2>
           <p class="mt-2 text-sm leading-6 text-[#555555]">Produk akan muncul setelah konten dan varian diterbitkan.</p>
         </div>

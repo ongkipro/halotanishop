@@ -1,8 +1,159 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-10-23 (1.7.8 on revenleather; 1.7.4 on zvarashop; 1.7.2 on beranda-tani, numaskin-adbook, taniniaga, agritani-shop, zanobyshop)
+> Verified against disk: 2026-10-31 @ `d61afbe` (A38 cancelled; local development, not deployed; headless-browser evidence on a local store). Fleet evidence remains 2026-10-24 (1.7.13 on revenleather, zvarashop, taniniaga, agritani-shop, halotanishop, permatamall, numaskin-adbook, bavenshop, beranda-tani; zanobyshop on 1.7.2); not rechecked.
+
+## 2026-10-31 — Local development (not deployed, not released)
+
+`main` is at `6130c9d`-era 1.7.14 plus A45 (PRs #106, #108–#110: operations API,
+`adsbook` CLI, Analitik › UTM, Link UTM). Not yet merged, stacked in this order
+and pushed: `feat/compact-wa-follow-up` (one-tap WhatsApp chips, compact order
+list), `feat/mengantar-pickup` (A46 pickup or drop-off push, `/time` slot fix),
+`feat/admin-topbar-polish` (topbar, dropdown pickup fields, Link UTM polish,
+Analitik table polish merged from `feat/insights-table-polish`, audit fixes),
+`feat/storefront-compact-v2` (compact-market v2 storefront, BUILD-LOG 204),
+`fix/ui-actions-audit` (admin UI-actions audit fixes, BUILD-LOG 205).
+Schema 78 (`0077_orders_mengantar_handover`). Package version unchanged.
+
+Audit 2026-10-31 (`docs/AUDIT-2026-10-31.md`, `docs/AUDIT-2026-10-31-tracking.md`):
+fixed H-1 (late payment on a replaced AutoLaris instruction), M-1 (unknown
+Mengantar push outcome blocks re-push), tracking H-1 (fresh-tab `/thanks`
+Purchase for unpaid/cancelled orders), tracking L-2/L-6, M-10. Open findings are
+rows `AUD-*` in `UNIMPLEMENTED_SPECS.md` §1. The admin UI-actions audit
+(`docs/AUDIT-2026-10-31-ui-actions.md`, 2 high / 7 medium / 8 low) is fixed on
+`fix/ui-actions-audit` except `AUD-UI-M2` (write path), `AUD-UI-TPL` and
+`AUD-UI-L8` (Welcome chip).
+
+Evidence: `npm test` 1096 pass on `fix/ui-actions-audit` (1091 before it), `npm run check` 0 errors / 0 hints, build
+complete; 30 admin pages at 390 px without overflow or page errors; Mengantar
+pickup push exercised only against the local stand-in. Not run against live
+Mengantar, AutoLaris, Meta or Google; nothing deployed.
+
+## 2026-10-30 — Local development handoff (not deployed)
+
+A37 backend resumed in `adsbookcms-s1-a36-a38` at `7f59daf` plus uncommitted
+work. A-349–A-356 verified locally; A-348 measured but its required commit is
+not authorized. No change to the fleet/version statement above. Canonical
+completion details: TASKS A37; reproducible cost figures: PRD A37; history:
+BUILD-LOG Entry 186.
+
+A-357–A-360 screen code now exists; A-361 SSR checks pass (1033 full-suite
+checks, 0 type errors, successful build). The browser-tool blocker is resolved:
+agent-browser 0.38.1 passes its doctor and native interaction smoke. An isolated
+Tailscale demo on port 8795 has 11 synthetic products and 18 orders; login and all
+five reports render, with no observed page errors. Landing captures exist at
+390/1366px under `.wrangler/`. This is smoke evidence, not full acceptance.
+Existing local store state and production were not modified.
+
+Upstream review: origin/main is `be08fc6` (1.7.14, Kelola backfill, PR #101).
+Merged into `feat/s1-a36-a38` on 2026-10-30 (BUILD-LOG Entry 190); the notes
+below are the pre-merge review. After the owner made the repository
+public, CI run 40884103654 passed check/tests/build; its earlier failure was a
+billing-blocked job, not a test failure. The simulated committed-tree merge
+preserves A41 recorded weights and schema 73; STATUS and generated route maps
+conflict. Both histories used BUILD-LOG Entry 185; at the merge upstream kept
+185 and the local entries became 186–189.
+
+Further local QA: all five reports have zero document-width overflow at
+390/1366/1536px on the synthetic data. Explicit Apply, period persistence,
+keyboard province drill-down, product variant expansion, empty/reset and aborted
+fetch/retry recovery are observed. Product desktop ranking is now a table;
+Landing has a named focusable horizontal scroll region. Tests remain 1033/1033;
+check 0/0/0, build, docs check and regenerated 131-route map pass. Existing eight
+D1 fixture budgets pass unchanged. Full visual/role/theme/fixture acceptance and
+selector-query accounting are still outstanding, not inferred from this smoke.
+
+Review fixes (TASKS A37, 2026-10-30): 1039/1039 tests, check 0/0/0, build; the
+8795 demo was restarted on the new build and the fixed paths were exercised in
+the browser at 1366/390px. Demo D1 now holds follow-up rows written by that QA.
+
+Next action: finish A-357–A-360 acceptance and richer historical/source/lead/return
+fixtures. A38 (dashboard panels) was cancelled on 2026-10-31; its unintegrated
+`d408b32` commit was discarded. Finish A-362 measurements and
+browser proof before A-419/A-420. Local green tests are not release completion.
+
+## 2026-10-29 — Variant weights across the fleet (A-391)
+
+Read-only `wrangler d1 execute --remote` (one `SELECT` per database). A variant
+"at 1000 g" carries the schema default unless an operator chose exactly 1 kg.
+
+| Store | Variants | At 1000 g | Active products, every variant at 1000 g | Other weights in use (sample) |
+| --- | ---: | ---: | --- | --- |
+| zanobyshop | 64 | 63 | **34 of 34** | 981 |
+| skincarebpom | 23 | 21 | **11 of 13** | 30 |
+| revenleather | 208 | 9 | 3 of 79 | 400 … 1600 |
+| halotanishop | 10 | 7 | 2 of 5 | 500 |
+| taniniaga | 10 | 7 | 2 of 5 | 500 |
+| zvarashop | 171 | 9 | 1 of 70 | 50 … 300 |
+| agritani-shop | 13 | 4 | 0 of 4 | 250, 500, 2000 |
+| beranda-tani | 8 | 4 | 0 of 4 | 500 |
+| bavenshop | 67 | 4 | 0 of 27 | 100 … 450 |
+| permatamall | 12 | 1 | 0 of 6 | 50 … 2000 |
+| numaskin-adbook | 55 | 0 | 0 of 49 | 80 … 240 |
+| cekat-shop, klikinaja | 0 | 0 | none | — |
+| agritani-d1 | not an AdsBookCMS schema | | | |
+
+- zanobyshop and skincarebpom quote almost every order at 1 kg per item. For
+  skincare that is likely heavier than the parcel, so buyers there may be
+  paying more shipping than the parcel costs. Their operators should confirm
+  the real weights in the CMS; nothing was changed by this read.
+
+## 2026-10-29 — D1 usage across the account (A-375)
+
+Read-only `wrangler d1 insights <db> --remote --time-period 30d --sort-by reads`
+over all 14 D1 databases in the account, summed per database and divided by 30.
+Free-plan allowance per account and day: 5,000,000 rows read, 100,000 rows
+written, enforced since 2026-09-01 (PRD A40 E1).
+
+| Database | Rows read / day | Rows written / day |
+| --- | ---: | ---: |
+| revenleather | 6,455,221 | 35,567 |
+| zvarashop | 3,985,578 | 10,512 |
+| taniniaga | 1,196,574 | 10,846 |
+| beranda-tani | 877,524 | 13,174 |
+| agritani-shop | 552,111 | 10,662 |
+| zanobyshop | 233,202 | 136 |
+| permatamall | 86,639 | 1,105 |
+| the other seven together | 143,069 | 1,416 |
+| **Account** | **13,529,918** | **83,419** |
+
+- Reads average **2.7×** the Free allowance and writes **83 %** of it. On Workers
+  Free every D1 query in the account would fail for part of every day, so either
+  the account is already on Paid or the fleet is failing daily. The OAuth token
+  here cannot read the plan; Paduka confirms it in the dashboard (ADR-031).
+- Heaviest reads, fleet-wide per day: the public landing-page list (2.75M, a
+  correlated subquery per row), the social-proof 24-hour order count (2.13M; its
+  `unixepoch(created_at)` predicate cannot use the index, so each run scans
+  `orders`), the storefront catalog's full `product_variants` and `products`
+  reads (2.02M and 1.61M), the CAPI outbox retention `DELETE` (1.98M, again a
+  `unixepoch(updated_at)` scan), the schema check on `d1_migrations` (0.83M),
+  `storefront_content` (0.60M), and the notification unread count (0.38M).
+- Heaviest writes: the CAPI outbox (insert plus two updates per event, about
+  58k a day together) and `rate_limits` (15k upserts and 3k purges).
+- Raw JSON is not committed. Tasks A-381 to A-387 in TASKS act on these.
+
+## 2026-10-29 — 1.7.14: Kelola plugin backfills old orders
+
+- The Kelola webhook and hourly drain only cover the last 24 h, so orders taken
+  before the plugin was switched on never reached Kelola. **1.7.14** adds
+  "Kirim order lama" to `/admin/settings/plugins/kelola` (BUILD-LOG Entry 185).
+  Not deployed to any install yet; the settings page has not been opened in a
+  browser.
 
 ## 2026-10-24 — 1.7.13: manual transfer confirmation sends the Purchase
+
+- Fleet on 1.7.13, all deployed 2026-10-24 with `placement: smart` now in every
+  install's `wrangler.jsonc`: zvarashop `892b5e1c`, taniniaga `f5e5f989`,
+  agritani-shop `5ff9537f`, halotanishop `221c80a2`, numaskin-adbook
+  `c1abc162`, bavenshop `c5ae60ed`, beranda-tani `9450565d`, permatamall
+  `613ca146` (from 1.5.11; production D1 went 62 → 67 migrations on the first
+  request). Each: home, a sitemap product page with its form, and `/admin`
+  (302) checked live. halotanishop and bavenshop repositories made private.
+- **permatamall's GitHub Actions deploy cannot pass.** `deploy.yml` runs the
+  strict preflight, and the repository's `CLOUDFLARE_API_TOKEN` cannot read D1
+  ("could not read the production migration ledger"), so every push since
+  2026-10-19 has failed. 1.7.13 was deployed from a workstation instead, and
+  `deploy.yml` was then removed (permatamall `5499583`): it deploys by hand
+  like every other install, and CI runs check, test and build only.
 
 - Audit of revenleather D1, last 30 days: every `INV-` COD order (136/136) has
   a `sent` CAPI Purchase, fbc on 59 of the last 60. The 41 without one are
@@ -946,9 +1097,9 @@ As of the split on 2026-08-16, the fixes recorded below live in this repository.
 
 | Gate | Result |
 | --- | --- |
-| `npm test` | **836 / 836 passing** (2026-10-16, 1.5.10) |
+| `npm test` | **1096 / 1096 passing** (2026-10-31, `fix/ui-actions-audit`; not released) |
 | `npm run check` | 0 errors · 0 warnings · 0 hints |
-| `npm run build` | Cloudflare server bundle complete; 62 bundled migrations |
+| `npm run build` | Cloudflare server bundle complete; 78 bundled migrations, `0000`–`0077` (2026-10-31, `fix/ui-actions-audit`) |
 | PageSpeed Insights, mobile, official API (2026-08-24) | taniniaga 96 · carukesi 95 · permatamall 94 · zanobyshop 92 · skincarebpom 89 · zvara 85 — CLS 0.00 on every store |
 | Lighthouse accessibility, `/payment` & `/thanks` (2026-08-24) | 100, zero failed audits, on both pages on every install |
 | Browser smoke | A fresh isolated install exposed all ten default couriers through `/api/admin/expeditions`. `/admin/orders/abandoned` rendered its shadcn Card/Badge/Button/Dialog composition at 390, 768, and 1280 CSS px with zero overflow, no stuck busy state, no failed request, and no console error. A populated lead opened the conversion Dialog, focused the invalid address, and returned focus after `Escape`. A separate isolated owner session on `/admin/balance` rendered pending and locked AutoLaris rows, blocked blank manual-confirmation submission with focused inline errors, and an already-confirmed payment redirected `/payment` to `/thanks` with zero console errors. No live provider request, deployment, or remote D1 mutation occurred. |

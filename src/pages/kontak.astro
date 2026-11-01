@@ -2,11 +2,14 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import LegalPage from '../components/storefront/shared/LegalPage.astro';
 import { getTenantLegalPage } from '../data/legal';
-import { getStoreSupportWhatsapp } from '../lib/public-store';
+import { getStorePublicContact } from '../lib/public-store';
 
-const supportWhatsapp = await getStoreSupportWhatsapp(Astro.locals);
+const contact = await getStorePublicContact(Astro.locals);
 const data = getTenantLegalPage('contact', Astro.locals.tenant.name, {
-  supportWhatsapp: supportWhatsapp ? `+${supportWhatsapp.replace(/^0/, '62')}` : '',
+  supportWhatsapp: contact.whatsapp,
+  supportEmail: contact.email,
+  businessAddress: contact.address,
+  siteUrl: Astro.locals.tenant.siteUrl,
 });
 ---
 

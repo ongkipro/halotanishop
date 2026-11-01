@@ -277,3 +277,15 @@ test("CMS_VERSION.schemaVersion matches the ordered migration chain on disk", ()
     );
   });
 });
+
+test("tests find a product migration from 0067 on by its suffix, never by number", async () => {
+  // An install with catalogue migrations of its own renumbers the product's
+  // above them (zvarashop, 2026-10-31); a test naming "0076_..." then opens a
+  // file that does not exist there. 0000-0066 predate every install's own.
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const dir = new URL("./", import.meta.url);
+  const offenders = readdirSync(dir)
+    .filter((file) => file.endsWith(".test.ts") && file !== "deploy-preflight.test.ts")
+    .filter((file) => /migrations\/00(6[7-9]|[7-9]\d)_|["'`]00(6[7-9]|[7-9]\d)_[a-z0-9_]+\.sql/.test(readFileSync(new URL(file, dir), "utf8").replace(/tests find a product migration[\s\S]*$/m, "")));
+  assert.deepEqual(offenders, []);
+});

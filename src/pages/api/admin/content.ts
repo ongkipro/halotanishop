@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { getRuntimeEnv } from "../../../lib/env";
 import {
+  contentValidationMessage,
   parseContentKey,
   validateContent,
 } from "../../../lib/storefront-content";
@@ -206,7 +207,7 @@ async function generationContext(database: D1Database, keyValue: unknown) {
   };
 }
 
-const HOME_SHAPE = `hero {title, description, ratingLabel}; catalog, solutionsHeading, proofsHeading each {eyebrow,title,description}; heroHighlights [{label,icon}]; heroSlides [{image,alt,badge,text}]; solutions [{title,excerpt,image,optional href,optional crop}]; proofs [{name,location,story,image}]`;
+const HOME_SHAPE = `hero {title, description, ratingLabel}; catalog, solutionsHeading, proofsHeading each {title,description}; heroHighlights [{label,icon}]; heroSlides [{image,alt,badge,text}]; solutions [{title,excerpt,image,optional href,optional crop}]; proofs [{name,location,story,image}]`;
 const PRODUCT_SHAPE = `contentName, headline, subheadline, seoTitle, seoDescription, image, heroImage, tag, relatedCategories[], optional relatedTags[], description, benefits[], keyPoints[], idealFor[], offerText, ctaText, optional ratingValue/reviewCount/soldCount, reviews [{name,location,avatar,verified,date,comment,rating}]`;
 
 export const PUT: APIRoute = async ({ request, locals }) => {
@@ -340,9 +341,10 @@ export const PUT: APIRoute = async ({ request, locals }) => {
 
     return json({ success: false, error: "Unsupported content action." }, 400);
   } catch (error) {
-    const message = errorMessage(error);
+    const invalid = contentValidationMessage(error);
+    const message = invalid ?? errorMessage(error);
     const status =
-      /not found|required|must|invalid|exceeds|configured|allowed|key/i.test(
+      invalid || /not found|required|must|invalid|exceeds|configured|allowed|key/i.test(
         message,
       )
         ? 400

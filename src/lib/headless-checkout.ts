@@ -1,5 +1,6 @@
 import { selectQuotedRate } from './courier-rules.ts';
 import type { OrderSubmitInput } from './order-schema.ts';
+import { provinceCodeForCity } from './warehouse-choice.ts';
 
 export type ShippingQuoteFailure = Error & {
   code: string;
@@ -16,10 +17,13 @@ export type TrustedHeadlessShipping = {
 
 type QuoteResolver = (input: {
   destinationId: string;
-  destinationCity?: string;
   paymentMethod: string;
   variantKey?: string;
   quantity?: number;
+  warehouseId?: number;
+  destinationProvince?: string;
+  warehouseOnly?: boolean;
+  noPrimaryFallback?: boolean;
 }) => Promise<{
   rates: Array<{
     courier_code: string;
@@ -69,13 +73,61 @@ export async function resolveTrustedHeadlessShipping(
     );
   }
 
-  const quote = await quoteResolver({
+  // Re-quote with exactly what the rate call had (PRD A42): the destination
+  // and the `warehouse_id` it returned. `city` does not choose the warehouse:
+  // a client that quoted without one was shown the primary's price, and
+  // choosing by the checkout's city would charge it another warehouse's.
+  const quotedWarehouseId = Number(body.warehouse_id);
+  const warehouseId =
+    Number.isSafeInteger(quotedWarehouseId) && quotedWarehouseId > 0 ? quotedWarehouseId : undefined;
+  const quoteInput = {
     destinationId,
-    destinationCity: String(body.city || '').trim() || undefined,
     paymentMethod: data.payment_method,
     variantKey: data.variant_id,
     quantity: data.quantity,
-  });
+    warehouseId,
+    // Nothing here compares a submitted shipping cost, so a quote must never
+    // move to the primary behind the buyer's back.
+    noPrimaryFallback: true,
+  };
+  // With no `warehouse_id` echoed, checkout cannot tell whether the rate call
+  // carried `city` (warehouse chosen by province) or not (primary). Ask which
+  // warehouse that city would choose (no rate call); only when it is not the
+  // primary, quote from it too. If the two disagree on the chosen rate's
+  // price, either may be a price the buyer was not shown, so refuse instead of
+  // guessing (audit finding 23). A one-warehouse store always agrees and makes
+  // the one rate call it made before A42. A failed extra quote throws, never
+  // falls back to the primary's price.
+  const cityProvince = warehouseId ? '' : provinceCodeForCity(String(body.city || ''));
+  const [quote, cityChoice] = await Promise.all([
+    quoteResolver(quoteInput),
+    cityProvince
+      ? quoteResolver({ ...quoteInput, destinationProvince: cityProvince, warehouseOnly: true })
+      : undefined,
+  ]);
+  // `?? null` so a store with no warehouse rows (env origin) compares equal:
+  // Number(undefined) is NaN, and NaN never equals itself.
+  if (cityChoice && (cityChoice.warehouse?.id ?? null) !== (quote.warehouse?.id ?? null)) {
+    const cityQuote = await quoteResolver({ ...quoteInput, destinationProvince: cityProvince });
+    const shown = selectQuotedRate(cityQuote.rates, courierCode, courierServiceId);
+    const charged = selectQuotedRate(quote.rates, courierCode, courierServiceId);
+    if (shown && charged && shown.price !== charged.price) {
+      throw createShippingQuoteFailure(
+        'Ongkir berbeda per gudang. Kirim warehouse_id dari tarif yang dipilih lalu coba lagi.',
+        'SHIPPING_QUOTE_CHANGED',
+        409,
+      );
+    }
+  }
+  // The quoted warehouse is no longer active or ready: its price is not what
+  // this order would be charged, so the client must re-quote.
+  if (warehouseId && Number(quote.warehouse?.id) !== warehouseId) {
+    throw createShippingQuoteFailure(
+      'Gudang pengiriman berubah. Muat ulang ongkir lalu coba lagi.',
+      'SHIPPING_QUOTE_CHANGED',
+      409,
+    );
+  }
   const rate = selectQuotedRate(quote.rates, courierCode, courierServiceId);
   if (!rate) {
     throw createShippingQuoteFailure(

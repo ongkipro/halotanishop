@@ -126,7 +126,8 @@ class SqliteD1Database {
         product_id INTEGER NOT NULL REFERENCES products(id),
         sku TEXT,
         price INTEGER NOT NULL,
-        stock INTEGER
+        stock INTEGER,
+        weight_grams INTEGER NOT NULL DEFAULT 1000
       );
 
       CREATE TABLE orders (
@@ -174,7 +175,8 @@ class SqliteD1Database {
         order_id INTEGER NOT NULL REFERENCES orders(id),
         variant_id INTEGER NOT NULL REFERENCES product_variants(id),
         quantity INTEGER NOT NULL,
-        unit_price INTEGER NOT NULL
+        unit_price INTEGER NOT NULL,
+        weight_grams INTEGER
       );
 
       CREATE TABLE payment_transactions (

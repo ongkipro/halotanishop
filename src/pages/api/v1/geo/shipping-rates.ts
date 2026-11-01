@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { handleOptions, headlessError, headlessOk, validateHeadlessRequest } from '../../../../lib/headless-api';
 import { getRuntimeEnv } from '../../../../lib/env';
 import { resolveEligibleShippingRates, ShippingQuoteError } from '../../../../lib/shipping-quote';
+import { provinceCodeForCity } from '../../../../lib/warehouse-choice';
 
 export const prerender = false;
 
@@ -51,6 +52,11 @@ async function calculateRates({ request, url, locals }: Parameters<APIRoute>[0])
       parseInt(String(body.quantity || url.searchParams.get('quantity') || '1'), 10)
     );
     const weight = Number(body.weight || url.searchParams.get('weight') || 1);
+    // The buyer's city picks the warehouse (PRD A42). Only its province is
+    // passed, not `destinationCity`, so this quote keeps its own fallback
+    // behaviour. The answer carries `warehouse_id`; /api/v1/checkout re-quotes
+    // from that warehouse, and from the primary when the client sends none.
+    const city = String(body.city || url.searchParams.get('city') || '').trim();
 
     const env = getRuntimeEnv(locals);
     const database = env?.OMS_DB as D1Database | undefined;
@@ -60,7 +66,7 @@ async function calculateRates({ request, url, locals }: Parameters<APIRoute>[0])
       }, validation.corsHeaders));
     }
 
-    const { originId, rates, fallbackUsed } = await resolveEligibleShippingRates(
+    const { originId, rates, fallbackUsed, warehouse } = await resolveEligibleShippingRates(
       database,
       locals,
       {
@@ -69,6 +75,7 @@ async function calculateRates({ request, url, locals }: Parameters<APIRoute>[0])
         variantKey: variantKey || undefined,
         fallbackWeightKg: weight > 100 ? weight / 1000 : weight,
         quantity,
+        destinationProvince: provinceCodeForCity(city) || undefined,
       }
     );
 
@@ -77,6 +84,7 @@ async function calculateRates({ request, url, locals }: Parameters<APIRoute>[0])
         destination_id: destinationId,
         payment_method: paymentMethod,
         origin_id: originId,
+        warehouse_id: warehouse?.id ?? null,
         fallback_used: Boolean(fallbackUsed),
         rates: rates.map((r) => ({
           courier_code: r.courier_code,

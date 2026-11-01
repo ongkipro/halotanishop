@@ -3,19 +3,20 @@
 [data-hybrid-form-root],
 [data-middle-form-root] {
   color: #1a1a1a;
-  /* Shopify-checkout palette: white fields with a visible hairline, a light
-     blue-grey for filled panels, and a single interactive blue that carries
-     every selected / focused / primary control. */
-  --sf-accent: #2c6ecb;
-  --sf-accent-strong: #1f5199;
-  --sf-accent-soft: #eef4fc;
-  --sf-accent-ring: rgba(44, 110, 203, 0.28);
+  /* Shopify-theme palette (Dawn, design/refs/dawn-pdp): ink carries every
+     selected / focused / primary control, a neutral grey marks what is
+     filled or chosen, and empty fields are plain white with a hairline. A
+     store re-brands by overriding these tokens (ADR-019), never a call site. */
+  --sf-accent: #121212;
+  --sf-accent-strong: #333333;
+  --sf-accent-soft: #f3f3f3;
+  --sf-accent-ring: rgba(18, 18, 18, 0.22);
   --sf-field: #ffffff;
-  /* The resting well of an empty input. Light enough to read as "not filled in
-     yet" beside the soft blue a completed one takes. */
-  --sf-field-empty: #f4f5f7;
-  --sf-field-border: #c9cccf;
-  --sf-surface-alt: #f6f8fb;
+  /* An empty input is white; a filled one takes --sf-accent-soft, so a buyer
+     can still see at a glance which fields are waiting. */
+  --sf-field-empty: #ffffff;
+  --sf-field-border: #c7c7c7;
+  --sf-surface-alt: #f7f7f7;
   --sf-line: #e3e3e3;
 }
 .form-block {
@@ -219,10 +220,10 @@
   padding: 1.4rem 0.85rem 0.4rem;
   /* Shopify-style rounded frame: a full 1.5px border the whole way round, no
      ring or drop shadow. The frame is the only thing that changes colour -
-     blue while typing, red on an error. */
+     ink while typing, red on an error. */
   border: 1.5px solid var(--sf-field-border);
   border-radius: 0.5rem;
-  /* Empty reads as a light grey well; a filled one turns the same soft blue the
+  /* Empty reads as a light grey well; a filled one turns the same soft grey the
      rest of the checkout uses, so a buyer can see at a glance which fields are
      still waiting. */
   background: var(--sf-field-empty);
@@ -313,7 +314,7 @@
   font-size: 0.625rem;
   font-weight: 700;
 }
-/* Filled but not being edited: the soft blue that says "done". `placeholder=" "`
+/* Filled but not being edited: the soft grey that says "done". `placeholder=" "`
    on every field is what makes `:placeholder-shown` a reliable emptiness test —
    the same hook the floating label already uses. */
 .form-field input:not(:placeholder-shown),
@@ -382,7 +383,7 @@
 .field-grid textarea.field-valid,
 .form-field input.field-valid,
 .form-field textarea.field-valid {
-  /* A validated field is by definition filled, so it keeps the filled blue
+  /* A validated field is by definition filled, so it keeps the filled grey
      rather than reverting to white. */
   border-color: var(--sf-field-border);
   background: var(--sf-accent-soft) !important;
@@ -652,7 +653,7 @@
   align-items: center;
   gap: 0.7rem;
   padding: 0.8rem 0.85rem;
-  /* A transparent rail on the left turns blue on the selected row - the whole
+  /* A transparent rail on the left turns ink on the selected row - the whole
      row reads as chosen without a drop shadow. */
   border: 0;
   border-left: 3px solid transparent;
@@ -930,7 +931,7 @@
   gap: 0.85rem;
   margin-top: 0.35rem;
   padding: 0.9rem 0.85rem;
-  /* The order-summary total, the one row that is filled - a soft blue panel so
+  /* The order-summary total, the one row that is filled - a soft grey panel so
      the figure the buyer acts on carries the checkout's accent. */
   background: var(--sf-accent-soft);
   border-radius: 0.5rem;

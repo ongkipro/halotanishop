@@ -23,6 +23,8 @@ export type HeadlessShippingRate = {
   cod_available: boolean;
   cod_fee: number;
   total_shipping: number;
+  /** The rate call's `warehouse_id`; echo it to checkout (multi-warehouse stores). */
+  warehouse_id?: number;
 };
 
 export type HeadlessCheckoutOrder = {
@@ -108,6 +110,7 @@ export type HeadlessCheckoutInput = {
   payment_method: "cod" | "bank_transfer" | "qris" | "manual_transfer";
   payment_channel?: string;
   seller_bank_account_id?: number;
+  warehouse_id?: number;
   variant_id: string | number;
   quantity: number;
   submit_token: string;
@@ -286,6 +289,7 @@ export class HeadlessApiClient {
         cod_available: rate.cod_available === true,
         cod_fee: requireNumber(rate.cod_fee, "rate.cod_fee"),
         total_shipping: requireNumber(rate.total_shipping, "rate.total_shipping"),
+        ...(typeof envelope.warehouse_id === "number" ? { warehouse_id: envelope.warehouse_id } : {}),
       };
     });
   }
@@ -411,6 +415,7 @@ export async function runHeadlessCheckoutJourney(
     destination_id: input.destination_id,
     courier_code: rate.courier_code,
     courier_service_id: rateIndex + 1,
+    warehouse_id: rate.warehouse_id,
     website: input.website,
   });
   const status = await client.getOrderStatus(checkout.order_number, checkout.public_status_token);

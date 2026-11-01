@@ -14,6 +14,6 @@ if (!/^\d+$/.test(productId)) return Astro.redirect('/admin/products', 302);
       title="Edit produk"
       description="Perbarui identitas produk dan varian. Product ID tersedia di ringkasan; varian yang sudah dipakai order tidak dapat dihapus."
     />
-    <ProductForm productId={productId} client:load />
+    <ProductForm productId={productId} storeName={Astro.locals.tenant.name} client:load />
   </div>
 </AdminLayout>

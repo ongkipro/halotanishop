@@ -125,6 +125,7 @@ export const headlessOpenApiDocument = {
           { name: "variant_id", in: "query", schema: { type: "string" } },
           { name: "quantity", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
           { name: "payment_method", in: "query", schema: { type: "string", default: "cod" } },
+          { name: "city", in: "query", description: "Buyer's city; picks the warehouse the quote ships from. Send the returned warehouse_id to /checkout.", schema: { type: "string", maxLength: 120 } },
         ],
         responses: {
           "200": { description: "Eligible rates", content: { "application/json": { schema: { $ref: "#/components/schemas/ShippingQuoteEnvelope" } } } },
@@ -167,7 +168,7 @@ export const headlessOpenApiDocument = {
         responses: {
           "201": { description: "Order created", content: { "application/json": { schema: { $ref: "#/components/schemas/CheckoutEnvelope" } } } },
           "400": errorResponse("Request JSON is invalid"),
-          "409": errorResponse("Submission token was already used"),
+          "409": errorResponse("Submission token was already used, or the quoted warehouse changed or is ambiguous (SHIPPING_QUOTE_CHANGED: re-quote and echo warehouse_id)"),
           "422": errorResponse("Checkout input or shipping selection is invalid"),
           "500": errorResponse("Checkout failed"),
           ...authenticatedErrors,
@@ -457,6 +458,7 @@ export const headlessOpenApiDocument = {
           quantity: { type: "integer", minimum: 1 },
           payment_method: { type: "string", enum: ["cod", "bank_transfer", "qris", "manual_transfer"] },
           weight: { type: "number", exclusiveMinimum: 0 },
+          city: { type: "string", maxLength: 120, description: "Buyer's city; picks the warehouse the quote ships from. Send the returned warehouse_id to /checkout." },
         },
       },
       ShippingRate: {
@@ -481,6 +483,7 @@ export const headlessOpenApiDocument = {
           destination_id: { type: "string" },
           payment_method: { type: "string" },
           origin_id: { type: "string" },
+          warehouse_id: { type: ["integer", "null"], description: "The warehouse this quote ships from. Echo it to /checkout." },
           fallback_used: { type: "boolean" },
           rates: { type: "array", items: { $ref: "#/components/schemas/ShippingRate" } },
         },
@@ -507,6 +510,7 @@ export const headlessOpenApiDocument = {
           courier_code: { type: "string", minLength: 1 },
           courier_service: { type: "string" },
           courier_service_id: { type: "integer", minimum: 1 },
+          warehouse_id: { type: "integer", minimum: 1, description: "The warehouse_id of the rate response the buyer chose from. Absent: quoted from the primary warehouse; 409 SHIPPING_QUOTE_CHANGED if city would have chosen another warehouse at a different price. City does not choose the warehouse here." },
           website: { type: "string", maxLength: 0 },
         },
       },

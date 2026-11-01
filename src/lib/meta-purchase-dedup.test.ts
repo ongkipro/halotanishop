@@ -306,3 +306,27 @@ test("embed parent surfaces never emit Purchase before verified thanks", () => {
   assert.doesNotMatch(widgetSource, /adsbook:order-complete/);
   assert.doesNotMatch(navigationSource, /adsbook:order-complete/);
 });
+
+// Audit 2026-10-31 tracking H-1: opened in a fresh tab, the thanks state holds
+// only the order key and token (no method, no order number), and the tracker
+// used to default to COD — firing a Purchase for unpaid and cancelled orders.
+test("a fresh tab decides Purchase from the order's own method and state, not from storage", async () => {
+  const freshTab = { payment_method: undefined, order_id: undefined };
+  const status = { success: true, order_number: "INV-10042", total_amount: 189_000, product_value: 150_000 };
+
+  const unpaidQris = await runTracker({ ...status, payment_method: "qris", payment_status: "pending", status: "pending", is_paid: false }, freshTab);
+  assert.equal(unpaidQris.pixelEventIds.length, 0, "an unpaid QRIS order is no sale");
+  assert.equal(unpaidQris.postedPayloads.length, 0);
+
+  const cancelledCod = await runTracker({ ...status, payment_method: "cod", payment_status: "unpaid", status: "cancelled", is_paid: false }, freshTab);
+  assert.equal(cancelledCod.pixelEventIds.length, 0, "a cancelled COD order is no sale");
+
+  const refunded = await runTracker({ ...status, payment_method: "qris", payment_status: "refunded", status: "pending", is_paid: false }, freshTab);
+  assert.equal(refunded.pixelEventIds.length, 0, "a refunded order is no sale");
+
+  const liveCod = await runTracker({ ...status, payment_method: "cod", payment_status: "unpaid", status: "pending", is_paid: false }, freshTab);
+  assert.deepEqual(liveCod.pixelEventIds, ["INV-10042"], "a live COD order still fires once, keyed by the server's order number");
+
+  const paidQris = await runTracker({ ...status, payment_method: "qris", payment_status: "paid", status: "pending", is_paid: true }, freshTab);
+  assert.deepEqual(paidQris.pixelEventIds, ["INV-10042"]);
+});

@@ -1,0 +1,19 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import AdminPageHeader from '../../../components/admin/AdminPageHeader.astro';
+import WhatsappNumbers from '../../../components/admin/WhatsappNumbers';
+
+export const prerender = false;
+---
+
+<AdminLayout title="Nomor WhatsApp CS" activeMenu="settings">
+  <div class="space-y-6">
+    <AdminPageHeader
+      title="Nomor WhatsApp CS"
+      description="Nomor yang menerima pembeli COD dari halaman terima kasih. Lebih dari satu nomor aktif dibagi rata per order."
+      backHref="/admin/settings"
+      backLabel="Pengaturan"
+    />
+    <WhatsappNumbers client:load />
+  </div>
+</AdminLayout>

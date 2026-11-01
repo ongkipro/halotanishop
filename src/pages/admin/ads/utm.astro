@@ -1,0 +1,46 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import AdminPageHeader from '../../../components/admin/AdminPageHeader.astro';
+import { UtmLinkBuilder, type UtmLinkPage } from '../../../components/admin/UtmLinkBuilder';
+import { getStorefrontProducts } from '../../../lib/catalog';
+import { listPublicLandingPages } from '../../../lib/landing-pages';
+import { nonCanonicalNativeSlugs } from '../../../lib/native-landing-pages';
+
+export const prerender = false;
+
+// PRD A45, REQ-262. The pages a link can point at are the ones the sitemap
+// advertises: active landing pages under their own slug (a page that took
+// over its product's URL is listed once, as the product) and active products.
+// Built on this store's own origin, never a hard-coded domain.
+const origin = Astro.locals.tenant.siteUrl.replace(/\/$/, '');
+const pages: UtmLinkPage[] = [];
+let catalogueUnavailable = false;
+try {
+  const [landings, products] = await Promise.all([listPublicLandingPages(Astro.locals), getStorefrontProducts(Astro.locals)]);
+  const duplicates = nonCanonicalNativeSlugs();
+  for (const landing of landings) {
+    if (landing.isProductPage || duplicates.has(landing.slug)) continue;
+    pages.push({ kind: 'landing', url: `${origin}/${landing.slug}`, label: `${landing.title} · /${landing.slug}` });
+  }
+  for (const product of products) {
+    pages.push({ kind: 'product', url: `${origin}/produk/${product.slug}`, label: `${product.productName} · /produk/${product.slug}` });
+  }
+} catch (error) {
+  console.error('admin-utm-pages', error);
+  catalogueUnavailable = true;
+}
+---
+<AdminLayout title="Link UTM" activeMenu="ads">
+  <div class="flex min-w-0 flex-col gap-5">
+    <AdminPageHeader
+      title="Link UTM"
+      description="Buat link iklan bertanda UTM untuk landing page atau produk, lalu bandingkan hasilnya di Analitik › UTM."
+      backHref="/admin/ads"
+      backLabel="Ads & tracking"
+    />
+    {catalogueUnavailable
+      ? <p role="alert" class="text-sm">Daftar halaman belum dapat dimuat. Muat ulang halaman untuk mencoba lagi.</p>
+      : <UtmLinkBuilder client:only="react" pages={pages} />}
+    <p class="text-sm"><a class="underline underline-offset-4" href="/admin/analytics/utm">Lihat hasil per kampanye di Analitik › UTM</a></p>
+  </div>
+</AdminLayout>

@@ -5,6 +5,7 @@ import {
   DEFAULT_API_KEY_RATE_LIMIT,
   hashApiKeySecret,
   parseStoredApiKeyScopes,
+  type ApiKeyScope,
   type HeadlessApiScope,
 } from './developer-api-keys.ts';
 
@@ -43,8 +44,9 @@ type DeveloperApiKeyRow = {
 
 type ApiKeyPolicyHeaders = Record<string, string>;
 
-type AuthenticatedApiKey = {
+export type AuthenticatedApiKey = {
   id: number;
+  scopes: ApiKeyScope[];
   corsHeaders: ApiKeyPolicyHeaders;
   database: D1Database;
   rateLimit: number;
@@ -89,10 +91,11 @@ function headlessAuthError(
   );
 }
 
-async function recordHeadlessApiAudit(
+export async function recordHeadlessApiAudit(
   database: D1Database,
   apiKeyId: number,
-  operation: HeadlessOperation,
+  /** A storefront operation, or an operations one (`ops.<name>`, PRD A45). */
+  operation: string,
   outcome: HeadlessAuditOutcome,
   statusCode: number,
   createdAt: string,
@@ -123,11 +126,17 @@ async function consumeUsageBucket(
   return row ? Number(row.request_count) : null;
 }
 
-async function validateHeadlessApiKey(
+/**
+ * Key lookup and scope check, shared by the storefront API and the operations
+ * API (`ops-api.ts`). `operation` is only the audit label; `requiredScope` is
+ * the one scope the route needs.
+ */
+export async function validateHeadlessApiKey(
   request: Request,
   locals: App.Locals | undefined,
   corsHeaders: Record<string, string>,
-  operation: HeadlessOperation,
+  operation: string,
+  requiredScope: ApiKeyScope,
 ): Promise<
   | { allowed: true; key: AuthenticatedApiKey }
   | { allowed: false; errorResponse: Response }
@@ -181,7 +190,6 @@ async function validateHeadlessApiKey(
     const now = new Date();
     const nowIso = now.toISOString();
     const scopes = parseStoredApiKeyScopes(record.scopes);
-    const operationPolicy = HEADLESS_OPERATIONS[operation];
     const rateLimit = Number.isInteger(record.rate_limit_per_minute)
       ? Number(record.rate_limit_per_minute)
       : DEFAULT_API_KEY_RATE_LIMIT;
@@ -194,7 +202,7 @@ async function validateHeadlessApiKey(
       'X-DailyQuota-Limit': String(dailyQuota),
     };
 
-    if (!scopes.includes(operationPolicy.scope)) {
+    if (!scopes.includes(requiredScope)) {
       await recordHeadlessApiAudit(database, record.id, operation, 'scope_denied', 403, nowIso);
       return {
         allowed: false,
@@ -211,6 +219,7 @@ async function validateHeadlessApiKey(
       allowed: true,
       key: {
         id: record.id,
+        scopes,
         corsHeaders: policyHeaders,
         database,
         rateLimit,
@@ -230,9 +239,9 @@ async function validateHeadlessApiKey(
   }
 }
 
-async function enforceHeadlessUsageLimits(
+export async function enforceHeadlessUsageLimits(
   key: AuthenticatedApiKey,
-  operation: HeadlessOperation,
+  operation: string,
 ): Promise<
   | { allowed: true; corsHeaders: Record<string, string> }
   | { allowed: false; errorResponse: Response }
@@ -599,7 +608,13 @@ export async function validateHeadlessRequest(
   ]);
   const initialCorsHeaders = buildCorsHeaders(origin);
 
-  const auth = await validateHeadlessApiKey(request, locals, initialCorsHeaders, options.operation);
+  const auth = await validateHeadlessApiKey(
+    request,
+    locals,
+    initialCorsHeaders,
+    options.operation,
+    HEADLESS_OPERATIONS[options.operation].scope,
+  );
   if (!auth.allowed) {
     return {
       allowed: false,

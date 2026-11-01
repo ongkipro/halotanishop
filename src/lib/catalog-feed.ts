@@ -18,6 +18,10 @@ export type CatalogProduct = {
   brand?: string;
   headline?: string;
   description?: string;
+  /** `products.description` as the merchant wrote it; preferred for the feed. */
+  catalogDescription?: string;
+  googleCategoryId?: number;
+  googleCategoryPath?: string;
   seoDescription?: string;
   heroImage: string;
   variants: CatalogProductVariant[];
@@ -85,8 +89,8 @@ export function catalogProductIdOrNull(productId: number | string): string | nul
 
 /**
  * The content id for a page where no variant has been chosen yet — a product
- * detail page or a landing page. The feed is product-level, while the first
- * variant remains the default price shown by the storefront.
+ * detail page or a landing page. The feed is product-level and priced at the
+ * cheapest variant, the same "from" price the storefront shows.
  *
  * Returns `undefined` rather than a guess when the product has no variants.
  * A `content_ids` that matches nothing in the catalog is worse than none: it
@@ -158,12 +162,28 @@ function buildCatalogXml(
   for (const product of products) {
     if (!product.variants || product.variants.length === 0) continue;
 
-    const taxonomy = getAdTaxonomy(product.category, product.productName, product.description || product.headline);
+    // A category the merchant chose from Google's taxonomy is sent exactly;
+    // the keyword engine is only the fallback for a product without one. Meta
+    // takes `google_product_category` or `fb_product_category`, not both, so a
+    // chosen id also drops the engine's Meta guess.
+    const guessed = getAdTaxonomy(product.category, product.productName, product.description || product.headline);
+    const taxonomy = product.googleCategoryId
+      ? {
+          ...guessed,
+          googleCategoryId: product.googleCategoryId,
+          metaCategoryName: undefined,
+          productType: product.googleCategoryPath || guessed.productType,
+        }
+      : guessed;
     const productLink = `${origin}/produk/${product.slug}`;
     const heroImage = feedImagePath(product.heroImage);
     const imageLink = heroImage.startsWith("http") ? heroImage : `${origin}${heroImage}`;
 
-    const variant = product.variants[0];
+    // The cheapest variant: the "from" price the product page and every card
+    // already show. `variants[0]` was whichever was entered first, so a product
+    // whose large size came first was listed at a price its page never showed
+    // — a price mismatch Merchant Center disapproves.
+    const variant = product.variants.reduce((low, candidate) => (candidate.price < low.price ? candidate : low));
     // One row that predates the five-digit scheme must not take the catalog
     // down. The strict identity rule still governs what gets published — an
     // unpublishable row is left out — but the feed is an aggregate, and
@@ -177,7 +197,10 @@ function buildCatalogXml(
     const salePriceXml = hasSale
       ? `\n      <g:sale_price>${escapeXml(`${variant.price} IDR`)}</g:sale_price>`
       : "";
-    const itemDescription = product.seoDescription || product.headline || product.description || siteDescription;
+    // The merchant's own description first: it is product facts. The SEO
+    // description is a 155-character page summary, and a generated one.
+    const itemDescription =
+      product.catalogDescription || product.description || product.seoDescription || product.headline || siteDescription;
 
     itemsXml += `
     <item>
@@ -277,8 +300,9 @@ export function generateMetaCatalogXml(
     channelSuffix: "Meta Commerce Catalog",
     titleMax: 200,
     descriptionMax: 9999,
-    // Meta reads its own taxonomy first and falls back to Google's, so both go
-    // out, in that order.
+    // Meta's own category when the keyword engine guessed one, and Google's id.
+    // A merchant-chosen Google id clears the Meta guess upstream: Meta's help
+    // centre asks for one of the two fields, not both.
     categoryXml: (taxonomy) =>
       (taxonomy.metaCategoryName
         ? `\n      <g:fb_product_category>${escapeXml(taxonomy.metaCategoryName)}</g:fb_product_category>`

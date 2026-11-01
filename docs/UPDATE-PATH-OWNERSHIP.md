@@ -48,7 +48,7 @@ copy-paste update must leave them byte-identical:
 - **`.wrangler/`**, `node_modules/`, `.astro/`, `dist/`, `tmp/` — local
   Cloudflare state and build artifacts. Gitignored; never copied.
 - **Merchant brand assets** the store replaced — `public/images/logo.svg`
-  (admin and login tab icon), `public/images/adsbook-mark.webp` (wordmark),
+  (admin and login tab icon),
   `public/images/payment/**` marks, and the favicons `public/favicon.ico`,
   `public/favicon.png` (32 px) and `public/favicon-192.png` (apple-touch; keep
   it full-bleed, the OS rounds it). The product ships neutral defaults; a store

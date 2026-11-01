@@ -47,8 +47,11 @@ export type MengantarPickupAddress = {
 export type MengantarPickupTimeInput = {
   addressId: string; // _id pickup address from GET /address
   date: string; // Format mm-dd-yyyy (e.g. 08-07-2026)
-  time: string; // Slot 9:00 - 18:00
+  time: string; // One-hour slot "9:00" … "18:00" (Mengantar docs, POST /time)
 };
+
+/** A pickup slot as `/time` answers it. */
+export type MengantarPickupTime = { _id: string; date: string; time: string };
 
 type MengantarApiResponse<T> = {
   success?: boolean;
@@ -370,6 +373,19 @@ function posCodIneligibility(httpStatus: number, payload: Record<string, unknown
  * whitelisted (Receiver Score and Courier Performance, per the provider docs).
  * Access is granted by Mengantar CS, never by a retry or a new key.
  */
+/**
+ * The request may have been carried out, and nothing says whether it was: a
+ * timeout, a dropped connection, a provider 5xx, or a 2xx whose body cannot be
+ * read (audit 2026-10-31 M-1). For `POST /order` it means a shipment may exist
+ * at Mengantar, so the order must not be pushed again blindly.
+ */
+export class MengantarOutcomeUnknownError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MengantarOutcomeUnknownError";
+  }
+}
+
 export class MengantarNotWhitelistedError extends Error {
   /** `detail` names the feature and the key that was refused, when the caller knows them. */
   constructor(detail?: string) {
@@ -418,7 +434,8 @@ export class MengantarClient {
         try {
           payload = JSON.parse(raw) as MengantarApiResponse<T>;
         } catch {
-          throw new Error('Mengantar API mengembalikan respons yang tidak valid.');
+          const message = 'Mengantar API mengembalikan respons yang tidak valid.';
+          throw res.ok || res.status >= 500 ? new MengantarOutcomeUnknownError(message) : new Error(message);
         }
       }
 
@@ -427,6 +444,8 @@ export class MengantarClient {
         const posCod = posCodIneligibility(res.status, payload as Record<string, unknown>);
         if (posCod) throw posCod;
         if (res.status === 403 && message === 'Not allowed') throw new MengantarNotWhitelistedError();
+        // A 5xx says nothing about whether the provider acted before failing.
+        if (res.status >= 500) throw new MengantarOutcomeUnknownError(message || `Mengantar API gagal (${res.status}).`);
         throw new Error(message || `Mengantar API gagal (${res.status}).`);
       }
       if (payload.success === false) {
@@ -438,8 +457,17 @@ export class MengantarClient {
       // Built only from provider fields we allowlist, never from the URL.
       if (error instanceof MengantarPosCodIneligibleError) throw error;
       if (error instanceof MengantarNotWhitelistedError) throw error;
+      if (error instanceof MengantarOutcomeUnknownError) {
+        throw new MengantarOutcomeUnknownError(redactMengantarApiKey(error.message, this.apiKey));
+      }
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Mengantar API timeout.');
+        throw new MengantarOutcomeUnknownError('Mengantar API timeout.');
+      }
+      // fetch rejects with a TypeError when the connection fails mid-request.
+      if (error instanceof TypeError) {
+        throw new MengantarOutcomeUnknownError(
+          redactMengantarApiKey(error.message, this.apiKey) || 'Koneksi ke Mengantar API terputus.',
+        );
       }
       if (error instanceof Error) {
         const sanitizedMessage = redactMengantarApiKey(error.message, this.apiKey);
@@ -520,9 +548,10 @@ export class MengantarClient {
     const formData = new URLSearchParams();
     formData.append('address_id', input.addressId);
     formData.append('date', input.date); // mm-dd-yyyy
-    formData.append('time', input.time); // 9:00 - 18:00
+    formData.append('time', input.time); // "13:00"
 
-    return await this.requestJson<Array<{ _id: string; date: string; time: string }>>('/time', {
+    // POST answers one slot object, GET an array (Mengantar docs); read with pickMengantarTimeId.
+    return await this.requestJson<MengantarPickupTime | MengantarPickupTime[]>('/time', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -536,7 +565,7 @@ export class MengantarClient {
    */
   async getPickupTimes(addressId: string) {
     const query = new URLSearchParams({ address: addressId });
-    return await this.requestJson<Array<{ _id: string; date: string; time: string }>>(`/time?${query.toString()}`);
+    return await this.requestJson<MengantarPickupTime[]>(`/time?${query.toString()}`);
   }
 
   /**

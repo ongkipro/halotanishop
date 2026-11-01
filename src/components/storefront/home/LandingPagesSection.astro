@@ -29,21 +29,18 @@ const hasMore = linked.length > visible.length;
 
 {
   linked.length > 0 && (
-    <section id="halaman" class="bg-white px-5 py-8">
-      <div class="mb-5 text-left">
-        <span class="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#767676]">
-          {heading.eyebrow}
-        </span>
-        <h2 class="mt-1 text-xl font-bold tracking-tight text-[#111111]">{heading.title}</h2>
-        <p class="mt-1.5 text-xs font-normal leading-relaxed text-[#555555]">{heading.description}</p>
+    <section id="halaman" class="px-4 py-6">
+      <div class="mb-3">
+        <h2 class="text-xl font-bold tracking-[-0.02em] text-[#111111]">{heading.title}</h2>
+        {heading.description && <p class="mt-1 text-sm leading-6 text-[#555555]">{heading.description}</p>}
       </div>
 
-      <ul class="flex flex-col">
+      <ul class="flex flex-col overflow-hidden rounded-2xl bg-[#F3F3F3]">
         {visible.map((page) => (
-          <li class="border-fade-t first:border-t-0">
+          <li class="border-t border-white first:border-t-0">
             <a
               href={page.href}
-              class="flex min-h-14 items-center justify-between gap-3 py-3.5 transition-colors hover:bg-[#F5F5F5]"
+              class="flex min-h-14 items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-[#EBEBED] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#111111]"
             >
               <span class="min-w-0">
                 <span class="block truncate text-sm font-semibold text-[#111111]">{page.title}</span>
@@ -72,7 +69,7 @@ const hasMore = linked.length > visible.length;
       {hasMore && (
         <a
           href="/landing-page"
-          class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-none border border-[#111111] bg-white px-6 text-xs font-bold uppercase tracking-wider text-[#111111] transition-colors hover:bg-[#111111] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+          class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#E5E5E5] bg-white px-6 text-sm font-semibold text-[#111111] transition-colors hover:border-[#111111] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
         >
           Lihat semua halaman
         </a>

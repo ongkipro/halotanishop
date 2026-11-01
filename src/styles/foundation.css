@@ -27,7 +27,7 @@
    The ramp stays 400/600/700 (A-32): 500 and 800 resolve to the nearest face
    by CSS Fonts 4 weight matching, which flattens the ladder rather than
    smearing it, and widening the ramp is a type decision rather than this fix.
-   Cinzel ships 700, the weight SiteBrand actually declares. */
+   The storefront wordmark is set in Inter; no display face is loaded. */
 /* Inter, latin and latin-ext only, declared here instead of through
    `@fontsource/inter/{400,600,700}.css` (ADR-029). The package declares every
    subset with `font-display: swap`, and a swap reflows the headline when the
@@ -40,8 +40,7 @@
    in the CSS loaded anyway and swapped (seen as both sets `loaded` in
    `document.fonts`). Cyrillic, Greek and Vietnamese are left to the system
    font; this CMS serves Indonesian and Malay storefronts. The ramp stays
-   400/600/700 (A-32). Cinzel ships 700, the weight SiteBrand declares. */
-@import "@fontsource/cinzel/700.css";
+   400/600/700 (A-32). */
 @font-face {
   font-family: 'Inter';
   font-style: normal;

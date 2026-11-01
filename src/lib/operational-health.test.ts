@@ -11,8 +11,6 @@ import {
   type HealthSignal,
   classifyAlerting,
   classifyScheduler,
-  recordSchedulerRun,
-  SCHEDULER_HEARTBEAT_KEY,
   classifyGoogleAdsOutbox,
 } from "./operational-health.ts";
 
@@ -276,10 +274,7 @@ test("a wired alert channel reads healthy", () => {
 });
 
 test("the panel explains both new states", () => {
-  const source = readFileSync(
-    new URL("../components/admin/OperationalHealth.tsx", import.meta.url),
-    "utf8",
-  );
+  const source = readFileSync(new URL("./health-actions.ts", import.meta.url), "utf8");
   assert.match(source, /alerting: "Saluran peringatan"/);
   assert.match(source, /OPS_ALERT_WEBHOOK_URL belum diatur/);
   assert.match(source, /"stalled-with-terminal-failures":/);
@@ -323,11 +318,14 @@ test("an unreadable Google outbox is unknown, never a depth of zero", () => {
 });
 
 test("the panel names the Google outbox and reads its counters", () => {
+  assert.match(
+    readFileSync(new URL("./health-actions.ts", import.meta.url), "utf8"),
+    /"google-ads-outbox": "Antrean Google Ads offline"/,
+  );
   const source = readFileSync(
-    new URL("../components/admin/OperationalHealth.tsx", import.meta.url),
+    new URL("../components/admin/OperationalStatus.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(source, /"google-ads-outbox": "Antrean Google Ads offline"/);
   // Both queues share one vocabulary rather than the second needing its own.
   assert.match(source, /signal\.id === "capi-outbox" \|\| signal\.id === "google-ads-outbox"/);
 });
@@ -398,7 +396,7 @@ test("orders that were never scored nor refused say nothing about Mengantar acce
   assert.equal(classifyReceiverScore(null, RECEIVER_NOW).reason, "unreadable");
 });
 
-test("the scheduler signal reads the hourly stamp: missing is unknown, stopped is degraded", async () => {
+test("the scheduler signal reads the hourly stamp: missing is unknown, stopped is degraded", () => {
   const now = Date.parse("2026-10-20T03:00:00.000Z");
   assert.equal(classifyScheduler(undefined, now).reason, "unreadable");
   assert.deepEqual(
@@ -409,16 +407,6 @@ test("the scheduler signal reads the hourly stamp: missing is unknown, stopped i
   const stalled = classifyScheduler("2026-10-20T00:07:00.000Z", now);
   assert.deepEqual({ state: stalled.state, reason: stalled.reason, age: stalled.ageMinutes }, { state: "degraded", reason: "scheduler-stalled", age: 173 });
 
-  const kv = new Map<string, string>();
-  const store = { get: async (key: string) => kv.get(key) ?? null, put: async (key: string, value: string) => { kv.set(key, value); } } as unknown as KVNamespace;
-  await recordSchedulerRun(store, new Date("2026-10-20T02:07:00.000Z"));
-  assert.equal(kv.get(SCHEDULER_HEARTBEAT_KEY), "2026-10-20T02:07:00.000Z");
-  const failing = { put: async () => { throw new Error("kv down"); } } as unknown as KVNamespace;
-  const originalError = console.error;
-  console.error = () => {};
-  try {
-    await recordSchedulerRun(failing, new Date()); // never throws into the cron
-  } finally {
-    console.error = originalError;
-  }
+  // The stamp itself is a D1 column now (A-379); health-snapshot.test.ts
+  // covers the write and the read.
 });

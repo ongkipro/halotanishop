@@ -161,10 +161,10 @@ test("dashboard overview leads with truthful role-safe analytics", () => {
     "utf8",
   );
 
-  assert.ok(
-    dashboard.indexOf("<AnalyticsDashboard") < dashboard.indexOf("<OperationalHealth"),
-    "business analytics must precede secondary operational diagnostics",
-  );
+  // Operational diagnostics moved to /admin/status (A39); the dashboard keeps
+  // only a one-line setup reminder that links there.
+  assert.doesNotMatch(dashboard, /OperationalHealth|OperationalStatus/);
+  assert.match(dashboard, /href="\/admin\/status"/);
   assert.match(dashboard, /showPaymentsLink=\{mayManagePayments\}/);
   // Renamed from "Pembayaran berhasil": that card divided prepaid success by
   // every order including COD, which is paid on delivery and can never

@@ -390,14 +390,16 @@ export async function convertAbandonedLead(
       .bind(orderId, orderId, conversionToken),
     database
       .prepare(
-        `INSERT INTO order_items (order_id, variant_id, quantity, unit_price)
-         SELECT id, ?, ?, ?
+        // The variant's weight at conversion, as checkout records it (A-397):
+        // dispatch sends this, not whatever the variant weighs later.
+        `INSERT INTO order_items (order_id, variant_id, quantity, unit_price, weight_grams)
+         SELECT id, ?, ?, ?, (SELECT weight_grams FROM product_variants WHERE id = ?)
          FROM orders
          WHERE id = ?
            AND submit_token = ?
            AND shipping_status = 'pending'`,
       )
-      .bind(variant.id, input.quantity, unitPrice, orderId, conversionToken),
+      .bind(variant.id, input.quantity, unitPrice, variant.id, orderId, conversionToken),
     database
       .prepare(
         `SELECT id, order_number

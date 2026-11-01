@@ -638,3 +638,58 @@ test('the admin gate holds against paths Astro normalizes before routing', async
     assert.equal(response.status, 302, `${pathname} must be sent to the login screen`);
   }
 });
+
+test('the WhatsApp rotator page and API are owner and admin only (PRD A35)', () => {
+  for (const pathname of ['/admin/settings/whatsapp', '/api/admin/whatsapp-numbers']) {
+    assert.equal(canAccessAdminRoute('owner', pathname), true, `owner ${pathname}`);
+    assert.equal(canAccessAdminRoute('admin', pathname), true, `admin ${pathname}`);
+    assert.equal(canAccessAdminRoute('advertiser', pathname), false, `advertiser ${pathname}`);
+    assert.equal(canAccessAdminRoute('customer_service', pathname), false, `cs ${pathname}`);
+  }
+});
+
+test('the Analitik menu is owner, admin and advertiser; customer service gets 403 (PRD A37, A-356)', async () => {
+  const insightPaths = [
+    '/admin/analytics',
+    '/admin/analytics/landing',
+    '/api/admin/insights',
+    '/api/admin/insights/landing',
+    '/api/admin/insights/trend',
+    '/api/admin/insights/products',
+    '/api/admin/insights/locations',
+    '/api/admin/insights/times',
+    '/admin/analytics/utm',
+    '/api/admin/insights/utm',
+  ];
+  for (const pathname of insightPaths) {
+    for (const role of ['owner', 'admin', 'advertiser'] as const) {
+      assert.equal(canAccessAdminRoute(role, pathname), true, `${role} must reach ${pathname}`);
+    }
+    assert.equal(canAccessAdminRoute('customer_service', pathname), false, `customer service must not reach ${pathname}`);
+  }
+  // The dashboard's own analytics stays open to every role, as before.
+  for (const role of ADMIN_ROLES) {
+    assert.equal(canAccessAdminRoute(role, '/api/admin/analytics'), true, `${role} keeps /api/admin/analytics`);
+  }
+  // The prefix trap the endpoints avoid: anything beneath /api/admin/analytics
+  // is customer service's, so the insights must never live there.
+  assert.equal(canAccessAdminRoute('customer_service', '/api/admin/analytics/landing'), true);
+  assert.equal(canAccessAdminRoute('customer_service', '/api/admin/insightsx'), false);
+
+  // Through the real gate: a customer-service session is refused with 403 on
+  // every insights API, and an advertiser session passes.
+  const issuedAt = '2026-08-16T00:00:00.000Z';
+  for (const role of ['customer_service', 'advertiser', 'admin', 'owner'] as const) {
+    const { token, session } = await signJwt({ username: `insights.${role}`, role }, AUTH_SECRET);
+    const stored = JSON.stringify({
+      username: session.username,
+      role: session.role,
+      must_change_password: false,
+      credential_updated_at: issuedAt,
+    });
+    for (const pathname of insightPaths.filter((path) => path.startsWith('/api/'))) {
+      const response = await runAdminRequest({ pathname, token, stored, credential: { updated_at: issuedAt, role } });
+      assert.equal(response.status, role === 'customer_service' ? 403 : 200, `${role} ${pathname}`);
+    }
+  }
+});

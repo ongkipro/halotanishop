@@ -26,49 +26,60 @@ interface Props {
 const { slides } = Astro.props;
 ---
 
-<section class="bg-white">
+<section class="px-4 pt-4">
   <h1 class="sr-only">{Astro.locals.tenant.defaultTitle}</h1>
-  <div class="relative overflow-hidden bg-white">
-    <div id="hero-track" class="flex transition-transform duration-700 ease-out will-change-transform">
+  {/* Inset with a soft radius and the caption under the photo, not over it:
+      no gradient to keep legible, and the slide reads as a card the buyer can
+      flick through rather than a full-bleed poster. */}
+  <div class="overflow-hidden rounded-2xl bg-[#F3F3F3]">
+    <div id="hero-track" class="hero-track flex snap-x snap-mandatory overflow-x-auto">
       {
         slides.map((slide, index) => (
-          <article class="relative min-w-full">
+          <article class="min-w-full snap-start" aria-roledescription="slide" aria-label={`${index + 1} dari ${slides.length}`}>
             <img
               src={slide.image}
               alt={`${slide.alt} - ${Astro.locals.tenant.name}`}
-              title={slide.badge}
               width="600"
-              height="600"
-              class="aspect-square w-full object-cover object-center"
+              height="480"
+              class="aspect-[5/4] w-full object-cover object-center"
               loading={index === 0 ? 'eager' : 'lazy'}
               decoding={index === 0 ? 'sync' : 'async'}
               fetchpriority={index === 0 ? 'high' : undefined}
+              draggable={false}
             />
-            <div class="absolute inset-0 bg-gradient-to-t from-[#111111]/85 via-[#111111]/10 to-transparent" />
-            <div class="absolute inset-x-0 bottom-0 p-5 pb-14 text-white">
-              <span class="inline-flex rounded-sm bg-[#111111] px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-white">
-                {slide.badge}
-              </span>
-              <p class="mt-3 max-w-[24rem] text-[13px] font-normal leading-5 text-white">
-                {slide.text}
-              </p>
+            <div class="bg-white px-1 pt-3">
+              {slide.badge && <p class="text-xs font-medium text-[#767676]">{slide.badge}</p>}
+              <p class="mt-0.5 line-clamp-2 text-base font-semibold leading-snug text-[#111111]">{slide.text}</p>
             </div>
           </article>
         ))
       }
     </div>
-    <div id="hero-dots" class="absolute bottom-2 left-5 z-10 flex items-end gap-2">
+  </div>
+  {slides.length > 1 && (
+    <div id="hero-dots" class="-mt-1 flex items-center justify-end">
       {
         slides.map((_, index) => (
           <button
             type="button"
             aria-label={`Tampilkan slide ${index + 1}`}
-            class={index === 0
-              ? 'h-11 w-7 border-b-2 border-white bg-transparent transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white'
-              : 'h-11 w-4 border-b border-white/55 bg-transparent transition-colors hover:border-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white'}
-          />
+            aria-current={index === 0 ? 'true' : undefined}
+            class="hero-dot group flex h-11 w-6 items-center justify-center focus-visible:outline-2 focus-visible:outline-[#111111]"
+          >
+            <span class="block h-1.5 w-1.5 rounded-full bg-[#D4D4D8] transition-all group-aria-[current=true]:w-4 group-aria-[current=true]:bg-[#111111]" />
+          </button>
         ))
       }
     </div>
-  </div>
+  )}
 </section>
+
+<style>
+  .hero-track {
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+  .hero-track::-webkit-scrollbar {
+    display: none;
+  }
+</style>

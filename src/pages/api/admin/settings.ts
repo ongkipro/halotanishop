@@ -9,7 +9,7 @@ import {
   resolveEmbedAllowedOrigins,
 } from "../../../lib/embed-security.ts";
 import { parseHeadlessAllowedOrigins } from "../../../lib/headless-api.ts";
-import { isAcceptedSiteProtocol, LOCALE_PATTERN, THEME_COLOR_PATTERN } from "../../../lib/tenant.ts";
+import { isAcceptedSiteProtocol, LOCALE_PATTERN, SUPPORT_EMAIL_PATTERN, THEME_COLOR_PATTERN } from "../../../lib/tenant.ts";
 import { getEnvValue, getRuntimeEnv, maskSecretValue } from "../../../lib/env.ts";
 import {
   addStorefrontTemplate,
@@ -67,6 +67,8 @@ type SettingsPayload = {
   admin_name?: string;
   thanks_whatsapp_redirect?: boolean;
   support_whatsapp?: string;
+  support_email?: string;
+  business_address?: string;
   embed_allowed_origins?: unknown;
   headless_allowed_origins?: unknown;
   payment_fee_bearer?: "buyer" | "seller";
@@ -95,6 +97,8 @@ type SettingsRow = {
   store_id: number;
   store_name: string;
   support_whatsapp: string | null;
+  support_email?: string | null;
+  business_address?: string | null;
   site_url?: string | null;
   description?: string | null;
   tagline?: string | null;
@@ -162,6 +166,8 @@ async function getSettingsRow(database: D1Database) {
         s.id AS store_id,
         s.name AS store_name,
         s.support_whatsapp,
+        s.support_email,
+        s.business_address,
         s.site_url,
         s.description,
         s.tagline,
@@ -191,7 +197,7 @@ async function getSettingsRow(database: D1Database) {
         w.province
       FROM stores s
       LEFT JOIN warehouses w ON w.store_id = s.id
-      ORDER BY s.id, w.id
+      ORDER BY s.id, w.is_primary DESC, w.id
       LIMIT 1
     `,
       )
@@ -204,6 +210,8 @@ async function getSettingsRow(database: D1Database) {
         s.id AS store_id,
         s.name AS store_name,
         s.support_whatsapp,
+        NULL AS support_email,
+        NULL AS business_address,
         s.site_url,
         s.description,
         s.tagline,
@@ -231,6 +239,7 @@ async function getSettingsRow(database: D1Database) {
         w.province
       FROM stores s
       LEFT JOIN warehouses w ON w.store_id = s.id
+      -- A schema this old predates is_primary; its first row is the primary.
       ORDER BY s.id, w.id
       LIMIT 1
     `,
@@ -284,6 +293,8 @@ export const GET: APIRoute = async ({ locals }) => {
         store: {
           name: row.store_name,
           support_whatsapp: row.support_whatsapp ?? "",
+          support_email: row.support_email ?? "",
+          business_address: row.business_address ?? "",
           site_url: row.site_url ?? "",
           description: row.description ?? "",
           tagline: row.tagline ?? "",
@@ -700,10 +711,11 @@ export const PUT: APIRoute = async ({ request, locals }) => {
 
     if (body.action === "save-store") {
       const storeName = clean(body.store_name, 120);
-      const supportWhatsapp = normalizePhone(body.support_whatsapp);
       if (!storeName) return jsonError("Nama store wajib diisi.", 400);
-      if (!PHONE_PATTERN.test(supportWhatsapp))
-        return jsonError("Nomor WhatsApp harus berisi 9–15 digit.", 400);
+      // support_whatsapp is no longer written here: Pengaturan → Nomor WhatsApp
+      // owns it through src/lib/whatsapp-numbers.ts (PRD A35), which keeps it
+      // on the first active number. Writing it from this form too would let
+      // a stale field overwrite the list's choice.
       // Identity beyond the name became editable when it moved into D1
       // (ADR-003). Before that these were baked into the bundle, so the only
       // way to change a store's address or tagline was a rebuild.
@@ -761,18 +773,25 @@ export const PUT: APIRoute = async ({ request, locals }) => {
         );
       }
 
+      // Public contact for the storefront's legal pages. The address is free
+      // text; the email is checked for shape only, never sent to.
+      const supportEmail = clean(body.support_email, 160).toLowerCase();
+      if (supportEmail && !SUPPORT_EMAIL_PATTERN.test(supportEmail)) {
+        return jsonError("Email customer service tidak valid. Contoh: cs@tokosaya.com", 400);
+      }
+      const businessAddress = clean(body.business_address, 300);
+
       await db
         .prepare(
           `UPDATE stores
-              SET name = ?, support_whatsapp = ?, site_url = ?, description = ?,
+              SET name = ?, site_url = ?, description = ?,
                   tagline = ?, logo = ?, storefront_template = ?,
                   theme_color = ?, locale = ?, admin_name = ?,
-                  thanks_whatsapp_redirect = ?
+                  thanks_whatsapp_redirect = ?, support_email = ?, business_address = ?
             WHERE id = ?`,
         )
         .bind(
           storeName,
-          supportWhatsapp,
           siteUrl || null,
           clean(body.store_description, 300) || null,
           clean(body.store_tagline, 120) || null,
@@ -782,6 +801,8 @@ export const PUT: APIRoute = async ({ request, locals }) => {
           localeValue || null,
           clean(body.admin_name, 120) || null,
           body.thanks_whatsapp_redirect === true ? 1 : 0,
+          supportEmail || null,
+          businessAddress || null,
           current.store_id,
         )
         .run();
@@ -867,8 +888,8 @@ export const PUT: APIRoute = async ({ request, locals }) => {
             `
           INSERT INTO warehouses (
             store_id, name, contact_name, contact_phone, origin_area_id,
-            origin_label, pickup_address_id, address, city, province
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            origin_label, pickup_address_id, address, city, province, is_primary
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
         `,
           )
           .bind(

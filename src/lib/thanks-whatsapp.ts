@@ -57,6 +57,35 @@ export function thanksWhatsappUrl(phone: string, message: string): string | null
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 
+/** 32-bit FNV-1a: small, fast, and well mixed for short sequential strings. */
+function fnv1a(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Which support number an order is handed to (PRD A35). Uniform over the
+ * usable numbers, and fixed per order: the same invoice always lands on the
+ * same number, so a reload or a return from the payment page never switches
+ * the buyer to another agent. The split is statistical — over many orders, not
+ * an alternation. Random only when there is no order number to key on.
+ */
+export function pickThanksWhatsapp(
+  numbers: readonly string[],
+  orderNumber: string,
+  random: () => number = Math.random,
+): string | null {
+  const usable = numbers.filter((phone) => thanksWhatsappUrl(phone, "") !== null);
+  if (!usable.length) return null;
+  const key = orderNumber.trim();
+  const index = key ? fnv1a(key) % usable.length : Math.floor(random() * usable.length);
+  return usable[Math.min(index, usable.length - 1)];
+}
+
 export function shouldAutoRedirectToWhatsapp(input: {
   enabled: boolean;
   paymentMethod: string;

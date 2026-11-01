@@ -11,6 +11,13 @@ import { jsonError, jsonOk } from "../../../lib/api.ts";
 import { selectQuotedRate } from "../../../lib/courier-rules.ts";
 import { getRuntimeEnv } from "../../../lib/env.ts";
 import {
+  sourceFacetStatement,
+  sourceFilterOptions,
+  sourceLabelsFromRows,
+  sourceLabelsStatement,
+  sourceSlugPredicate,
+} from "../../../lib/source-slug.ts";
+import {
   isCodBlockedForProvince,
   loadStoreCodDisabledProvinceCodes,
 } from "../../../lib/form-mode.ts";
@@ -34,6 +41,8 @@ type AbandonedLeadListRow = {
   lead_followed_up_by: string | null;
   lead_follow_up_note: string | null;
   created_at: string;
+  source_page_path: string | null;
+  source_slug: string | null;
   product_id: number | null;
   product_title: string | null;
   variant_id: number | null;
@@ -102,11 +111,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
     conditions.push("o.lead_follow_up_status = ?");
     params.push(followUpStatus);
   }
+  // The page the lead was captured on (PRD A36). A read filter only.
+  const sourceSlug = sourceSlugPredicate(url.searchParams.get("source_slug"), "o.source_slug");
+  if (sourceSlug) {
+    conditions.push(sourceSlug.sql);
+    params.push(...sourceSlug.params);
+  }
+  const withSourceOptions = url.searchParams.get("source_options") === "1";
   const where = `WHERE ${conditions.join(" AND ")}`;
   const offset = (page - 1) * limit;
 
   try {
-    const [countResult, rowsResult, statusResult, productResult, warehouseResult] = await database.batch([
+    const [countResult, rowsResult, statusResult, productResult, warehouseResult, labelResult, facetResult] = await database.batch([
       database.prepare(
         `SELECT COUNT(DISTINCT o.id) AS total_items
          FROM orders o
@@ -120,6 +136,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
            o.id, o.order_number, o.customer_name, o.customer_phone,
            o.total_amount, o.lead_follow_up_status, o.lead_followed_up_at,
            o.lead_followed_up_by, o.lead_follow_up_note, o.created_at,
+           o.source_page_path, o.source_slug,
            p.id AS product_id, p.title AS product_title,
            pv.id AS variant_id, pv.title AS variant_title,
            oi.quantity, oi.unit_price
@@ -154,10 +171,22 @@ export const GET: APIRoute = async ({ url, locals }) => {
       database.prepare(
         `SELECT id, name
          FROM warehouses
-         ORDER BY id
+         ORDER BY is_primary DESC, id
          LIMIT 1`,
       ),
+      sourceLabelsStatement(database),
+      withSourceOptions
+        ? sourceFacetStatement(database, "leads")
+        : database.prepare("SELECT NULL AS slug, 0 AS count WHERE 0"),
     ]);
+    const facets = (facetResult?.results || []) as Array<{ slug: string; count: number }>;
+    const sourceLabels = sourceLabelsFromRows(
+      [
+        ...((rowsResult.results || []) as unknown as AbandonedLeadListRow[]).map((row) => row.source_slug),
+        ...facets.map((row) => row.slug),
+      ],
+      (labelResult?.results || []) as Parameters<typeof sourceLabelsFromRows>[1],
+    );
     const totalItems = Number(
       (countResult.results?.[0] as { total_items?: number } | undefined)
         ?.total_items || 0,
@@ -187,8 +216,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
           followed_up_by: row.lead_followed_up_by,
           follow_up_note: row.lead_follow_up_note,
           created_at: row.created_at,
+          source_page_path: row.source_page_path,
+          source_slug: row.source_slug,
+          source_label: row.source_slug ? sourceLabels.get(row.source_slug)?.label ?? row.source_slug : null,
         };
       }),
+      ...(withSourceOptions ? { source_options: sourceFilterOptions(facets, sourceLabels) } : {}),
       pagination: {
         page,
         limit,
@@ -310,6 +343,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       paymentMethod: "cod",
       variantKey: String(variantId),
       quantity,
+      // The warehouse follows the province the CS console previewed with (PRD A42).
+      destinationProvince: String(body.province || "") || undefined,
     });
     const selectedRate = selectQuotedRate(
       quote.rates,

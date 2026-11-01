@@ -91,3 +91,15 @@ test("an abandoned dispatch claim becomes retryable after its lease expires", ()
   });
   assert.equal(staleClaim.eligible, true);
 });
+
+test("an operator reads dispatch markers as words, and an accepted shipment is never offered a second push", async () => {
+  const { acceptedShipmentId, providerDispatchErrorText } = await import("./payment-dispatch-policy.ts");
+  assert.equal(providerDispatchErrorText(null), null);
+  assert.equal(providerDispatchErrorText("DISPATCHING"), "Sedang dikirim ke Mengantar.");
+  assert.match(String(providerDispatchErrorText("DISPATCH_UNKNOWN: fetch failed")), /belum pasti/);
+  assert.equal(providerDispatchErrorText("Alamat tidak valid"), "Alamat tidak valid");
+  assert.equal(acceptedShipmentId("DISPATCH_UNKNOWN: Mengantar menerima MG-77: D1_ERROR"), "MG-77");
+  assert.match(String(providerDispatchErrorText("DISPATCH_UNKNOWN: Mengantar menerima MG-77: D1_ERROR")), /MG-77.*Jangan push ulang/);
+  assert.equal(acceptedShipmentId("DISPATCH_UNKNOWN: Mengantar timeout: upstream"), null, "a provider message is not an accepted id");
+  assert.equal(acceptedShipmentId("Mengantar menerima MG-77: x"), null, "only an unknown-outcome marker carries one");
+});

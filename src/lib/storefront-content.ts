@@ -16,6 +16,8 @@ const link = asset.refine((value) => /^(?:https?:\/\/|\/(?![/\\])|#)/i.test(valu
 
 const sectionHeadingSchema = z
   .object({
+    // Accepted so stored content still parses; compact v2 renders no eyebrow
+    // and the AI shape no longer asks for one.
     eyebrow: shortText,
     title: shortText,
     description: bodyText,
@@ -164,6 +166,18 @@ export function validateContent(
   return key.type === "home"
     ? homeContentSchema.parse(value)
     : productContentSchema.parse(value);
+}
+
+/**
+ * A validation failure in operator words: which fields, not the schema's
+ * issue array, which the content screen used to print verbatim as JSON
+ * (audit 2026-10-31 M6). Null when the error is not a validation failure.
+ */
+export function contentValidationMessage(error: unknown): string | null {
+  if (!(error instanceof z.ZodError)) return null;
+  const fields = [...new Set(error.issues.map((issue) => issue.path.join(".") || "konten"))];
+  const shown = fields.slice(0, 5).join(", ");
+  return `Konten belum lengkap atau tidak valid: ${shown}${fields.length > 5 ? `, +${fields.length - 5} lainnya` : ""}.`;
 }
 
 export function parsePublishedContent(

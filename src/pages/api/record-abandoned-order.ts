@@ -7,6 +7,7 @@ import {
   getClientIp,
   rateLimitHeaders,
 } from '../../lib/rate-limit.ts';
+import { sourcePathFromReferer } from '../../lib/source-slug.ts';
 import { isValidWa62, normalizePhone } from '../../lib/validation.ts';
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -92,6 +93,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
         : undefined,
       variantId:
         Number.isInteger(variantId) && variantId > 0 ? variantId : undefined,
+      // The form's same-origin fetch carries the page in Referer (PRD A36),
+      // so the three form scripts stay as they are.
+      sourcePagePath: sourcePathFromReferer(
+        request.headers.get('referer'),
+        new URL(request.url),
+      ),
     });
     // Deliberately no notification. An abandoned capture is a lead to work
     // through in `/admin/orders/abandoned`, not an event worth interrupting an

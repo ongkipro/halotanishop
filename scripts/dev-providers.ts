@@ -13,6 +13,8 @@
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { indonesiaDistricts } from "../src/data/indonesia-districts.ts";
+import { isAutoLarisCheckoutChannel } from "../src/lib/autolaris-client.ts";
+import { calculatePaymentAdminFee } from "../src/lib/payment-fee-policy.ts";
 
 type Json = Record<string, unknown> | unknown[];
 
@@ -131,6 +133,7 @@ function send(response: ServerResponse, status: number, body: Json) {
 
 export function createDevProviderServer(): Server {
   const pickupAddresses: Record<string, string>[] = [];
+  const pickupTimes: Array<{ _id: string; address: string; date: string; time: string }> = [];
   const shipments = new Map<string, Record<string, unknown>>();
   const payments = new Map<string, { paid: boolean; total: number; receiver?: string; channel?: string }>();
   let sequence = 0;
@@ -145,13 +148,16 @@ export function createDevProviderServer(): Server {
       return send(response, 200, {
         rc: "00",
         ket: "SUCCESS",
-        data: ["QRIS", "VABCA", "VAMANDIRI", "VABNI", "VABRI"].map((channel_code) => ({ channel_code })),
+        data: ["QRIS", "VABCA", "VAMANDIRI", "VABNI", "VABRI", "VAPERMATA"].map((channel_code) => ({ channel_code })),
       });
     }
     if (url.pathname === "/api/h2h/submit" && method === "POST") {
       const body = await readBody(request);
       const amount = Number(body.grand_total) || 0;
-      const admin = String(body.channel_code) === "QRIS" ? Math.round(amount * 0.007) : 4000;
+      // The fee table the store itself shows the buyer, so the local
+      // instruction never disagrees with the checkout or invoice label.
+      const channel = String(body.channel_code);
+      const admin = isAutoLarisCheckoutChannel(channel) ? calculatePaymentAdminFee(channel, amount) : 0;
       const transactionId = String(Date.now()) + String((sequence += 1));
       payments.set(transactionId, { paid: false, total: amount + admin, receiver: String(body.receiver_name || ""), channel: String(body.channel_code || "") });
       const qris = String(body.channel_code) === "QRIS";
@@ -218,14 +224,21 @@ export function createDevProviderServer(): Server {
         else pickupAddresses.push(row);
         return send(response, 200, { success: true, data: row });
       }
+      // Mengantar docs: POST /time answers one slot object, GET /time an
+      // array of the address's slots; a slot is one hour, 9:00–18:00.
       if (path === "/time") {
-        const body = method === "POST" ? await readBody(request) : {};
-        return send(response, 200, {
-          success: true,
-          data: method === "POST"
-            ? [{ _id: nextId("dev-time-"), date: String(body.date || ""), time: String(body.time || "") }]
-            : [],
-        });
+        if (method === "POST") {
+          const body = await readBody(request);
+          const time = String(body.time || "");
+          if (!/^(9|1[0-8]):00$/.test(time) || !/^\d{2}-\d{2}-\d{4}$/.test(String(body.date || ""))) {
+            return send(response, 400, { success: false, message: "Invalid pickup date or time slot." });
+          }
+          const slot = { _id: nextId("dev-time-"), address: String(body.address_id || ""), date: String(body.date), time };
+          pickupTimes.push(slot);
+          return send(response, 200, { success: true, data: slot });
+        }
+        const address = url.searchParams.get("address") || "";
+        return send(response, 200, { success: true, data: pickupTimes.filter((slot) => slot.address === address) });
       }
       if (path === "/order/estimate") {
         return send(response, 200, {
@@ -240,6 +253,13 @@ export function createDevProviderServer(): Server {
       }
       if (path === "/order" && method === "POST") {
         const body = await readBody(request);
+        const pickup = (body.pickup || {}) as Record<string, unknown>;
+        if (pickup.type === "scheduledPickup" && (!pickupTimes.some((slot) => slot._id === pickup.time_id) || !["volumeMotor", "volumeMobil", "volumeTruck"].includes(String(pickup.volume)))) {
+          return send(response, 400, { success: false, message: "scheduledPickup needs a known time_id and a volume." });
+        }
+        if (pickup.type !== "scheduledPickup" && pickup.type !== "dropOff") {
+          return send(response, 400, { success: false, message: "pickup.type must be scheduledPickup or dropOff." });
+        }
         const id = nextId("dev-order-");
         const cnote = `DEV${Date.now().toString().slice(-10)}`;
         const row = { _id: id, ORDER_ID: id.toUpperCase(), cnote_no: cnote, isPaid: true, status: "Order Created", payload: body };

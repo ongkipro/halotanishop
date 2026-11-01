@@ -4,9 +4,11 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 export const prerender = false;
 
 const invoice = (Astro.params.invoice || '').trim();
+const role = Astro.locals.admin?.role;
+const mayReleaseDispatch = role === 'owner' || role === 'admin';
 if (!invoice) return Astro.redirect('/admin/orders', 302);
 ---
 
 <AdminLayout title={`Order ${invoice}`} activeMenu="orders">
-  <OrderDetail invoice={invoice} client:load />
+  <OrderDetail invoice={invoice} mayReleaseDispatch={mayReleaseDispatch} client:load />
 </AdminLayout>

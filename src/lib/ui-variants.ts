@@ -73,4 +73,3 @@ export const textVariants = cva('', {
   },
 });
 
-export const introSectionClass = 'border-b border-slate-100 bg-white px-5 py-7';

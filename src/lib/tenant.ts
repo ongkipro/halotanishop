@@ -38,6 +38,16 @@ export interface StoreIdentityRow {
 }
 
 /**
+ * No logo until the store uploads its own: the storefront then draws a text
+ * wordmark, the admin the store's initial, and share images fall back to the
+ * store's own icon (/favicon-192.png). The product's old placeholder wordmark
+ * (/images/adsbook-mark.webp, "BELUM DIKONFIGURASI") was deleted on
+ * 2026-10-31; a store row or env that still names it reads as no logo.
+ */
+export const DEFAULT_TENANT_LOGO = "";
+export const LEGACY_PLACEHOLDER_LOGO = "/images/adsbook-mark.webp";
+
+/**
  * Product defaults for an install that has not been configured yet. A real
  * install supplies these from its `stores` row, or failing that from
  * PUBLIC_SITE_* — these values exist so an unconfigured install describes
@@ -62,7 +72,7 @@ const defaults = {
   // A neutral product mark, never a store's. An install that has not set its
   // own logo must announce that it is unconfigured, not wear someone else's
   // brand — /images/logo.webp belongs to whichever store supplied it.
-  logo: "/images/adsbook-mark.webp",
+  logo: DEFAULT_TENANT_LOGO,
   tagline: "",
   themeColor: "#111111",
   locale: "id-ID",
@@ -138,6 +148,8 @@ function siteOrigin(value: string): string {
  */
 export const THEME_COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 export const LOCALE_PATTERN = /^[a-z]{2}(?:-[A-Z]{2})?$/;
+/** Shape only: one @, a dot in the domain, no spaces. Nothing is sent to it. */
+export const SUPPORT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function themeColor(value: string): string {
   return THEME_COLOR_PATTERN.test(value) ? value : defaults.themeColor;
@@ -178,7 +190,9 @@ export function resolveTenantConfig(
     description:
       pick(row?.description, "PUBLIC_SITE_DESCRIPTION", defaults.description) ||
       `Belanja online di ${name}.`,
-    logo: pick(row?.logo, "PUBLIC_SITE_LOGO", defaults.logo),
+    logo: ((value) => (value === LEGACY_PLACEHOLDER_LOGO ? DEFAULT_TENANT_LOGO : value))(
+      pick(row?.logo, "PUBLIC_SITE_LOGO", defaults.logo),
+    ),
     brandMark: imagePath(getEnvValue("PUBLIC_SITE_BRAND_MARK")),
     noindex: siteNoindex(),
     tagline,

@@ -3,7 +3,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import AdminPageHeader from '../../components/admin/AdminPageHeader.astro';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { buttonVariants } from '../../components/ui/button';
-import { ChevronRight, CodeXml, CreditCard, MessageSquareText, Puzzle, ShoppingBag, Truck, UserCog, Warehouse } from 'lucide-react';
+import { ChevronRight, CodeXml, CreditCard, MessageCircle, MessageSquareText, Puzzle, ShoppingBag, Truck, UserCog, Warehouse } from 'lucide-react';
 export const prerender = false;
 
 // shadcn components rendered to static HTML: nothing on this page is
@@ -11,7 +11,8 @@ export const prerender = false;
 const mayManageAccess = Astro.locals.admin?.role === 'owner';
 const outline = buttonVariants({ variant: 'outline' });
 const links = [
-  { href: '/admin/settings/store', icon: ShoppingBag, title: 'Toko & customer service', detail: 'Identitas toko, alamat storefront, dan WhatsApp CS.' },
+  { href: '/admin/settings/store', icon: ShoppingBag, title: 'Toko & customer service', detail: 'Identitas toko, alamat storefront, dan pengalihan ke WhatsApp.' },
+  { href: '/admin/settings/whatsapp', icon: MessageCircle, title: 'Nomor WhatsApp CS', detail: 'Nomor yang menerima pembeli COD, dibagi rata per order.' },
   { href: '/admin/settings/warehouse', icon: Warehouse, title: 'Gudang & pickup', detail: 'Origin pengiriman, alamat pickup, dan PIC.' },
   { href: '/admin/settings/crm', icon: MessageSquareText, title: 'Template CRM', detail: 'Pesan welcome dan follow-up WhatsApp.' },
   { href: '/admin/settings/developer', icon: CodeXml, title: 'Headless API & domain', detail: 'API key dan domain yang boleh memanggil API.' },

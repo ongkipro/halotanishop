@@ -1,37 +1,50 @@
 ---
 import SiteBrand from './SiteBrand.astro';
+import Icon from './Icon.astro';
+
+// One announcement line and one bar (DESIGN-SYSTEM §3). The line carries the
+// store's "Official Store" badge; the bar the wordmark (or uploaded logo) and
+// one icon to the catalogue. It scrolls away with the page; a hairline that
+// fades at both ends closes it.
+const path = Astro.url.pathname;
+// The list is the current page; a product under it is the current location
+// ("true"), so a screen reader does not announce the link as this page. No
+// drawn state: a filled circle behind one icon read as a frame (owner,
+// 2026-10-31); the icon stays bare and only dims on hover.
+const catalogCurrent = path === '/produk' ? 'page' : path.startsWith('/produk/') ? 'true' : undefined;
 ---
 
-{/* Official-store trust strip: name-then-checkmark, the way a social profile
-    signals authenticity. Blue lives only in the seal; everything else stays
-    monochrome like the rest of the storefront. */}
-<div class="border-fade-b bg-white px-4 py-2 text-center">
-  <p class="mx-auto flex max-w-[480px] items-center justify-center gap-1.5">
-    <span class="text-[10px] font-bold uppercase tracking-[0.18em] text-[#111111]">Official Store</span>
-    <svg viewBox="0 0 22 22" class="h-[15px] w-[15px] shrink-0" fill="none" aria-label="Terverifikasi" role="img">
-      <path
-        fill="#1d9bf0"
-        d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.018-1.273.215-1.813.567s-.969.849-1.242 1.43c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.688.878.633.132 1.29.084 1.897-.138.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816z"
-      />
-      <path fill="#fff" d="M9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z" />
-    </svg>
-  </p>
-</div>
+<!-- Announcement bar: the store's own site is its official store (owner
+     decision 2026-10-31, reversing the v2 removal). A solid blue badge-check,
+     drawn inline: the icon subset is for line icons. -->
+<p class="flex items-center justify-center gap-1.5 bg-[#F3F3F3] px-4 py-1.5 text-xs font-semibold leading-5 text-[#111111]">
+  <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" aria-hidden="true">
+    <path fill="#1D6FEB" d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
+    <path fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="m8.5 12.2 2.4 2.4 4.6-4.9"/>
+  </svg>
+  Official Store
+</p>
 
-{Astro.locals.tenant.tagline && (
-  <div class="bg-[#111111] px-4 py-2.5 text-center text-[10px] font-normal tracking-widest uppercase text-white">
-    <p class="mx-auto flex max-w-[480px] items-center justify-center gap-2 px-1">
-      <span class="relative flex h-1.5 w-1.5 items-center justify-center">
-        <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#111111] opacity-75"></span>
-        <span class="relative inline-flex h-1 w-1 rounded-full bg-[#111111]"></span>
-      </span>
-      <span>{Astro.locals.tenant.tagline}</span>
-    </p>
+<!-- Not sticky: the column is short-form commerce and the PDP's own sticky buy
+     bar is the action that follows the reader. The rule under the bar fades
+     out toward both edges instead of cutting the column. -->
+<header class="relative bg-white">
+  <div class="flex h-14 items-center justify-between gap-3 pl-3 pr-1.5">
+    <SiteBrand href="/" />
+    <nav aria-label="Navigasi utama" class="flex items-center">
+      <a
+        href="/produk"
+        aria-current={catalogCurrent}
+        aria-label="Produk"
+        title="Produk"
+        class="inline-flex size-11 items-center justify-center rounded-full text-[#111111] transition-opacity hover:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#111111]"
+      >
+        <Icon name="lucide:package" class="h-[22px] w-[22px]" aria-hidden="true" />
+      </a>
+    </nav>
   </div>
-)}
-
-<header class="border-b border-[#E5E5E5] bg-white">
-  <div class="mx-auto flex h-[64px] max-w-[480px] items-center justify-center px-5 text-center">
-    <SiteBrand href="/" showTagline={false} />
-  </div>
+  <div
+    aria-hidden="true"
+    class="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-[linear-gradient(90deg,transparent,#E5E5E5_20%,#E5E5E5_80%,transparent)]"
+  ></div>
 </header>

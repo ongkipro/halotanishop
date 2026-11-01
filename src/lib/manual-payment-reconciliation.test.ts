@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import test from "node:test";
 import {
@@ -12,6 +12,16 @@ import {
   POST,
 } from "../pages/api/admin/payment-reconciliation.ts";
 import { POST as LEGACY_WEBHOOK } from "../pages/api/webhooks/autolaris.ts";
+
+// By suffix, never by number (RELEASE.md): an install with its own migrations
+// renumbers the product's above them, and a fixed number would miss the file.
+const migrationUrl = (suffix: string) => {
+  const dir = new URL("../db/migrations/", import.meta.url);
+  const name = readdirSync(dir).find((file) => file.endsWith(suffix));
+  if (!name) throw new Error(`no migration ends with ${suffix}`);
+  return new URL(name, dir);
+};
+
 
 type QueryValue = null | number | string | Uint8Array;
 
@@ -115,6 +125,13 @@ class ReconciliationDatabase {
     this.sqlite.exec(
       readFileSync(
         new URL("../db/migrations/0043_manual_payment_reconciliation.sql", import.meta.url),
+        "utf8",
+      ).replaceAll("--> statement-breakpoint", ""),
+    );
+    // Superseded instructions (audit 2026-10-31 H-1).
+    this.sqlite.exec(
+      readFileSync(
+        migrationUrl("_payment_transaction_attempts.sql"),
         "utf8",
       ).replaceAll("--> statement-breakpoint", ""),
     );

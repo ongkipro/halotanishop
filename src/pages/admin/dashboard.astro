@@ -1,7 +1,6 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { AnalyticsDashboard } from '../../components/admin/AnalyticsDashboard';
-import OperationalHealth from '../../components/admin/OperationalHealth';
 import { canAccessAdminRoute } from '../../lib/auth';
 import { getRuntimeEnv } from '../../lib/env';
 import { buildSetupChecklist, readSetupFacts } from '../../lib/setup-checklist';
@@ -9,17 +8,16 @@ import { buildSetupChecklist, readSetupFacts } from '../../lib/setup-checklist';
 export const prerender = false;
 
 const adminRole = Astro.locals.admin?.role ?? 'customer_service';
-const mayViewHealth = canAccessAdminRoute(adminRole, '/api/admin/health');
 const mayManageOrders = canAccessAdminRoute(adminRole, '/admin/orders');
 const mayManagePayments = canAccessAdminRoute(adminRole, '/admin/payments');
 // First steps after /install. Owner/admin only — they are the roles that can
-// complete them — and gone once every step is done.
+// complete them. The checklist itself lives on /admin/status (A39); the
+// dashboard keeps one line while a required step is left.
 const maySetUp = adminRole === 'owner' || adminRole === 'admin';
 const setupFacts = maySetUp
   ? await readSetupFacts(getRuntimeEnv(Astro.locals)?.OMS_DB as D1Database | undefined, Astro.locals)
   : null;
 const setupSteps = setupFacts ? buildSetupChecklist(setupFacts) : [];
-const setupPending = setupSteps.some((step) => !step.done);
 const setupRequiredLeft = setupSteps.filter((step) => step.required && !step.done).length;
 const primaryActions = mayManageOrders
   ? [
@@ -45,56 +43,15 @@ const primaryActions = mayManageOrders
         ))}
       </div>
     </header>
-    {setupPending && (
-      <section aria-labelledby="setup-title" class="rounded-xl border border-slate-200 bg-white p-4 md:p-5">
-        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 id="setup-title" class="text-base font-semibold text-slate-950">Siapkan toko</h3>
-            <p class="mt-1 text-sm text-slate-500">
-              {setupRequiredLeft > 0
-                ? `${setupRequiredLeft} langkah wajib lagi sebelum toko bisa menerima pesanan.`
-                : 'Toko sudah bisa menerima pesanan. Sisanya opsional.'}
-            </p>
-          </div>
-          <div class="flex items-center gap-2.5">
-            <div class="h-2 w-28 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-900/5">
-              <div
-                class="h-full rounded-full bg-emerald-600 transition-all duration-300"
-                style={`width: ${Math.round((setupSteps.filter((s) => s.done).length / setupSteps.length) * 100)}%`}
-              />
-            </div>
-            <span class="text-xs font-semibold tabular-nums text-slate-600">
-              {setupSteps.filter((s) => s.done).length}/{setupSteps.length}
-            </span>
-          </div>
-        </div>
-        <ol class="mt-3 divide-y divide-slate-100">
-          {setupSteps.map((step) => (
-            <li class="flex items-start gap-3 py-3">
-              <span
-                aria-hidden="true"
-                class:list={[
-                  'mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                  step.done ? 'bg-emerald-600 text-white' : 'border border-slate-300 text-transparent',
-                ]}
-              >✓</span>
-              <div class="min-w-0 flex-1">
-                <p class:list={['text-sm font-medium', step.done ? 'text-slate-400 line-through' : 'text-slate-900']}>
-                  {step.label}
-                  {!step.required && <span class="ml-1 text-xs font-normal text-slate-400">(opsional)</span>}
-                  <span class="sr-only">{step.done ? ' — selesai' : ' — belum'}</span>
-                </p>
-                <p class="mt-0.5 text-xs text-slate-500">{step.hint}</p>
-              </div>
-              {!step.done && (
-                <a href={step.href} class="inline-flex min-h-9 shrink-0 items-center rounded-lg border border-slate-200 px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">Buka</a>
-              )}
-            </li>
-          ))}
-        </ol>
-      </section>
+    {setupRequiredLeft > 0 && (
+      <a
+        href="/admin/status"
+        class="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300"
+      >
+        <span class="min-w-0"><span class="font-medium">Siapkan toko:</span> {setupRequiredLeft} langkah wajib lagi sebelum toko bisa menerima pesanan.</span>
+        <span class="shrink-0 font-medium" aria-hidden="true">Lihat status →</span>
+      </a>
     )}
     <AnalyticsDashboard client:only="react" showPaymentsLink={mayManagePayments} />
-    {mayViewHealth && <OperationalHealth client:only="react" />}
   </div>
 </AdminLayout>

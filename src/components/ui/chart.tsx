@@ -274,13 +274,18 @@ function ChartLegendContent({
   className,
   hideIcon = false,
   payload,
-  verticalAlign = "bottom",
   nameKey,
+  ...legend
 }: React.ComponentProps<"div"> & {
   hideIcon?: boolean
   nameKey?: string
 } & RechartsPrimitive.DefaultLegendContentProps) {
   const { config } = useChart()
+  // recharts 3.10 deprecates `verticalAlign` in favour of Legend `position`,
+  // but still passes it to legend content at runtime; read it untyped so the
+  // padding keeps following the legend's side.
+  const verticalAlign =
+    (legend as { verticalAlign?: string }).verticalAlign ?? "bottom"
 
   if (!payload?.length) {
     return null

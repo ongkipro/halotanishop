@@ -1,6 +1,6 @@
 # Release and Deployment — AdsBookCMS
 
-> Verified against disk: 2026-10-09 @ `8213409` + deploy-builds-first working tree
+> Verified against disk: 2026-10-31 @ `338af18` + feat/storefront-breadcrumb working tree (§3 migration notes to 0078, §4 registry at 1.8.0, re-stamped 1.8.2 on feat/product-form-ux; other sections retain their recorded evidence)
 
 This document is the single owner of how a change reaches production. It replaces the previous `VERSION.md` runbook and the deleted `AUTO_UPDATE_DEPLOY.md`, which between them described three mutually exclusive release models, none of which matched the one workflow that exists.
 
@@ -157,6 +157,44 @@ Migration-specific notes:
   from `orders` and `stores`. That is destructive by design; on 2026-10-20 those
   columns were empty on every store. Kelola's own table
   (`plugin_kelola_orders`) is created on activation, not by the chain.
+- **`*_multi_warehouse`** (A42, ADR-032; numbered at integration) adds
+  `warehouses.is_primary`, `is_active` and `served_provinces`, and makes the
+  lowest-id row the primary. Additive, but **not behaviour-neutral for an
+  install that already holds more than one `warehouses` row**: before it, every
+  quote and dispatch used the lowest-id row; after it, each other ready row
+  serves buyers in its own province, so those buyers are quoted and dispatched
+  from it. Before deploying this to an install, count its rows
+  (`SELECT COUNT(*) FROM warehouses` — a `--remote` read, approval required)
+  and, where it is above one, have the operator confirm or deactivate the
+  extra rows first. A one-row install is unchanged (REQ-242). It is `0072`.
+- **`0067`** (A35) creates `whatsapp_numbers` for the `/thanks` rotator and
+  copies the store's existing `support_whatsapp` into it. Additive.
+- **`0068`** (A36) adds `orders.source_slug` as a VIRTUAL generated column over
+  `source_page_path`; nothing is rewritten.
+- **`0069`** (A39/A40) creates the one-row operational status snapshot that
+  replaced an hourly KV write. Additive.
+- **`0070`** (A41) adds `order_items.weight_grams`; older rows stay NULL and
+  dispatch falls back to the variant weight. Additive.
+- **`0071`** (A43) creates `mengantar_areas` and **seeds it from every order**
+  with a district and area id. One full read of `orders` on the first request
+  after deploy; budget the D1 rows read on a large install.
+- **`0073`** (REQ-249) creates `order_follow_ups`; **`0074`** (A44) adds the
+  `orders.payment_switched_*` columns. Additive.
+- **`0075`** (A45) adds `orders.updated_at`, **backfills it on every row** from
+  `created_at`, adds an index and two triggers. One full write of `orders`
+  (rows written = order count) on the first request after deploy.
+- **`0076`** (audit 2026-10-31 H-1) creates `payment_transaction_attempts`,
+  which keeps a regenerated AutoLaris instruction's old provider id so a late
+  payment on it can still settle. Additive; empty until a buyer regenerates.
+- **`0077`** (UI-actions audit 2026-10-31 M5) adds `orders.mengantar_handover`
+  (`drop_off` / `pickup`), written on dispatch. One nullable column, no
+  backfill: an order dispatched before it reads NULL and may still be queued
+  for pickup, as before.
+- **`0078`** (storefront legal pages) adds `stores.support_email` and
+  `stores.business_address`, both nullable, edited in Pengaturan › Store and
+  read by the legal and contact pages. Additive, no backfill.
+
+`1.8.0` (2026-10-31) is the first release that carries `0067`–`0078`; `1.8.2` carries `0079` (a product's Google category id and path).
 
 ---
 
@@ -166,15 +204,15 @@ Two registries, currently in step:
 
 | Source | Field | Value |
 | --- | --- | --- |
-| `src/lib/version.ts` | `version` | `1.7.13` |
-| `src/lib/version.ts` | `releaseTag` | `2026.10-plugins` |
-| `src/lib/version.ts` | `schemaVersion` | `67` |
-| `package.json` | `version` | `1.7.13` |
+| `src/lib/version.ts` | `version` | `1.8.2` |
+| `src/lib/version.ts` | `releaseTag` | `2026.10-ops` |
+| `src/lib/version.ts` | `schemaVersion` | `80` |
+| `package.json` | `version` | `1.8.2` |
 
 `src/lib/version.ts` is what the admin sidebar renders and is the value users
 see. Keep it and `package.json` in step when bumping.
 
-`schemaVersion` counts migration files, and the tree holds 67 (`0000`–`0066`).
+`schemaVersion` counts migration files, and the tree holds 80 (`0000`–`0079`).
 `1.5.0` (2026-10-11) is the first release that carries `0056`–`0061`;
 `1.5.12` carries `0062`–`0065`; `1.6.0` carries `0066`.
 `schema-version.test.ts` fails CI on drift; middleware enforces the same chain at

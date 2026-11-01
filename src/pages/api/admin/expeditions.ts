@@ -76,7 +76,7 @@ const getOriginWarehouse = (database: D1Database) =>
       province
     FROM warehouses
     WHERE store_id = (SELECT id FROM stores ORDER BY id LIMIT 1)
-    ORDER BY id
+    ORDER BY is_primary DESC, id
     LIMIT 1
   `).first<OriginWarehouse>();
 

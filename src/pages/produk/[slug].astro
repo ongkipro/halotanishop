@@ -15,6 +15,7 @@ import { getRuntimeEnv } from '../../lib/env';
 import { resolveFormModeContext } from '../../lib/form-mode';
 import '../../styles/form-hybrid.css';
 import { defaultCatalogContentId } from '../../lib/catalog-feed';
+import { buildProductJsonLd } from '../../lib/json-ld';
 
 export const prerender = false;
 
@@ -77,64 +78,37 @@ const soldLabel = hasSoldCount
     : `${soldCount} terjual`
   : null;
 
+const hasPriceRange = new Set(product.variants.map((v) => v.price)).size > 1;
+
 const productImages = product.images && product.images.length > 0 ? product.images : [product.heroImage];
 
-const productAccent = '#111111';
 const canonical = `${Astro.locals.tenant.siteUrl}/produk/${product.slug}`;
 const productTitle = product.seoTitle;
 const productDescription = product.seoDescription;
-const productSchema = {
-  '@context': 'https://schema.org',
-  '@type': 'Product',
-  name: product.productName,
-  image: [new URL(product.heroImage, Astro.locals.tenant.siteUrl).toString()],
-  description: product.description,
-  sku: product.productId,
-  brand: {
-    '@type': 'Brand',
-    name: product.brand || Astro.locals.tenant.name,
-  },
-  offers: {
-    '@type': 'AggregateOffer',
-    priceCurrency: 'IDR',
-    lowPrice: String(displayPrice),
-    highPrice: String(Math.max(...product.variants.map((v) => v.price), displayPrice)),
-    offerCount: String(product.variants.length),
-    offers: product.variants.map((v) => ({
-      '@type': 'Offer',
-      price: String(v.price),
-      priceCurrency: 'IDR',
-      availability: 'https://schema.org/InStock',
-      url: canonical,
+// One builder for every Product JSON-LD (lib/json-ld.ts). This page and the
+// landing route used to hand-write their own, and disagreed: an AggregateOffer
+// here, the store's name as brand there.
+const productSchema = buildProductJsonLd({
+  siteUrl: Astro.locals.tenant.siteUrl,
+  organization: { name: Astro.locals.tenant.name },
+  product: {
+    name: product.productName,
+    description: product.description,
+    image: productImages,
+    url: canonical,
+    sku: product.productId,
+    category: product.category,
+    ...(product.brand ? { brand: product.brand } : {}),
+    ...(hasAggregateRating ? { ratingValue: Number(formattedRating), reviewCount } : {}),
+    reviews: product.reviews.map((review) => ({ name: review.name, rating: review.rating, comment: review.comment })),
+    offers: product.variants.map((variant) => ({
+      price: variant.price,
+      availability: 'InStock',
+      name: variant.label,
+      ...(variant.sku ? { sku: variant.sku } : {}),
     })),
   },
-  ...(hasAggregateRating
-    ? {
-        aggregateRating: {
-          '@type': 'AggregateRating',
-          ratingValue: formattedRating,
-          reviewCount: String(reviewCount),
-        },
-      }
-    : {}),
-  ...(product.reviews.length > 0
-    ? {
-        review: product.reviews.map((review) => ({
-          '@type': 'Review',
-          author: {
-            '@type': 'Person',
-            name: review.name,
-          },
-          reviewRating: {
-            '@type': 'Rating',
-            ratingValue: String(review.rating),
-            bestRating: '5',
-          },
-          reviewBody: review.comment,
-        })),
-      }
-    : {}),
-};
+});
 
 const productSchemaJson = JSON.stringify(productSchema).replace(/</g, '\\u003c');
 ---
@@ -145,6 +119,7 @@ const productSchemaJson = JSON.stringify(productSchema).replace(/</g, '\\u003c')
   image={product.heroImage}
   preloadImages={product.heroImage}
   canonical={canonical}
+  ogType="product"
   hideHeader={false}
   hideFooter={false}
   breadcrumbs={[
@@ -163,287 +138,165 @@ const productSchemaJson = JSON.stringify(productSchema).replace(/</g, '\\u003c')
       `product`, which would emit a second, conflicting Product block. */}
   <script is:inline type="application/ld+json" set:html={productSchemaJson} />
 
-  <main class="mx-auto max-w-[480px] bg-white pb-20">
+  <main class="bg-white pb-24">
     <Breadcrumb
       items={[
-        { label: 'Katalog', href: '/produk' },
+        { label: 'Produk', href: '/produk' },
         { label: product.category, href: '/produk' },
         { label: product.productName },
       ]}
     />
-    <!-- Product Hero Gallery Component. Edge to edge on purpose: the photo is
-         the first thing the page says, and padding around it only made the
-         column feel narrower than it is. -->
-    <div class="bg-white">
+    <!-- Edge to edge on purpose: the photo is the first thing the page says. -->
+    <div class="mt-2">
       <ProductImageGallery
         images={productImages}
         productName={product.productName}
-        badgeText={product.tag}
         discountPercentage={displayDiscount}
       />
     </div>
 
-    <!-- Main Header & Pricing Surface -->
-    <section class="border-fade-b bg-white px-5 py-5">
-      <h1 class="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#111111]">
+    <!-- Offer: name, proof, price, the choices, and the way to order. -->
+    <section class="px-4 pb-6 pt-4">
+      <h1 class="text-xl font-bold leading-snug tracking-[-0.02em] text-[#111111]">
         {product.productName}
       </h1>
-      <p class="mt-1 text-[13px] leading-relaxed text-[#555555]">
-        {product.subheadline || product.description}
-      </p>
+      {(hasAggregateRating || hasSoldCount) && (
+        <div class="mt-1.5 flex items-center gap-2 text-[13px] text-[#555555]">
+          {hasAggregateRating && (
+            <span class="flex items-center gap-1">
+              <RatingStars
+                rating={ratingValue}
+                starClass="h-[13px] w-[13px]"
+                label={`Rating produk ${formattedRating} dari 5 bintang`}
+              />
+              <span class="font-semibold text-[#111111]">{formattedRating}</span>
+              <span>({reviewCount})</span>
+            </span>
+          )}
+          {hasAggregateRating && hasSoldCount && <span aria-hidden="true">·</span>}
+          {hasSoldCount && <span>{soldLabel}</span>}
+        </div>
+      )}
 
-      <!-- Rating & Sold Claims -->
-      <div class="mt-3 flex items-center gap-3 text-[12px] text-[#555555]">
-        {
-          hasAggregateRating && (
-            <>
-              <div class="flex items-center gap-1.5">
-                <RatingStars
-                  rating={ratingValue}
-                  starClass="h-[13px] w-[13px]"
-                  label={`Rating produk ${formattedRating} dari 5 bintang`}
-                />
-                <span class="font-semibold text-[#111111]">{formattedRating}</span>
-              </div>
-              <span>{reviewCount} penilaian</span>
-            </>
-          )
-        }
-        {hasAggregateRating && hasSoldCount && <span class="h-3 w-px bg-[#E5E5E5]" />}
-        {hasSoldCount && <span class="font-normal text-[#767676]">{soldLabel}</span>}
-      </div>
-
-      <!-- Pricing Display -->
-      <div class="mt-4 flex items-baseline gap-3 border-fade-t pt-4">
-        <span class="text-[24px] font-bold leading-none tracking-tight text-[#111111]">
+      <div class="mt-3 flex flex-wrap items-baseline gap-x-2">
+        {hasPriceRange && <span class="text-sm text-[#555555]">Mulai</span>}
+        <span class="text-[26px] font-bold leading-none tracking-tight text-[#111111]">
           Rp{Math.round(displayPrice).toLocaleString('id-ID')}
         </span>
         {
           displayComparePrice > displayPrice && (
-            <span class="text-[13px] font-normal text-[#767676] line-through">
+            <span class="text-sm text-[#767676] line-through">
               Rp{Math.round(displayComparePrice).toLocaleString('id-ID')}
             </span>
           )
         }
       </div>
+
+      {(product.subheadline || product.description) && (
+        <p class="mt-3 text-sm leading-6 text-[#555555]">{product.subheadline || product.description}</p>
+      )}
+
+      {product.variants.length > 1 && (
+        <p class="mt-3 text-sm text-[#111111]">
+          <span class="text-[#555555]">{product.variants.length} pilihan:</span> {product.variants.map((v) => v.label).join(', ')}
+        </p>
+      )}
     </section>
 
-    <!-- Variant Offer Matrix -->
-    <section class="border-fade-b bg-white px-5 py-6">
-      <h2 class="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#111111]">
-        Pilihan Varian ({product.variants.length})
-      </h2>
-      <div class="divide-y divide-[#E5E5E5]">
-        {
-          product.variants.map((v) => (
-            <div class="flex items-start justify-between gap-4 py-4">
-              <div class="min-w-0 flex-1">
-                <div class="flex items-start gap-2">
-                  <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#111111]" aria-hidden="true" />
-                  <div class="min-w-0">
-                    <p class="text-[14px] font-semibold text-[#111111]">{v.label}</p>
-                    <p class="mt-0.5 text-[11px] text-[#555555]">Siap Kirim</p>
-                  </div>
-                </div>
-              </div>
-              <div class="shrink-0 text-right">
-                <p class="text-[16px] font-bold leading-none text-[#111111]">
-                  Rp{Math.round(v.price).toLocaleString('id-ID')}
-                </p>
-                {v.comparePrice && (
-                  <p class="mt-1 text-[11px] leading-none text-[#767676] line-through">
-                    Rp{Math.round(v.comparePrice).toLocaleString('id-ID')}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))
-        }
-      </div>
-    </section>
-
-    <!-- Detailed Specifications -->
-    <section class="border-fade-b bg-white px-5 py-6">
-      <h2 class="border-fade-b pb-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-[#111111]">Informasi Produk</h2>
-      <div class="mt-4 grid gap-5 text-[14px] leading-6 text-[#555555]">
-        <p>{product.description}</p>
-
-        <div class="grid gap-3 border-fade-b pb-4">
-          <div class="flex items-start gap-3">
-            <Icon
-              name="lucide:pencil"
-              class="mt-0.5 h-[18px] w-[18px] shrink-0"
-              style={`color: ${productAccent}`}
-              aria-hidden="true"
-            />
-            <div>
-              <p class="font-semibold text-[#111111]">Kategori</p>
-              <p>{product.category}</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <Icon
-              name="lucide:package"
-              class="mt-0.5 h-[18px] w-[18px] shrink-0"
-              style={`color: ${productAccent}`}
-              aria-hidden="true"
-            />
-            <div>
-              <p class="font-semibold text-[#111111]">Fokus Produk</p>
-              <p>{product.tag}</p>
-            </div>
-          </div>
-          <div class="flex items-start gap-3">
-            <Icon
-              name="lucide:sliders-horizontal"
-              class="mt-0.5 h-[18px] w-[18px] shrink-0"
-              style={`color: ${productAccent}`}
-              aria-hidden="true"
-            />
-            <div>
-              <p class="font-semibold text-[#111111]">Ketersediaan</p>
-              <p>Seluruh varian yang ditampilkan tersedia untuk dipesan.</p>
-            </div>
-          </div>
-        </div>
+    {(product.description || product.benefits?.length || product.keyPoints?.length || product.idealFor?.length) && (
+      <section class="border-t-8 border-[#F3F3F3] px-4 py-6">
+        <h2 class="text-base font-bold text-[#111111]">Tentang produk</h2>
+        {product.description && product.description !== product.subheadline && (
+          <p class="mt-2 text-sm leading-6 text-[#555555]">{product.description}</p>
+        )}
 
         {product.benefits && product.benefits.length > 0 && (
-          <div class="grid gap-4 border-fade-b pb-4">
-            <div class="flex items-center gap-2">
-              <Icon name="lucide:check" class="h-[17px] w-[17px]" style={`color: ${productAccent}`} aria-hidden="true" />
-              <h3 class="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#111111]">Manfaat Utama</h3>
-            </div>
-            <div class="space-y-3">
-              {
-                product.benefits.map((b) => (
-                  <div class="grid grid-cols-[8px_1fr] gap-3">
-                    <span
-                      class="mt-3 h-px w-2 bg-[#111111]"
-                      aria-hidden="true"
-                    />
-                    <span class="min-w-0 leading-6">{b}</span>
-                  </div>
-                ))
-              }
-            </div>
+          <div class="mt-5">
+            <h3 class="text-sm font-semibold text-[#111111]">Manfaat utama</h3>
+            <ul class="mt-2 space-y-2">
+              {product.benefits.map((benefit) => (
+                <li class="flex items-start gap-2.5 text-sm leading-6 text-[#555555]">
+                  <Icon name="lucide:check" class="mt-1 h-4 w-4 shrink-0 text-[#15803D]" aria-hidden="true" />
+                  <span class="min-w-0">{benefit}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
         {product.keyPoints && product.keyPoints.length > 0 && (
-          <div class="grid gap-4 border-fade-b pb-4">
-            <div class="flex items-center gap-2">
-              <Icon name="lucide:plus" class="h-[17px] w-[17px]" style={`color: ${productAccent}`} aria-hidden="true" />
-              <h3 class="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#111111]">Poin Penting Produk</h3>
-            </div>
-            <div class="space-y-3">
-              {
-                product.keyPoints.map((point) => (
-                  <div class="grid grid-cols-[8px_1fr] gap-3">
-                    <span
-                      class="mt-3 h-px w-2 bg-[#111111]"
-                      aria-hidden="true"
-                    />
-                    <span class="min-w-0 leading-6">{point}</span>
-                  </div>
-                ))
-              }
-            </div>
+          <div class="mt-5">
+            <h3 class="text-sm font-semibold text-[#111111]">Poin penting</h3>
+            <ul class="mt-2 space-y-2">
+              {product.keyPoints.map((point) => (
+                <li class="flex items-start gap-2.5 text-sm leading-6 text-[#555555]">
+                  <span class="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#111111]" aria-hidden="true" />
+                  <span class="min-w-0">{point}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
         {product.idealFor && product.idealFor.length > 0 && (
-          <div>
-            <div class="mb-3 flex items-center gap-2">
-              <Icon
-                name="lucide:download"
-                class="h-[17px] w-[17px]"
-                style={`color: ${productAccent}`}
-                aria-hidden="true"
-              />
-              <h3 class="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#111111]">Ideal Untuk</h3>
-            </div>
-            <div class="flex flex-wrap gap-x-3 gap-y-2">
-              {
-                product.idealFor.map((item) => (
-                  <span class="inline-flex items-center gap-2 text-[12px] font-normal text-[#555555]">
-                    <span
-                      class="h-px w-2 bg-[#111111]"
-                      aria-hidden="true"
-                    />
-                    <span>{item}</span>
-                  </span>
-                ))
-              }
-            </div>
+          <div class="mt-5">
+            <h3 class="text-sm font-semibold text-[#111111]">Cocok untuk</h3>
+            <ul class="mt-2 flex flex-wrap gap-2">
+              {product.idealFor.map((item) => (
+                <li class="rounded-full bg-[#F3F3F3] px-3 py-1.5 text-[13px] text-[#111111]">{item}</li>
+              ))}
+            </ul>
           </div>
         )}
-      </div>
-    </section>
+      </section>
+    )}
 
-    <!-- Product Reviews -->
     {
       (hasAggregateRating || product.reviews.length > 0) && (
-        <section class="border-fade-b bg-white px-5 py-6">
-          <div class="border-fade-b pb-3.5">
-            <div class="flex items-center gap-2">
-              <RatingStars max={1} starClass="h-[17px] w-[17px]" label="Penilaian produk" />
-              <h2 class="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#111111]">Ulasan Produk</h2>
-            </div>
-
+        <section class="border-t-8 border-[#F3F3F3] px-4 py-6">
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 class="text-base font-bold text-[#111111]">Ulasan pembeli</h2>
             {hasAggregateRating && (
-              <div class="mt-2.5 flex items-center gap-1.5 border-fade-t pt-2.5 text-[12px] font-bold text-[#111111]">
-                <span class="text-[#111111]">★ {formattedRating} / 5.0</span>
-                <span class="text-[#555555]">• {reviewCount} ulasan</span>
-              </div>
+              <span class="text-sm text-[#555555]"><span class="font-semibold text-[#111111]">★ {formattedRating}</span> · {reviewCount} ulasan</span>
             )}
           </div>
 
           {product.reviews.length > 0 && (
-            <div class="mt-4 space-y-4">
+            <ul class="mt-4 space-y-4">
               {product.reviews.map((review) => (
-                <div class="border-fade-b pb-4 last:border-0 last:pb-0">
+                <li class="rounded-2xl bg-[#F3F3F3] p-4">
                   <div class="flex items-center gap-3">
-                    <div 
-                      class="flex h-10 w-10 shrink-0 items-center justify-center border border-[#111111] bg-[#111111] text-[13px] font-bold uppercase text-white"
-                      style="font-family: 'Cinzel', serif;"
+                    <span
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold uppercase text-[#111111]"
+                      aria-hidden="true"
                     >
                       {review.name.charAt(0)}
-                    </div>
+                    </span>
                     <div class="min-w-0 flex-1">
-                      <div class="flex items-center gap-1.5">
-                        <p class="text-[12px] font-bold text-[#111111]">{review.name}</p>
+                      <p class="flex items-center gap-1.5 text-sm font-semibold text-[#111111]">
+                        <span class="truncate">{review.name}</span>
                         {review.verified && (
-                          <span class="inline-flex items-center gap-0.5 border border-[#111111] bg-white px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-[#767676]">
-                            Terverifikasi
+                          <span class="inline-flex shrink-0 items-center gap-0.5 text-xs font-normal text-[#15803D]">
+                            <Icon name="lucide:circle-check" class="h-3.5 w-3.5" aria-hidden="true" />
+                            Pembeli terverifikasi
                           </span>
                         )}
-                      </div>
-                      <p class="mt-0.5 flex items-center gap-2 text-[11px] text-[#767676]"><span>{review.location}</span><span class="h-3 w-px bg-[#E5E5E5]" aria-hidden="true" /><span>{review.date}</span></p>
+                      </p>
+                      <p class="text-xs text-[#555555]">{[review.location, review.date].filter(Boolean).join(' · ')}</p>
                     </div>
                   </div>
-                  <RatingStars rating={review.rating} class="mt-2" starClass="h-2.5 w-2.5" />
-                  <p class="mt-1.5 text-[13px] leading-6 text-[#555555]">"{review.comment}"</p>
-                </div>
+                  <RatingStars rating={review.rating} class="mt-2.5" starClass="h-3 w-3" />
+                  <p class="mt-1.5 text-sm leading-6 text-[#333333]">{review.comment}</p>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </section>
       )
     }
 
-    <!-- Shipping Information Notice Card -->
-    <section class="border-fade-b bg-white px-5 py-5">
-      <div class="flex items-start gap-3.5 text-[12px] leading-relaxed text-[#555555]">
-        <Icon name="lucide:truck" class="mt-0.5 h-5 w-5 shrink-0" style={`color: ${productAccent}`} aria-hidden="true" />
-        <div>
-          <p class="font-bold uppercase tracking-wider text-[#111111]">Informasi Pengiriman</p>
-          <p class="mt-1 leading-5 text-[#555555]">Biaya pengiriman dihitung otomatis di halaman checkout setelah alamat pengiriman dilengkapi.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Direct Order Form Container -->
-    <section id="form-pemesanan" class="mt-4 scroll-mt-6 overflow-hidden rounded-none bg-white p-2">
+    <!-- Direct order form -->
+    <section id="form-pemesanan" class="scroll-mt-2 border-t-8 border-[#F3F3F3] px-2 pb-2 pt-4">
       <GeoIpResolvedForm mode={formContext.mode} province={formContext.province} productSlug={product.slug} embedded={true} />
     </section>
 
@@ -451,20 +304,19 @@ const productSchemaJson = JSON.stringify(productSchema).replace(/</g, '\\u003c')
       orderCount={socialProofOrders}
     />
 
-    <!-- Sticky Mobile Purchase Bar (Auto-hides while the hero or the order
-         form is visible: over the hero it covers the product photo before the
-         visitor has read anything, and over the form its CTA points at a form
-         already on screen) -->
-    <div id="sticky-purchase-bar" class="fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-[480px] items-center justify-between border-fade-t bg-white/95 px-5 py-3 shadow-[0_-8px_24px_rgba(17,17,17,0.08)] backdrop-blur-md transition-all duration-300 lg:hidden" style="transform: translateY(100%); opacity: 0; pointer-events: none;">
-      <div>
-        <p class="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#555555]">Harga Promo</p>
-        <p class="text-base font-bold text-[#111111]">Rp{Math.round(displayPrice).toLocaleString('id-ID')}</p>
+    <!-- Sticky purchase bar. Hidden while the photo or the order form is on
+         screen: over the photo it covers what the buyer came to look at, and
+         over the form its button points at a form already in view. -->
+    <div id="sticky-purchase-bar" class="fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-[480px] items-center justify-between gap-3 border-t border-[#EDEDED] bg-white/95 px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(17,17,17,0.08)] backdrop-blur-md transition-all duration-300" style="transform: translateY(100%); opacity: 0; pointer-events: none;" inert>
+      <div class="min-w-0">
+        <p class="truncate text-xs text-[#555555]">{product.productName}</p>
+        <p class="text-base font-bold leading-tight text-[#111111]">{hasPriceRange && <span class="text-xs font-normal text-[#555555]">Mulai </span>}Rp{Math.round(displayPrice).toLocaleString('id-ID')}</p>
       </div>
       <a
         href="#form-pemesanan"
-        class="inline-flex min-h-11 items-center justify-center rounded-full border border-[#2c6ecb] bg-[#2c6ecb] px-6 text-[10px] font-semibold uppercase tracking-[0.1em] text-white transition-colors hover:bg-[#1f5199] hover:border-[#1f5199] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2c6ecb] active:scale-[0.98]"
+        class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full bg-[#121212] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#333333] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#121212]"
       >
-        Pesan Sekarang
+        Pesan sekarang
       </a>
     </div>
   </main>
@@ -487,10 +339,13 @@ const productSchemaJson = JSON.stringify(productSchema).replace(/</g, '\\u003c')
           stickyBar.style.transform = 'translateY(100%)';
           stickyBar.style.opacity = '0';
           stickyBar.style.pointerEvents = 'none';
+          // Out of sight is out of the tab order too.
+          stickyBar.inert = true;
         } else {
           stickyBar.style.transform = 'translateY(0)';
           stickyBar.style.opacity = '1';
           stickyBar.style.pointerEvents = 'auto';
+          stickyBar.inert = false;
         }
       };
 

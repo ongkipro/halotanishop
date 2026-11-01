@@ -22,18 +22,17 @@
 interface Props {
   images: string[];
   productName: string;
-  badgeText?: string;
   discountPercentage?: number;
 }
 
-const { images, productName, badgeText, discountPercentage = 0 } = Astro.props;
+const { images, productName, discountPercentage = 0 } = Astro.props;
 const gallery = images.filter((image) => image.trim());
 ---
 
 {gallery.length > 0 && (
   <div class="w-full" data-gallery>
     {gallery.map((imgUrl, idx) => (
-      <div class="relative w-full bg-[#F5F5F5]">
+      <div class="relative w-full bg-[#F3F3F3]">
         <img
           src={imgUrl}
           alt={idx === 0 ? `Foto ${productName}` : `${productName} foto ${idx + 1}`}
@@ -45,19 +44,10 @@ const gallery = images.filter((image) => image.trim());
           fetchpriority={idx === 0 ? 'high' : undefined}
           draggable={false}
         />
-        {idx === 0 && (badgeText || discountPercentage > 0) && (
-          <div class="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap items-center gap-1.5">
-            {badgeText && (
-              <span class="bg-[#111111] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">
-                {badgeText}
-              </span>
-            )}
-            {discountPercentage > 0 && (
-              <span class="bg-[#111111] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-                -{discountPercentage}%
-              </span>
-            )}
-          </div>
+        {idx === 0 && discountPercentage > 0 && (
+          <span class="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-[#334FB4] px-2 py-0.5 text-xs font-bold leading-5 text-white">
+            -{discountPercentage}%
+          </span>
         )}
       </div>
     ))}

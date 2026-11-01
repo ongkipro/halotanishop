@@ -246,16 +246,24 @@ export function classifyAlerting(
     : signal("alerting", "unknown", "not-configured", null, now);
 }
 
-/** KV key the hourly run stamps; the panel reads it back. */
-export const SCHEDULER_HEARTBEAT_KEY = "adsbookcms:scheduler:last-run:v1";
 /** Two missed hours before the panel calls the clock stopped. */
 export const SCHEDULER_STALE_MINUTES = 150;
 
-/** Stamp one scheduled run. Never throws: a KV hiccup must not fail the cron. */
-export async function recordSchedulerRun(store: KVNamespace | undefined, at: Date) {
-  await store?.put(SCHEDULER_HEARTBEAT_KEY, at.toISOString()).catch((error) =>
-    console.error("scheduler-heartbeat-write-failed", error),
-  );
+/**
+ * Stamp one scheduled run in the status row (`ops_health_snapshot`). It was a
+ * KV write every hour (A-379, PRD A40 E5): KV Free allows 1,000 writes a day
+ * and the account-wide allowance has run out before (ADR-021). Throws on a D1
+ * error; the cron runs it inside `housekeeping()`, so a failure is logged and
+ * the run goes on. Touches only `scheduler_ran_at`, never the snapshot.
+ */
+export async function recordSchedulerRun(database: D1Database, at: Date) {
+  await database
+    .prepare(
+      `INSERT INTO ops_health_snapshot (id, scheduler_ran_at) VALUES (1, ?)
+       ON CONFLICT(id) DO UPDATE SET scheduler_ran_at = excluded.scheduler_ran_at`,
+    )
+    .bind(at.toISOString())
+    .run();
 }
 
 /**
@@ -278,10 +286,17 @@ export function classifyScheduler(lastRunAt: string | null | undefined, now: num
     : signal("scheduler", "healthy", "scheduler-ran", lastRunAt, now);
 }
 
-async function readSchedulerHeartbeat(locals?: App.Locals): Promise<string | null | undefined> {
-  const store = (getRuntimeEnv(locals) as { SESSION?: KVNamespace }).SESSION;
-  if (!store) return undefined;
-  return store.get(SCHEDULER_HEARTBEAT_KEY).catch(() => undefined);
+/** Null when no run was ever stamped; undefined when the row cannot be read. */
+export async function readSchedulerHeartbeat(database: D1Database): Promise<string | null | undefined> {
+  try {
+    const row = await database
+      .prepare("SELECT scheduler_ran_at FROM ops_health_snapshot WHERE id = 1")
+      .first<{ scheduler_ran_at: string | null }>();
+    return row?.scheduler_ran_at ?? null;
+  } catch (error) {
+    console.error("operational-health-scheduler-unreadable", error);
+    return undefined;
+  }
 }
 
 /** When Meta last accepted an event. */
@@ -560,7 +575,7 @@ export async function collectOperationalHealth(
     readAutoLarisWindow(database),
     readGoogleAdsOutboxDepth(database),
     getSchemaVersionStatus(locals),
-    readSchedulerHeartbeat(locals),
+    readSchedulerHeartbeat(database),
   ]);
 
   const now = Date.now();

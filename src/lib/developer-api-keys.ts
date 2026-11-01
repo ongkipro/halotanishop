@@ -25,6 +25,25 @@ export const HEADLESS_API_SCOPES = [
 
 export type HeadlessApiScope = (typeof HEADLESS_API_SCOPES)[number];
 
+/**
+ * The operations API (PRD A45, `/api/ops/v1`). Namespaced because the
+ * storefront already owns `orders:read` (one order by its public token) and
+ * `catalog:read`, and a key stored without a scope list is granted every
+ * storefront scope: a shared name would hand every such key the whole order
+ * book. No `ops:` scope is ever granted by default (REQ-252).
+ */
+export const OPS_API_SCOPES = [
+  "ops:orders:read",
+  "ops:orders:read_pii",
+  "ops:orders:write",
+  "ops:shipping:write",
+  "ops:reports:read",
+  "ops:catalog:read",
+] as const;
+
+export type OpsApiScope = (typeof OPS_API_SCOPES)[number];
+export type ApiKeyScope = HeadlessApiScope | OpsApiScope;
+
 export const DEFAULT_HEADLESS_API_SCOPES: readonly HeadlessApiScope[] = HEADLESS_API_SCOPES;
 export const DEFAULT_API_KEY_RATE_LIMIT = 120;
 export const DEFAULT_API_KEY_DAILY_QUOTA = 10_000;
@@ -32,17 +51,13 @@ export const MIN_API_KEY_RATE_LIMIT = 1;
 export const MAX_API_KEY_RATE_LIMIT = 600;
 export const MIN_API_KEY_DAILY_QUOTA = 1;
 export const MAX_API_KEY_DAILY_QUOTA = 100_000;
-const HEADLESS_API_SCOPE_SET: Record<HeadlessApiScope, true> = {
-  "storefront:read": true,
-  "catalog:read": true,
-  "shipping:read": true,
-  "checkout:write": true,
-  "orders:read": true,
-  "tracking:write": true,
-};
+const API_KEY_SCOPE_SET: ReadonlySet<string> = new Set<ApiKeyScope>([
+  ...HEADLESS_API_SCOPES,
+  ...OPS_API_SCOPES,
+]);
 
 export type DeveloperApiKeyPolicy = {
-  scopes: HeadlessApiScope[];
+  scopes: ApiKeyScope[];
   rateLimitPerMinute: number;
   dailyQuota: number;
 };
@@ -52,7 +67,8 @@ function parseIntegerWithin(value: unknown, minimum: number, maximum: number): n
   return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : null;
 }
 
-export function parseStoredApiKeyScopes(value: unknown): HeadlessApiScope[] {
+/** A stored list, or the storefront defaults for a key stored without one — never an `ops:` scope. */
+export function parseStoredApiKeyScopes(value: unknown): ApiKeyScope[] {
   if (value === null || value === undefined || value === "") {
     return [...DEFAULT_HEADLESS_API_SCOPES];
   }
@@ -63,9 +79,14 @@ export function parseStoredApiKeyScopes(value: unknown): HeadlessApiScope[] {
       : [];
   const scopes = candidates
     .map((scope) => (typeof scope === "string" ? scope.trim() : ""))
-    .filter((scope): scope is HeadlessApiScope => scope in HEADLESS_API_SCOPE_SET);
+    .filter((scope): scope is ApiKeyScope => API_KEY_SCOPE_SET.has(scope));
   if (scopes.length !== candidates.length) return [];
   return [...new Set(scopes)];
+}
+
+/** A key that reaches buyer data or order actions: only the owner issues, changes or revokes it (REQ-265). */
+export function hasOpsScope(scopes: readonly string[]): boolean {
+  return scopes.some((scope) => scope.startsWith("ops:"));
 }
 
 export function normalizeApiKeyPolicy(input: {

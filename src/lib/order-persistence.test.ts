@@ -186,9 +186,33 @@ test("persistOrder promotes the recent abandoned row and replaces its items", as
   assert.equal(result.orderNumber, "INV-10007");
   assert.equal(result.publicStatusToken, "status-original");
   assert.equal(batchStatements.length, 5);
-  // Five statements, and none of them a stock movement (ADR-023).
+  // Five statements, and none of them a stock movement (ADR-023). The item
+  // insert reads the variant's weight (A-397); nothing writes the variant,
+  // under any quoting of the identifier ("", ``, []) or conflict clause.
+  const writesVariants =
+    /\b(?:UPDATE(?:\s+OR\s+\w+)?|(?:INSERT(?:\s+OR\s+\w+)?|REPLACE)\s+INTO|DELETE\s+FROM)\s+(?:["`[]?main["`\]]?\.)?["`[]?product_variants\b/i;
+  for (const write of [
+    "UPDATE product_variants SET stock = stock - 1",
+    "UPDATE `product_variants` SET stock = 0",
+    'UPDATE "product_variants" SET stock = 0',
+    "UPDATE [product_variants] SET stock = 0",
+    "UPDATE OR IGNORE `product_variants` SET stock = 0",
+    'INSERT INTO "product_variants" (id) VALUES (1)',
+    "INSERT OR REPLACE INTO product_variants (id) VALUES (1)",
+    "REPLACE INTO `product_variants` (id) VALUES (1)",
+    "DELETE FROM [product_variants] WHERE id = 1",
+    "delete from main.product_variants where id = 1",
+  ]) {
+    assert.match(write, writesVariants);
+  }
+  for (const read of [
+    "INSERT INTO order_items (weight_grams) SELECT id, (SELECT weight_grams FROM product_variants WHERE id = ?)",
+    "SELECT 1 FROM orders o INNER JOIN product_variants pv ON pv.id = ?",
+  ]) {
+    assert.doesNotMatch(read, writesVariants);
+  }
   assert.equal(
-    batchStatements.some((statement) => statement.sql.includes("product_variants")),
+    batchStatements.some((statement) => writesVariants.test(statement.sql)),
     false,
   );
   assert.match(batchStatements[1].sql, /^\s*UPDATE orders/);

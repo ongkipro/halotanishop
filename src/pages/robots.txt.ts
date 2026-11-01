@@ -22,13 +22,26 @@ const DISALLOWED = ["/admin/", "/api/", "/embed/", "/hello", "/install"];
 
 // Named so their crawl behaviour is explicit rather than inherited. Every one
 // of them needs its own copy of the disallow list.
+//
+// Search engines and AI *answer* agents (live retrieval for a user's question)
+// are named: a store sells by being found, and an assistant answering "where
+// can I buy X" can only cite pages it may read. `/llms.txt` is their map.
+//
+// AI *training* crawlers (GPTBot, ClaudeBot, Google-Extended,
+// Applebot-Extended, CCBot, meta-externalagent) are deliberately not named.
+// Cloudflare's managed robots.txt, on for the fleet's zones, prepends a
+// `Disallow: /` group for each of them; a second group here saying `Allow: /`
+// for the same agent made the file contradict itself. Unnamed, they fall to
+// the `*` group, so a zone without the managed file still lets them crawl.
 const NAMED_AGENTS = [
   "Googlebot",
   "Googlebot-Image",
   "Bingbot",
+  "OAI-SearchBot",
+  "ChatGPT-User",
+  "Claude-SearchBot",
+  "Claude-User",
   "PerplexityBot",
-  "GPTBot",
-  "ClaudeBot",
 ];
 
 function group(agent: string) {
@@ -41,10 +54,12 @@ function group(agent: string) {
 
 export const GET: APIRoute = ({ locals }) => {
   const origin = locals.tenant.siteUrl.replace(/\/$/, "");
+  // A noindex store keeps crawling open so every page's `noindex` is seen
+  // (a Disallow would hide it), but advertises no sitemap.
   const body = [
     group("*"),
     ...NAMED_AGENTS.map(group),
-    `Sitemap: ${origin}/sitemap.xml`,
+    ...(locals.tenant.noindex ? [] : [`Sitemap: ${origin}/sitemap.xml`]),
     "",
   ].join("\n\n");
 

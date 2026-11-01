@@ -12,6 +12,10 @@ export type ProductMutationPayload = {
   title?: unknown;
   slug?: unknown;
   category?: unknown;
+  brand?: unknown;
+  description?: unknown;
+  google_category_id?: unknown;
+  google_category_path?: unknown;
   is_active?: unknown;
   image_url?: unknown;
   variants?: unknown;
@@ -76,7 +80,8 @@ type ParsedVariant = {
   title: string;
   price: number;
   compare_price: number | null;
-  weight_grams: number;
+  /** Null only for an existing variant saved without a weight: keep its stored one. */
+  weight_grams: number | null;
   stock: number;
 };
 
@@ -85,12 +90,38 @@ type ParsedProduct = {
   title: string;
   slug: string;
   category: string;
+  /** Undefined when the request did not send it: an update keeps the stored value. */
+  brand?: string | null;
+  description?: string | null;
+  /** Google product taxonomy id and path; undefined keeps the stored pair. */
+  google_category_id?: number | null;
+  google_category_path?: string | null;
   image_url: string | null;
   is_active: boolean;
   variants: ParsedVariant[];
 };
 
-type ParseResult<T> = { value: T } | { error: string };
+type ParseResult<T> = { value: T } | { error: string; status?: number };
+
+// Mengantar's per-service weight limits: regular 50 kg, cargo 100 kg, lite
+// 0.5 kg. Source: the local notes in ~/Projects/mengantar-documentation,
+// docs/02-couriers-and-rules.md §3.1 (and the glossary in docs/07-reference.md),
+// which say they summarise the official Mengantar API docs plus live
+// observation; not re-checked against app.mengantar.com/docs here.
+// This CMS never sends `cargo: true`, so one unit heavier than the regular
+// limit can never be dispatched.
+// lazy: the cap is per unit, not per parcel — quantity × weight above 50 kg
+// passes here and is left to the quote/Mengantar to refuse. Upgrade path: check
+// the line's total weight against the service limit at quote and conversion.
+export const MAX_VARIANT_WEIGHT_GRAMS = 50_000;
+
+function isMissing(value: unknown) {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === "string" && value.trim() === "")
+  );
+}
 
 function clean(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
@@ -140,6 +171,37 @@ export function parseProductMutationPayload(
   const title = capitalizeTitle(rawTitle);
   const slug = normalizeSlug(clean(body.slug, 200));
   const category = clean(body.category, 120) || "Umum";
+  // `products.brand` / `products.description` (0051) feed Google and Meta and
+  // the product page. Google caps brand at 70 and description at 5000; over a
+  // cap the item is disapproved, so the cap is applied here, at the boundary.
+  const brand = body.brand === undefined ? undefined : clean(body.brand, 70) || null;
+  const description =
+    body.description === undefined
+      ? undefined
+      : (typeof body.description === "string"
+          ? body.description.replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 5000)
+          : "") || null;
+  // A Google taxonomy id with its path, or null to clear both. The id is not
+  // checked against the list here: the taxonomy lives in a static asset the
+  // Worker does not load, and the field is admin-only.
+  // lazy: an id outside Google's list reaches the feed and Merchant Center
+  // flags it. Upgrade path: validate against the asset via the ASSETS binding.
+  let googleCategoryId: number | null | undefined;
+  let googleCategoryPath: string | null | undefined;
+  if (body.google_category_id !== undefined) {
+    if (body.google_category_id === null || body.google_category_id === "") {
+      googleCategoryId = null;
+      googleCategoryPath = null;
+    } else {
+      const id = parseInteger(body.google_category_id);
+      const path = clean(body.google_category_path, 750);
+      if (id === null || id <= 0 || !path) {
+        return { error: "Kategori Google tidak valid. Pilih ulang dari daftar." };
+      }
+      googleCategoryId = id;
+      googleCategoryPath = path;
+    }
+  }
   const imageUrl = clean(body.image_url, 500);
   if (
     imageUrl &&
@@ -206,7 +268,12 @@ export function parseProductMutationPayload(
       rawVariant.compare_price === ""
         ? null
         : parseInteger(rawVariant.compare_price);
-    const weightGrams = parseInteger(rawVariant.weight_grams) ?? 1000;
+    // Missing and 1000 are different (PRD A41): a missing weight is never
+    // invented. A new variant must state it; an existing one keeps its own.
+    const weightMissing = isMissing(rawVariant.weight_grams);
+    const weightGrams = weightMissing
+      ? null
+      : parseInteger(rawVariant.weight_grams);
     const stock = parseInteger(rawVariant.stock);
 
     if (variantId !== undefined && (!variantId || variantId <= 0)) {
@@ -224,8 +291,16 @@ export function parseProductMutationPayload(
     if (!price || price <= 0) {
       return { error: `Harga varian ${sku} harus integer positif.` };
     }
-    if (!weightGrams || weightGrams <= 0) {
+    if (weightMissing) {
+      if (variantId === undefined) {
+        return { error: `Berat varian ${sku} wajib diisi (gram).`, status: 422 };
+      }
+    } else if (!weightGrams || weightGrams <= 0) {
       return { error: `Berat varian ${sku} harus integer positif.` };
+    } else if (weightGrams > MAX_VARIANT_WEIGHT_GRAMS) {
+      return {
+        error: `Berat varian ${sku} maksimal 50.000 gram (batas layanan reguler Mengantar).`,
+      };
     }
     if (comparePrice !== null && comparePrice < 0) {
       return { error: `Harga coret varian ${sku} harus nol atau lebih.` };
@@ -256,6 +331,11 @@ export function parseProductMutationPayload(
     title,
     slug,
     category,
+    ...(brand !== undefined ? { brand } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(googleCategoryId !== undefined
+      ? { google_category_id: googleCategoryId, google_category_path: googleCategoryPath ?? null }
+      : {}),
     image_url: imageUrl || null,
     is_active: isActive,
     variants,

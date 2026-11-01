@@ -280,3 +280,16 @@ export function isWithinAdminRange(date: string, start: string, end: string) {
   const [lo, hi] = start <= end ? [start, end] : [end, start];
   return date >= lo && date <= hi;
 }
+
+/**
+ * The period a list opens on from its URL (`date_filter`, `date_start`,
+ * `date_end`), or "all" when the URL names none or names one that does not
+ * resolve. Analitik links into the order list this way (audit 2026-10-31 M4).
+ */
+export function adminDateSelectionFromQuery(params: URLSearchParams, maxCustomRangeDays = ADMIN_MAX_CUSTOM_RANGE_DAYS) {
+  const filter = params.get("date_filter") || "all";
+  const customRange = { start: params.get("date_start") || "", end: params.get("date_end") || "" };
+  const resolved = resolveAdminDateSelection(filter, { customRange, maxCustomRangeDays });
+  if (!resolved.ok) return { filter: "all", start: "", end: "" };
+  return filter === ADMIN_CUSTOM_DATE_FILTER ? { filter, ...customRange } : { filter, start: "", end: "" };
+}

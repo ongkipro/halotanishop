@@ -61,6 +61,11 @@ function sqliteD1() {
       site_url TEXT, tagline TEXT, locale TEXT, storefront_template TEXT,
       admin_name TEXT, support_whatsapp TEXT, created_at TEXT NOT NULL
     );
+    CREATE TABLE whatsapp_numbers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL DEFAULT '',
+      phone TEXT NOT NULL UNIQUE, is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
     CREATE TABLE admin_credentials (
       id INTEGER PRIMARY KEY, username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
@@ -216,8 +221,12 @@ test("the install writes the store and the credential together", async () => {
   const result = await runInstall(database, planned.plan);
   assert.equal(result.ok, true);
 
-  const [seatCheck, storeInsert, credentialUpdate, courierInsert] = statements;
-  assert.equal(statements.length, 4, "one seat check, then one atomic install batch");
+  const [seatCheck, storeInsert, credentialUpdate, courierInsert, whatsappInsert] = statements;
+  assert.equal(statements.length, 5, "one seat check, then one atomic install batch");
+  // PRD A35: the rotator's list starts with the installer's number, in the
+  // same batch, and only into an empty list.
+  assert.match(whatsappInsert, /INSERT INTO whatsapp_numbers/);
+  assert.match(whatsappInsert, /NOT EXISTS \(SELECT 1 FROM whatsapp_numbers\)/);
   assert.match(seatCheck, /COUNT\(\*\).+FROM admin_credentials/s);
   assert.match(storeInsert, /INSERT INTO stores/);
   assert.match(
@@ -383,4 +392,26 @@ test("a failing database reports rather than throwing", async () => {
 
   const result = await runInstall(database, planned.plan);
   assert.equal(result.ok, false);
+});
+
+test("the install starts the WhatsApp list with its number, or leaves it empty (PRD A35)", async () => {
+  const withNumber = sqliteD1();
+  const planned = planInstall(valid);
+  assert.equal(planned.ok, true);
+  if (!planned.ok) return;
+  assert.deepEqual(await runInstall(withNumber.database, planned.plan), { ok: true });
+  assert.deepEqual(
+    withNumber.raw.prepare("SELECT phone, is_active FROM whatsapp_numbers").all().map((row) => ({ ...row })),
+    [{ phone: "6281234567890", is_active: 1 }],
+  );
+
+  const withoutNumber = sqliteD1();
+  const blank = planInstall({ ...valid, supportWhatsapp: "" });
+  assert.equal(blank.ok, true);
+  if (!blank.ok) return;
+  assert.deepEqual(await runInstall(withoutNumber.database, blank.plan), { ok: true });
+  assert.equal(
+    (withoutNumber.raw.prepare("SELECT COUNT(*) AS n FROM whatsapp_numbers").get() as { n: number }).n,
+    0,
+  );
 });

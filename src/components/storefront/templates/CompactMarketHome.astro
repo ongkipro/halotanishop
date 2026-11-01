@@ -39,14 +39,8 @@ interface Props {
 const { content, products, heroSlides, sections } = Astro.props;
 ---
 
-<main
-  id="konten-utama"
-  class="relative min-h-screen overflow-x-hidden bg-white font-sans text-[#111111] antialiased"
->
-  <div
-    id="home"
-    class="mx-auto flex min-h-screen w-full max-w-[480px] flex-col bg-white"
-  >
+<main id="konten-utama" class="overflow-x-hidden bg-white font-sans text-[#111111] antialiased">
+  <div id="home" class="flex w-full flex-col">
     {sections.hero && <HeroSection slides={heroSlides} highlights={content.heroHighlights} content={content.hero} />}
     {sections.catalog && <ProductsSection products={products} heading={content.catalog} />}
     {sections.landingPages !== false && <LandingPagesSection pages={content.solutions} heading={content.solutionsHeading} />}
@@ -54,36 +48,26 @@ const { content, products, heroSlides, sections } = Astro.props;
 </main>
 
 <script>
+  // Native scroll-snap carries the swipe; this only keeps the dots in step and
+  // lets a dot jump to its slide. The hero never advances by itself: an
+  // autoplaying hero made every slide a fresh LCP candidate (two runs of one
+  // build measured 1.8 s and 6.3 s) and kept Speed Index from settling.
   const heroTrack = document.getElementById('hero-track');
   const heroDots = document.getElementById('hero-dots');
-  const setHeroSlide = (index: number) => {
-    if (!heroTrack || !heroDots) return;
-    heroTrack.style.transform = `translateX(-${index * 100}%)`;
-    [...heroDots.children].forEach((dot, itemIndex) => {
-      dot.className =
-        itemIndex === index
-          ? 'h-11 w-7 border-b-2 border-white bg-transparent transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white'
-          : 'h-11 w-4 border-b border-white/55 bg-transparent transition-colors hover:border-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white';
-    });
-  };
-
-  // The hero does not advance by itself. It used to, every 4000 ms, and that
-  // was the home page's largest measured cost: each advance paints a new
-  // full-width image, so every one is a fresh LCP candidate. Two Lighthouse
-  // runs of one unchanged build measured LCP 1.8 s and 6.3 s, the slow one
-  // resolving to an off-screen `loading="lazy"` slide.
-  //
-  // Deferring the start to `load` was tried first and did not fix it: LCP
-  // stayed at a 3.2 s median and Speed Index did not move from 6.0 s, because
-  // Speed Index integrates visual completeness over the whole trace and a page
-  // that keeps changing never reaches it. Deferring moves the cost; only
-  // stopping removes it.
-  //
-  // The dots stay, and every slide is still reachable in one tap on a 44px
-  // target. What is gone is the page rearranging itself under a reader who did
-  // not ask it to — which is also the accessible behaviour, and is why
-  // `prefers-reduced-motion` no longer has anything here to suppress.
-  [...(heroDots?.children ?? [])].forEach((dot, index) => {
-    dot.addEventListener('click', () => setHeroSlide(index));
-  });
+  if (heroTrack && heroDots) {
+    const dots = [...heroDots.children];
+    const mark = (index: number) =>
+      dots.forEach((dot, itemIndex) => {
+        if (itemIndex === index) dot.setAttribute('aria-current', 'true');
+        else dot.removeAttribute('aria-current');
+      });
+    dots.forEach((dot, index) =>
+      dot.addEventListener('click', () => heroTrack.scrollTo({ left: index * heroTrack.clientWidth, behavior: 'smooth' })),
+    );
+    heroTrack.addEventListener(
+      'scroll',
+      () => mark(Math.round(heroTrack.scrollLeft / Math.max(1, heroTrack.clientWidth))),
+      { passive: true },
+    );
+  }
 </script>

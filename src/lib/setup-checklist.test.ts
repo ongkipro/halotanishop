@@ -46,5 +46,6 @@ test("a store with every courier switched off owes the courier step before it ca
   const step = buildSetupChecklist({ ...fresh, enabledCouriers: 0 }).find((s) => s.id === "couriers");
   assert.equal(step?.done, false);
   assert.equal(step?.required, true);
-  assert.equal(step?.href, "/admin/couriers");
+  // Couriers are switched on at Ekspedisi; /admin/couriers redirects to Shipping.
+  assert.equal(step?.href, "/admin/expeditions");
 });

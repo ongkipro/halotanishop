@@ -40,7 +40,11 @@ if (!active) return Astro.redirect('/admin/settings/plugins');
         <div><dt class="font-semibold text-slate-500">Terkirim 24 jam</dt><dd id="kelolaSynced24h" class="mt-1 font-mono text-base font-semibold text-emerald-700">0</dd></div>
         <div><dt class="font-semibold text-slate-500">Gagal 24 jam</dt><dd id="kelolaFailing24h" class="mt-1 font-mono text-base font-semibold text-slate-950">0</dd></div>
         <div id="kelolaLastError" class="hidden break-words rounded-lg bg-rose-50 px-3 py-2 text-rose-800 sm:col-span-3"></div>
-      </dl></div>
+      </dl>
+      <div id="kelolaBackfill" class="mt-3 hidden flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+        <p><strong id="kelolaUnsyncedOlder">0</strong> order lebih dari 24 jam belum masuk Kelola dan tidak dicoba ulang otomatis. Kelola menolak order yang sudah ada, jadi aman dikirim.</p>
+        <button id="backfillKelola" type="button" class="btn-secondary shrink-0">Kirim order lama</button>
+      </div></div>
 
       <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Both columns read label → field → hint, so the two fields share one row. */}
@@ -77,6 +81,7 @@ if (!active) return Astro.redirect('/admin/settings/plugins');
         last_synced_at: string | null;
         synced_24h: number;
         failing_24h: number;
+        unsynced_older: number;
         last_error: null | { order_number: string; attempts: number; message: string };
       };
     };
@@ -132,6 +137,10 @@ if (!active) return Astro.redirect('/admin/settings/plugins');
       const failing = byId('kelolaFailing24h');
       failing?.classList.toggle('text-rose-700', kelola.sync.failing_24h > 0);
       failing?.classList.toggle('text-slate-950', kelola.sync.failing_24h === 0);
+      set('kelolaUnsyncedOlder', String(kelola.sync.unsynced_older));
+      // Swap hidden/flex for the same reason as above.
+      byId('kelolaBackfill')?.classList.toggle('hidden', !kelola.sync.unsynced_older);
+      byId('kelolaBackfill')?.classList.toggle('flex', kelola.sync.unsynced_older > 0);
       const lastError = byId('kelolaLastError');
       if (lastError) {
         const failure = kelola.sync.last_error;
@@ -154,15 +163,17 @@ if (!active) return Astro.redirect('/admin/settings/plugins');
       kelolaPending = next;
       const save = byId<HTMLButtonElement>('saveKelola');
       const test = byId<HTMLButtonElement>('testKelola');
+      const backfill = byId<HTMLButtonElement>('backfillKelola');
+      if (backfill) { backfill.disabled = next; backfill.textContent = next && label === 'backfill' ? 'Mengirim…' : 'Kirim order lama'; }
       if (save) { save.disabled = next; save.textContent = next && label === 'save' ? 'Menyimpan…' : 'Simpan Kelola'; }
       if (test) { test.disabled = next; test.textContent = next && label === 'test' ? 'Menguji…' : 'Tes koneksi'; }
       byId<HTMLFormElement>('kelolaForm')?.setAttribute('aria-busy', String(next));
     };
 
-    const kelolaRequest = async (body: Record<string, unknown>, label: 'save' | 'test') => {
+    const kelolaRequest = async (body: Record<string, unknown>, label: 'save' | 'test' | 'backfill') => {
       if (kelolaPending) return;
       setKelolaPending(true, label);
-      kelolaStatus(label === 'save' ? 'Menyimpan dan menguji koneksi…' : 'Menguji koneksi ke Kelola…', 'idle');
+      kelolaStatus(label === 'save' ? 'Menyimpan dan menguji koneksi…' : label === 'backfill' ? 'Mengirim order lama ke Kelola…' : 'Menguji koneksi ke Kelola…', 'idle');
       try {
         const response = await fetch('/api/admin/plugins/kelola', {
           method: 'PUT',
@@ -188,6 +199,7 @@ if (!active) return Astro.redirect('/admin/settings/plugins');
         : { action: 'save', webhook_url: values.get('webhook_url'), webhook_secret: values.get('webhook_secret') }, 'save');
     });
     byId('testKelola')?.addEventListener('click', () => void kelolaRequest({ action: 'test' }, 'test'));
+    byId('backfillKelola')?.addEventListener('click', () => void kelolaRequest({ action: 'backfill' }, 'backfill'));
 
     wireSecretToggle('kelolaSecret', 'toggleKelolaSecret', 'secret webhook Kelola');
 

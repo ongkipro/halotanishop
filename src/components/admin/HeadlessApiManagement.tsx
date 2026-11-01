@@ -5,14 +5,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import type { ApiKeyScope } from "@/lib/developer-api-keys";
 
-type HeadlessScope =
-  | "storefront:read"
-  | "catalog:read"
-  | "shipping:read"
-  | "checkout:write"
-  | "orders:read"
-  | "tracking:write";
+type HeadlessScope = ApiKeyScope;
 
 type DeveloperApiKey = {
   id: number;
@@ -54,9 +49,17 @@ const SCOPE_OPTIONS: ReadonlyArray<{ value: HeadlessScope; label: string }> = [
   { value: "checkout:write", label: "Checkout" },
   { value: "orders:read", label: "Status order" },
   { value: "tracking:write", label: "Tracking" },
+  // The operations API (PRD A45, /api/ops/v1). Only the owner may issue a key
+  // with any of these, and none is ever on by default.
+  { value: "ops:orders:read", label: "Ops · Baca order" },
+  { value: "ops:orders:read_pii", label: "Ops · Data pembeli" },
+  { value: "ops:orders:write", label: "Ops · Aksi order" },
+  { value: "ops:shipping:write", label: "Ops · Kirim & pickup" },
+  { value: "ops:reports:read", label: "Ops · Laporan" },
+  { value: "ops:catalog:read", label: "Ops · Katalog" },
 ];
 
-const DEFAULT_SCOPES = SCOPE_OPTIONS.map((scope) => scope.value);
+const DEFAULT_SCOPES = SCOPE_OPTIONS.map((scope) => scope.value).filter((scope) => !scope.startsWith("ops:"));
 const AUDIT_OUTCOME_LABELS: Record<string, string> = {
   allowed: "Diizinkan",
   scope_denied: "Scope ditolak",

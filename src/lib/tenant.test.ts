@@ -231,3 +231,18 @@ test("a page title names the store once, never twice", async () => {
   assert.equal(withStoreName("Kebijakan Privasi Petani Sejahtera", "Petani Sejahtera"), "Kebijakan Privasi Petani Sejahtera");
   assert.equal(withStoreName("Kontak Resmi", "Petani Sejahtera"), "Kontak Resmi - Petani Sejahtera");
 });
+
+test("saving the store profile no longer writes the support WhatsApp number (PRD A35)", () => {
+  const source = readFileSync(new URL("../pages/api/admin/settings.ts", import.meta.url), "utf8");
+  const update = source.slice(source.indexOf('if (body.action === "save-store")'));
+  const statement = update.slice(update.indexOf("UPDATE stores"), update.indexOf(".run()"));
+  // whatsapp-numbers.ts is the only writer; a stale form field must not win.
+  assert.doesNotMatch(statement, /support_whatsapp/);
+  assert.doesNotMatch(update.slice(0, update.indexOf("UPDATE stores")), /Nomor WhatsApp harus/);
+});
+
+test("a store with no logo, or the deleted placeholder wordmark, resolves to no logo", () => {
+  assert.equal(resolveTenantConfig({ name: "Toko", logo: "/images/adsbook-mark.webp" }).logo, "");
+  assert.equal(resolveTenantConfig({ name: "Toko", logo: null }).logo, "");
+  assert.equal(resolveTenantConfig({ name: "Toko", logo: "/images/logo-toko.png" }).logo, "/images/logo-toko.png");
+});

@@ -327,7 +327,16 @@ function validateSections(sections: LandingSectionInput[] | undefined) {
       `Maksimal ${LANDING_SECTIONS_MAX} section per landing page.`,
     );
   }
-  for (const section of sections) validateSection(section);
+  // Name the section: "Teks section harus diisi" alone left the operator
+  // hunting through every block (audit 2026-10-31 L5).
+  sections.forEach((section, index) => {
+    try {
+      validateSection(section);
+    } catch (error) {
+      if (!(error instanceof LandingPageValidationError)) throw error;
+      throw new LandingPageValidationError(`Section ${index + 1}: ${error.message}`, error.status);
+    }
+  });
 }
 
 /**
@@ -841,7 +850,7 @@ export const RESERVED_LANDING_SLUGS: ReadonlySet<string> = new Set([
   "404", "admin", "api", "assets", "contoh-landing", "disclaimer", "embed",
   "feed", "form-full", "form-hybrid", "form-middle", "full-form", "geoipform",
   "hello", "hybrid-form", "install", "kebijakan-cookie", "kebijakan-privasi",
-  "kontak", "landing", "landing-page", "media", "middle-form", "payment",
+  "kontak", "landing", "landing-page", "llms", "media", "middle-form", "payment",
   "pengiriman", "produk", "robots", "sitemap", "solusi-terbaru",
   "syarat-ketentuan", "tentang", "testimoni", "thanks",
 ]);
@@ -1145,6 +1154,8 @@ export type PublicLandingPage = {
   isProductPage: boolean;
   /** List thumbnail: the page's own first image, else its product's photo. */
   image: string | null;
+  /** `landing_pages.updated_at`, the sitemap's honest `lastmod`; null when unset. */
+  updatedAt: string | null;
 };
 
 /**
@@ -1187,13 +1198,19 @@ export async function listPublicLandingPages(
 ): Promise<PublicLandingPage[]> {
   const result = await getDatabase(locals)
     .prepare(
-      `SELECT lp.slug, lp.title, lp.meta_description, lp.is_product_page,
+      `SELECT lp.slug, lp.title, lp.meta_description, lp.is_product_page, lp.updated_at,
               p.slug AS product_slug, p.image_url AS product_image,
               (SELECT ls.content_config FROM landing_sections ls
                 WHERE ls.landing_page_id = lp.id AND ls.type = 'image'
                 ORDER BY ls.sort_order LIMIT 1) AS first_image_config
          FROM landing_pages lp
-         JOIN products p ON CAST(p.id AS TEXT) = lp.product_id
+         -- The rowid term lets SQLite look each product up by primary key;
+         -- matching on CAST(p.id AS TEXT) alone scanned every landing page
+         -- once per active product (2.75M rows read a day across the fleet,
+         -- STATUS 2026-10-29). The text term keeps the old exact match, so
+         -- '020001' still names no product.
+         JOIN products p ON p.id = CAST(lp.product_id AS INTEGER)
+                        AND CAST(p.id AS TEXT) = lp.product_id
         -- A page whose product is off answers 404, so it is not advertised.
         WHERE lp.is_active = 1 AND p.is_active = 1
         ORDER BY lp.updated_at DESC, lp.created_at DESC`,
@@ -1203,6 +1220,7 @@ export async function listPublicLandingPages(
       title: string;
       meta_description: string | null;
       is_product_page: number;
+      updated_at: string | null;
       product_slug: string | null;
       product_image: string | null;
       first_image_config: string | null;
@@ -1224,5 +1242,6 @@ export async function listPublicLandingPages(
       nativeImage: nativeLandingPages.find((entry) => entry.slug === row.slug)?.image,
       productImage: row.product_image,
     }),
+    updatedAt: row.updated_at || null,
   }));
 }
