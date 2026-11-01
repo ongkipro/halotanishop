@@ -8300,3 +8300,11 @@ value in cached HTML, the minted cookie matches `FB_BROWSER_ID_PATTERN` and
   passed alone (3 of 3) and in two further full runs at load average ~11.8. It starts
   a dev HTTP server on a random port and calls it with a client; not reproduced, not
   changed. If it shows up in CI, read its error before retrying.
+
+### Entry 235: released as 1.8.6
+
+No migration. 1158 tests pass, `npm run check` 0/0/0. Version bump and "What's new"
+entry for the 2026-11-01 evening work, so the fleet has one number to compare:
+early `_fbp` (entry 229), `PUBLIC_DEFAULT_BRAND` (228), card twins (230, fixed in
+234), 12-per-page with scroll load (233). zvarashop and revenleather already run this
+code on their own 1.8.5 headers; they take the number with their next merge.
