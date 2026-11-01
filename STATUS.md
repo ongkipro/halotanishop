@@ -1,6 +1,6 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `be6ee6a` (1.9.2 released; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `43c6cb3` (1.9.2 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
 
 ## 2026-11-02 — 1.9.2: the default CTA is orange, form states corrected
 
@@ -9,7 +9,7 @@ ink read the token with an orange fallback (ADR-019 amendment). 1.9.0 had made i
 Paduka asked for orange or red the same day and it never reached a store. Orange won:
 red is the checkout error colour, and brighter oranges fail AA under white text. A store
 that never overrode the tokens turns orange on its next merge; numaskin, beranda-tani
-and revenleather keep their own colour. 1.9.2 keeps filled fields grey and the typing frame ink so orange never reads as the red error. Rollout state: `docs/FLEET.md`.
+and revenleather keep their own colour. 1.9.2 keeps filled fields grey and the typing frame ink so orange never reads as the red error. Rolled out to eleven of the twelve installs the same day with the live colours measured per store (`docs/FLEET.md`, "Rollout of 1.9.0-1.9.2"): orange on the six default-theme stores, navy on numaskin, leather brown on revenleather, green on beranda-tani.
 
 ## 2026-11-02 — 1.8.9: payment page follows the store accent
 

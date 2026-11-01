@@ -1,6 +1,6 @@
 # AdsBookCMS install fleet
 
-> Verified against disk: 2026-11-02 @ `de910e1` (versions, sync, distance, deploy time and schema read with `npm run fleet:status` after the 1.8.9 rollout; "Version" is the working tree)
+> Verified against disk: 2026-11-02 @ `43c6cb3` (versions, sync, distance, deploy time and schema read with `npm run fleet:status`, plus the live submit-button colour of nine stores, after the 1.9.2 rollout; "Version" is the working tree)
 
 Every store that runs AdsBookCMS: one install = one repository = one Worker
 = one store (`AGENTS.md`). This file is the registry of which installs exist,
@@ -15,23 +15,56 @@ distance behind the product, last deploy and schema for each local clone.
 
 | # | Store (domain) | Repository | Branch | Version | Behind product | Schema (applied/expected) | Last deploy |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.9** | 0 | 93/93 | 2026-11-02 |
-| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
-| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
-| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
-| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
-| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
-| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
-| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
-| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
-| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.9.2** | 0 | 93/93 | 2026-11-02 |
+| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.9.2** | 0 | 80/80 | 2026-11-02 |
+| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.9.2** | 0 | 80/80 | 2026-11-02 |
+| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.9.2** | 0 | 80/80 | 2026-11-02 |
+| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | **1.9.2** | 0 | 80/80 | 2026-11-02 |
+| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | **1.9.2** | 0 | 80/80 | 2026-11-02 |
+| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.9.2** | 0 | 80/80 | 2026-11-02 |
+| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.9.2** | 0 | 80/80 | 2026-11-02 |
+| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | **1.9.2** | 0 | 80/80 | 2026-11-02 |
+| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | **1.9.2** | 0 | 80/80 | 2026-11-02 |
 | 11 | skincarebpom.shop | `ongkipro/skincarebpom` | `install/skincarebpom` | 1.8.5 in tree, 371 uncommitted files | 201 | 62/80 | 2026-10-18 |
-| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | **1.8.9** | 0 | 80/80 | 2026-11-02 |
+| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | **1.9.2** | 0 | 80/80 | 2026-11-02 |
 
 All twelve repositories and the product (`ongkipro/adsbookcms`) are
 **public** since 2026-11-01, after a full-history scan found no secret or
 customer data (test fixtures and base64 inside payment SVGs only). Never commit
 a real token, `.dev.vars`, `.env` or customer export to any of them.
+
+### Rollout of 1.9.0-1.9.2: the orange default (2026-11-02)
+
+Eleven of the twelve installs run **1.9.2** (`fleet:status`: clean, synced, 0 behind;
+skincarebpom stays out). The default action colour is orange `#c2410c` (ADR-019 amendment);
+1.9.0's blue never reached a store. zvara.shop went first as a canary (1.9.1), which is
+how 1.9.2's two form fixes were found (filled fields neutral, ink typing frame).
+
+Submit-button colour measured live on 2026-11-02 (name, phone and address filled in the
+browser, nothing submitted, no order):
+
+| Store | Enabled submit | `--sf-accent` |
+| --- | --- | --- |
+| zvara, permatamall, agritani, taniniaga, halotani, baven (default theme) | `rgb(194, 65, 12)` orange | `#c2410c` |
+| numaskin | `rgb(0, 43, 73)` navy | `#002b49` |
+| revenleather | `rgb(138, 90, 59)` leather brown | `#8a5a3b` |
+| beranda-tani | `rgb(27, 94, 32)` green | `#1b5e20` |
+| cekat, klikinaja | no products; payment CTA `rgb(194, 65, 12)` | |
+
+- **Install token overrides must live in the install's own CSS, never in a product file.**
+  revenleather had its ink `--sf-accent` written straight into the product's
+  `form-hybrid.css`; the merge replaced it with orange without a conflict. It was restored
+  (four tokens, plus `:root` declarations in `storefront.css` so the 404 and sticky bar
+  stay ink), and the same lesson is why numaskin (`numaskin.css`) and beranda-tani
+  (`petani-sejahtera.css`) gained a `:root` token block: their rule applied only inside
+  `[data-hybrid-form-root]`, so buttons outside a form would have fallen back to orange.
+- agritani-shop and taniniaga add variant-badge rules (30 lines) to their own copy of
+  `form-hybrid.css`; harmless today, but a product edit near them will conflict.
+- Hand-made native landing pages keep their own hero button colour by design (zvara
+  dark stone with amber text, taniniaga and agritani green, permatamall red).
+- Not measured live: `/thanks` buttons (they need an order), taniniaga's sticky bar
+  (element not found on the product page tested), every native landing page's own
+  buttons.
 
 ### Rollout of 1.8.9 (2026-11-02)
 
