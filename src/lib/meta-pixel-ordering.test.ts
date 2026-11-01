@@ -103,3 +103,38 @@ test("no tracker reaches fbq('track') around the ordered hook", () => {
     assert.match(script, /__PS_META_TRACK__/, `${label} must use the ordered hook`);
   }
 });
+
+test("the pixel bootstrap mints _fbp in Meta's format before the deferred library, and keeps an existing one", () => {
+  const run = (initialCookie: string) => {
+    const jar = new Map<string, string>(
+      initialCookie ? [[initialCookie.split("=")[0], initialCookie.split("=")[1]]] : [],
+    );
+    const doc = {
+      get cookie() {
+        return [...jar].map(([k, v]) => `${k}=${v}`).join("; ");
+      },
+      set cookie(line: string) {
+        const [pair] = line.split(";");
+        const [k, v] = pair.split("=");
+        jar.set(k.trim(), v);
+      },
+      title: "",
+      head: { appendChild: () => {} },
+      createElement: () => ({}),
+    };
+    const win: Record<string, unknown> = {
+      location: { protocol: "https:", href: "https://toko.test/", pathname: "/", search: "" },
+      addEventListener: () => {},
+      setTimeout: () => 0,
+      dataLayer: [],
+    };
+    new Function("window", "document", "setTimeout", "fetch", "pixelId", "metaExternalIdCookie", PIXEL_BASE)(
+      win, doc, () => 0, () => Promise.resolve({}), "1234567890", "adsbook_meta_external_id",
+    );
+    return jar.get("_fbp");
+  };
+
+  // The server accepts exactly this shape (click-ids.ts FB_BROWSER_ID_PATTERN).
+  assert.match(run("") ?? "", /^fb\.1\.\d{13}\.\d{10}$/);
+  assert.equal(run("_fbp=fb.1.1700000000000.1234567890"), "fb.1.1700000000000.1234567890");
+});
