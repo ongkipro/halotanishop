@@ -8169,3 +8169,25 @@ No migration, no version bump. 1148 tests pass, `npm run check` 0/0/0.
   install changes until it sets the variable. A product's own brand always wins.
 - It is a build-time `vars` entry, like the other `PUBLIC_*` values: it takes
   effect after `npm run build`, not by redeploying an old bundle.
+
+### Entry 229: `_fbp` is minted before the deferred pixel (live CAPI audit of zvara.shop)
+
+No migration, no version bump. 1149 tests pass, `npm run check` 0/0/0.
+
+- **Measured, read-only, on zvara.shop's `capi_event_outbox` (30 days):** every
+  event is `sent` on the first attempt (0 pending, 0 failed). Purchase carries
+  phone, name, province, external_id, IP and user agent on 100% of rows, `fbp`
+  on 99% and `fbc` on 98%. But `fbp` was on only 31% of PageView and 21% of
+  ViewContent rows.
+- **Cause, reproduced in a real browser:** the pixel library is deferred to
+  2.5 s for page speed, and only it writes `_fbp`. `MetaPageViewTracker` posts
+  the server PageView/ViewContent at ~240 ms, so a first-time visitor's
+  top-of-funnel events left without it.
+- **Fix:** the `MetaPixelBase` bootstrap writes `_fbp` first, in Meta's format
+  (`fb.1.<ms>.<10 digits>`), when none exists; fbevents.js keeps an existing
+  one. Client-side, so the cached HTML is untouched. Tested at runtime in
+  `meta-pixel-ordering.test.ts`.
+- **Not a defect, recorded so it is not chased again:** city and postal code
+  are on 12 of 486 Purchase events because the short checkout form asks for a
+  province only; the payload matches the order row exactly. Email is 0% because
+  the COD form does not collect one.
