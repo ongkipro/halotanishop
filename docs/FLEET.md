@@ -22,7 +22,7 @@ distance behind the product, last deploy and schema for each local clone.
 | 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | 1.8.5 in tree, +8 unpushed | 4 | 80/80 | 2026-11-01 |
 | 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | 1.8.5 in tree, +8 unpushed | 4 | 80/80 | 2026-11-01 |
 | 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.4** | 11 | 80/80 | 2026-11-01 |
-| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.5** | 4 | 80/80 | 2026-11-01 |
+| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.5** | 0 | 80/80 | 2026-11-01 |
 | 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | 1.8.5 in tree, 318 uncommitted files | 139 | 67/80 | 2026-10-24 |
 | 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | 1.8.5 in tree, +181 unpushed | 4 | 62/80 | 2026-10-18 |
 | 11 | skincarebpom.shop | `ongkipro/skincarebpom` | `install/skincarebpom` | 1.5.11 | — (no local clone) | — | — |
@@ -37,7 +37,8 @@ a real token, `.dev.vars`, `.env` or customer export to any of them.
 
 A rollout of 1.8.5 was interrupted mid-way. Shipped and verified: **zvarashop**
 (also carries `PUBLIC_DEFAULT_BRAND` and the early `_fbp`, Worker version
-`11b08a82`) and **revenleather** (`4861ef6`, Worker version `4882c044`). Merged
+`11b08a82`) and **revenleather** (`8414aaa`, Worker version `e749164f`: 1.8.5
+plus the early `_fbp`). Merged
 into the working tree but **not pushed, and not proven deployed** (the "Last
 deploy" column is the clone's own record, which can predate the merge):
 
@@ -142,10 +143,21 @@ Everything else merges `product/main` as is; regenerate `docs/ROUTE-MAP.md`,
   and look): SiteBrand logo upload, the watermark/credit footer, the
   "Halaman" link. Local `dev:local` loops on 301 because `routes` makes the
   Worker see `page.revenleather.com`; run it from a temporary config without
-  `routes`. Not yet checked after the 1.8.5 deploy: the warehouse count for
-  migration 0072 (more than one warehouse changes quoting by province), why
-  `/sitemap.xml` answers 172 bytes (probably `PUBLIC_SITE_NOINDEX`), and why its
-  GitHub Actions runs fail within 3 seconds.
+  `routes`. Checked 2026-11-01: one warehouse (so
+  migration 0072 changes nothing), 80/80 migrations applied, the empty
+  `/sitemap.xml` and Lighthouse's SEO 69 are `PUBLIC_SITE_NOINDEX=true` working as
+  designed (do not "fix"), and its CI is green (the 3-second failures were runs
+  of 2026-10-30 that predate the merge). Its feed has 79 items, all branded
+  `Reven Leather`; five laptop bags and sleeves carry no
+  `google_product_category` on purpose (Google's taxonomy has no laptop-bag
+  category; `ad-taxonomy.ts` omits rather than assert a wrong one). Lighthouse
+  mobile on the home page, before the `_fbp` change: performance 67,
+  accessibility 100, best practices 75; FCP 1.9 s, LCP 2.2 s, CLS 0, **TBT
+  2 130 ms**, which is the Meta Pixel (270 KB) and `gtag` (170 KB) running
+  inside the load window, not the store's own code. Left alone on purpose:
+  recompressing `reven-grafir-sample.webp` (78 KB, lazy) saves about 23 KB at
+  visible cost, and loading the pixels only on interaction would trade the
+  lab score for losing every visitor who bounces.
 - **beranda-tani** — breadcrumb and footer are install-themed (Petani
   Sejahtera); expect conflicts there.
 

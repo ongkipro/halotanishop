@@ -892,6 +892,13 @@ Findings:
   conversion for a small Event Match Quality gain; recorded as a decision to
   leave, revisit only with EMQ evidence (§16.3).
 - **Email is 0%** because the COD form collects none.
+- **The same audit on page.revenleather.com (225 Purchase, 105 710
+  PageView/ViewContent):** all `sent`, none failed; Purchase `fbp` 99.6%, `fbc`
+  98.7%, city 36%; but `fbp` on PageView 12% and ViewContent 11% before the
+  early-`_fbp` fix, because a store fed by Meta ads has far more first-visit
+  traffic than zvara. Deployed there 2026-11-01 (Worker `e749164f`); the first
+  `/api/meta-event` request now carries `_fbp`. Re-measure with the queries above
+  in about ten days (UNIMPLEMENTED_SPECS TRK-1).
 - **Measuring from Playwright:** wait for `load`, not `networkidle` (the pixel
   never lets the network go idle, so `networkidle` times out). Read the cookie a
   request actually sent with `request.allHeaders()`. A fresh browser context per
