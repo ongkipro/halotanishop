@@ -1,6 +1,6 @@
 # Architecture Decision Record — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `407af14` (ADR-019 amended again 2026-11-02, accent is orange; earlier ADRs retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `be6ee6a` (ADR-019 amendment adds the 1.9.2 form states; earlier ADRs retain their recorded evidence)
 
 Append-only. One decision per entry. A decision is recorded here only when it constrains future work; implementation detail belongs in `ARCHITECTURE.md`, remaining work in `UNIMPLEMENTED_SPECS.md`.
 
@@ -528,7 +528,10 @@ two meanings). The buttons that were hard-coded ink (sticky "Pesan sekarang", th
 moves them. *Consequence:* stores that never overrode the tokens turn orange on their
 next merge; numaskin (`#002b49`), beranda-tani (`#1b5e20`) and revenleather (its own
 palette) keep their colour. The discount pill (`#334FB4`) stays blue and is now
-distinct from the call to action.
+distinct from the call to action. *Form states (1.9.2):* seen on zvara's checkout, an
+orange field frame reads as the red error frame and the accent tint turned filled
+fields peach (they were meant to be "done" grey), so a filled field uses `--sf-surface-alt`
+and the focused frame is ink (`--sf-focus-frame`, `#1a1a1a`); the accent stays in the ring.
 
 ## ADR-020 — Isolated installs are updated by manual copy, not a fleet engine
 

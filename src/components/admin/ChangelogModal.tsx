@@ -30,10 +30,23 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
-    version: "1.9.1",
+    version: "1.9.2",
     date: "2 November 2026",
     releaseTag: "2026.10-ops",
     isLatest: true,
+    highlight: "Form checkout tetap jelas dengan aksen oranye.",
+    changes: [
+      {
+        title: "Kolom terisi tetap abu-abu, bingkai fokus gelap",
+        description: "Dengan tombol oranye, kolom yang sudah terisi kembali berlatar abu-abu netral (bukan peach), dan kolom yang sedang diketik berbingkai gelap dengan cincin aksen, supaya tidak tertukar dengan bingkai merah saat error.",
+      },
+    ],
+  },
+  {
+    version: "1.9.1",
+    date: "2 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
     highlight: "Tombol aksi utama kini oranye secara bawaan.",
     changes: [
       {

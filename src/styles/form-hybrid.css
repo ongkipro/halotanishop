@@ -322,14 +322,14 @@
    the same hook the floating label already uses. */
 .form-field input:not(:placeholder-shown),
 .form-field textarea:not(:placeholder-shown) {
-  background: var(--sf-accent-soft);
+  background: var(--sf-surface-alt);
 }
 /* While typing the well goes white, so the caret and the value sit on the
    plainest possible surface. Declared after the filled rule so it wins. */
 .form-field input:focus,
 .form-field textarea:focus {
   outline: none;
-  border-color: var(--sf-accent);
+  border-color: var(--sf-focus-frame);
   background: var(--sf-field);
   box-shadow: none !important;
 }
@@ -389,14 +389,14 @@
   /* A validated field is by definition filled, so it keeps the filled grey
      rather than reverting to white. */
   border-color: var(--sf-field-border);
-  background: var(--sf-accent-soft) !important;
+  background: var(--sf-surface-alt) !important;
   box-shadow: none !important;
 }
 .field-grid input.field-valid:focus,
 .field-grid textarea.field-valid:focus,
 .form-field input.field-valid:focus,
 .form-field textarea.field-valid:focus {
-  border-color: var(--sf-accent) !important;
+  border-color: var(--sf-focus-frame) !important;
   background: var(--sf-field) !important;
   box-shadow: none !important;
 }
@@ -1144,6 +1144,9 @@
    rules above. */
 [data-hybrid-form-root],
 [data-middle-form-root] {
+  /* The frame of the field being typed in. Ink, not the accent: an orange frame
+     reads as the red error frame; the accent stays in the ring around it. */
+  --sf-focus-frame: #1a1a1a;
   --sf-valid: #15803d;
   --sf-valid-border: rgba(21, 128, 61, 0.45);
   --sf-invalid-ring: rgba(220, 38, 38, 0.18);
@@ -1161,7 +1164,7 @@
 .field-grid textarea.field-valid:focus,
 .form-field input.field-valid:focus,
 .form-field textarea.field-valid:focus {
-  border-color: var(--sf-accent) !important;
+  border-color: var(--sf-focus-frame) !important;
   box-shadow: 0 0 0 3px var(--sf-accent-ring) !important;
 }
 .field-grid input.field-valid,
