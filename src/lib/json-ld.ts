@@ -59,6 +59,8 @@ export type ProductSchemaJsonLdInput = {
   siteUrl: string;
   organization: OrganizationJsonLdInput;
   product: ProductJsonLdInput;
+  /** Brand for a product with none of its own; defaults to the organization name. */
+  defaultBrand?: string;
 };
 
 function absoluteUrl(value: string, siteUrl: string): string {
@@ -116,6 +118,7 @@ export function buildProductJsonLd({
   siteUrl,
   organization,
   product,
+  defaultBrand,
 }: ProductSchemaJsonLdInput) {
   const images = (Array.isArray(product.image)
     ? product.image
@@ -147,7 +150,7 @@ export function buildProductJsonLd({
     url: absoluteUrl(product.url, siteUrl),
     brand: {
       "@type": "Brand",
-      name: product.brand ?? organization.name,
+      name: product.brand?.trim() || defaultBrand?.trim() || organization.name,
     },
     ...(product.sku ? { sku: product.sku } : {}),
     ...(product.category ? { category: product.category } : {}),

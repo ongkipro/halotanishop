@@ -1,6 +1,6 @@
 # AGENTS.md — Working Agreement for AdsBookCMS
 
-> Verified against disk: 2026-11-01 @ `0f042c9` (1.8.5 release; baseline 1146)
+> Verified against disk: 2026-11-01 @ `787bef5` (1.8.6 release; baseline 1158)
 
 This file is the contract for any AI coding agent or contributor working in this repository. Read it before the first edit.
 
@@ -123,7 +123,7 @@ can reach it.
 
 On a fresh clone, run `npm run check` rather than bare `npx tsc --noEmit`. `astro check` generates `.astro/types.d.ts` first; without it `tsc` reports phantom errors such as `Property 'env' does not exist on type 'ImportMeta'`.
 
-Current verified baseline: **1146 passing** (0 skipped, 2026-11-01, `release/1.8.5`, 1.8.5), 0 type errors, `astro check` 0 errors / 0 warnings / 0 hints (568 files). A change that reduces this baseline is not done.
+Current verified baseline: **1158 passing** (0 skipped, 2026-11-01, `release/1.8.6`, 1.8.6), 0 type errors, `astro check` 0 errors / 0 warnings / 0 hints (574 files). A change that reduces this baseline is not done.
 
 New non-trivial logic — a branch, a parser, a money or auth path — leaves one runnable check behind. Trivial one-liners do not need a test.
 

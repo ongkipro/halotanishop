@@ -101,3 +101,19 @@ test("one Offer per variant, the product's own brand, and reviews only when ther
   assert.equal(schema.offers[0]["@type"], "Offer");
   assert.equal(schema.review[0].reviewRating.ratingValue, 5);
 });
+
+test("a product with no brand uses the default brand, then the organization name", () => {
+  const input = {
+    siteUrl: "https://toko.test",
+    organization: { name: "Zvara Shop" },
+    product: {
+      name: "Tanpa Merek",
+      description: "d",
+      image: "/a.jpg",
+      url: "/produk/x",
+      offers: [{ price: 1000, availability: "InStock" }],
+    },
+  } as unknown as Parameters<typeof buildProductJsonLd>[0];
+  assert.equal(buildProductJsonLd({ ...input, defaultBrand: "Zvara" }).brand.name, "Zvara");
+  assert.equal(buildProductJsonLd(input).brand.name, "Zvara Shop");
+});

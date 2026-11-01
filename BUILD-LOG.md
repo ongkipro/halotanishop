@@ -8157,3 +8157,154 @@ No migration. 1146 tests pass, `npm run check` 0/0/0. Released as 1.8.5
   Graph API v26.0 everywhere. skincarebpom's hourly cron, commented out since
   2026-08-22 to free a slot for zanobyshop, is registered again.
 - PRD A47 records the 1.8.3–1.8.4 dashboard requirements (REQ-274–279).
+
+### Entry 228: `PUBLIC_DEFAULT_BRAND` — the brand for a product that has none
+
+No migration, no version bump. 1148 tests pass, `npm run check` 0/0/0.
+
+- A product with no `products.brand` was reported to Google and Meta under the
+  store name (`Zvara Shop` on zvara.shop, 39 of 70 items). `PUBLIC_DEFAULT_BRAND`
+  now supplies that fallback in the Google/Meta catalog feeds and the product
+  JSON-LD, through `tenant.defaultBrand`. Empty keeps the store name, so no
+  install changes until it sets the variable. A product's own brand always wins.
+- It is a build-time `vars` entry, like the other `PUBLIC_*` values: it takes
+  effect after `npm run build`, not by redeploying an old bundle.
+
+### Entry 229: `_fbp` is minted before the deferred pixel (live CAPI audit of zvara.shop)
+
+No migration, no version bump. 1149 tests pass, `npm run check` 0/0/0.
+
+- **Measured, read-only, on zvara.shop's `capi_event_outbox` (30 days):** every
+  event is `sent` on the first attempt (0 pending, 0 failed). Purchase carries
+  phone, name, province, external_id, IP and user agent on 100% of rows, `fbp`
+  on 99% and `fbc` on 98%. But `fbp` was on only 31% of PageView and 21% of
+  ViewContent rows.
+- **Cause, reproduced in a real browser:** the pixel library is deferred to
+  2.5 s for page speed, and only it writes `_fbp`. `MetaPageViewTracker` posts
+  the server PageView/ViewContent at ~240 ms, so a first-time visitor's
+  top-of-funnel events left without it.
+- **Fix:** the `MetaPixelBase` bootstrap writes `_fbp` first, in Meta's format
+  (`fb.1.<ms>.<10 digits>`), when none exists; fbevents.js keeps an existing
+  one. Client-side, so the cached HTML is untouched. Tested at runtime in
+  `meta-pixel-ordering.test.ts`.
+- **Not a defect, recorded so it is not chased again:** city and postal code
+  are on 12 of 486 Purchase events because the short checkout form asks for a
+  province only; the payload matches the order row exactly. Email is 0% because
+  the COD form does not collect one.
+- **Verified live on zvara.shop (Worker `11b08a82`):** the first
+  `/api/meta-event` request of a fresh visitor carries `_fbp` before
+  `fbevents.js` is requested. The browser then holds two `_fbp` cookies
+  (host-only from this bootstrap, `.domain` from fbevents) with the same value.
+- Full method and the other measurements are `TRACKING_SPECS.md` §16.1b; the
+  fleet state, including five installs left merged-but-unpushed by an
+  interrupted rollout, is `docs/FLEET.md`.
+
+### Entry 230: lighter catalogue cards and load-more on scroll (zvara.shop Lighthouse)
+
+No migration, no version bump. 1154 tests pass, `npm run check` 0/0/0.
+
+- **Measured on zvara.shop (Lighthouse mobile, home 62):** ten 600x600 landing
+  hero images (~55 KB each) sat in 182 CSS px cards, because `cardImageSrc` only
+  knew the admin-upload `-sm` twin. 29 of its 70 products point at such static
+  files. A static file has no server fallback (a missing twin answers 404
+  through the Worker), so the swap is driven by a generated list:
+  `npm run card-images` writes `<name>-sm.webp` (480 px) and
+  `src/data/card-derivatives.ts`; `cardImageSrc` swaps only listed paths. The
+  list ships empty, so no install changes until it runs the script.
+- **Load more** already existed on the home grid and `/produk` (10 at a time,
+  a button, two separate scripts). `lib/auto-load-more.ts` now clicks that
+  button as it nears the screen, after the first scroll or touch, and
+  re-observes after each click; the button stays for keyboard and no-script
+  use. Tested with a fake observer (`auto-load-more.test.ts`).
+- Server timing was *not* the problem: see `UNIMPLEMENTED_SPECS.md` PERF-1.
+- **Correction, same day:** the first `npm run card-images` wrote the twins but
+  listed none of them (it filtered the list against a directory snapshot taken
+  before the twins existed), so `cardImageSrc` would never have swapped. Fixed to
+  judge on disk, covered end to end by `card-images-script.test.ts`, which runs the
+  script in a temp folder. Quality 74 became 66 after measuring 12 real packshots
+  (52 KB originals, 32 KB at 74, 30 KB at 66, no visible loss at card size).
+
+### Entry 231: zvara home hero re-encoded; the upload limit stays 2 MB (owner decision)
+
+- **Upload rule, decided 2026-11-01 (Paduka: "image max 2mb aja"):** unchanged.
+  The ceiling is 2 MB at every layer (`upload-r2.ts` answers 413, `ProductForm`,
+  `MAX_ENCODED_BYTES` after the browser's WebP pass), with the 1280 px edge and
+  quality 0.8 in `client-image.ts` as they were. A 1000 px / 0.72 tightening was
+  proposed and dropped; do not reopen it without new evidence. Measured for
+  context: a 480 px twin of a packshot is about 30 KB, a 1000 px product image
+  about 55 KB.
+- **zvara.shop home hero:** the upload of 2026-08-18 was 1254x1254, 132 KB,
+  stored before the edge rule. It was re-encoded to 1000 px, q70 (56 KB, banner
+  text still sharp) and stored under a **new** R2 key
+  `uploads/2026-11-01/8eef89d6-6e9c-4de0-b770-6b41ad8732e9.webp`, because
+  `/assets/*` is served `immutable` for a year and an overwritten key would never
+  reach a browser that has the old one. `storefront_content` row `home` (draft and
+  published) points at it; image bytes on the home page went 453 to 380 KB.
+  Rollback: the old object `uploads/2026-08-18/ccf44dda-90ac-486e-b088-1553d19d4a36.webp`
+  is still in R2; `UPDATE storefront_content SET draft_json = REPLACE(draft_json,
+  '<new path>', '<old path>'), published_json = REPLACE(published_json, '<new path>',
+  '<old path>') WHERE content_key = 'home'`.
+- The same upload is still a product's main image (card uses its `-sm` twin, the
+  product page the 132 KB original). Content, left alone.
+
+### Entry 232: the login timing-floor test measures medians, not one sample
+
+`admin-credentials.test.ts` "the login timing work floor is a real PBKDF2
+verification" failed once in CI on a documentation-only PR and passed on the
+re-run. It timed the digest compare once (about 0.03 ms) and demanded the
+PBKDF2 floor exceed ten times that, so one pause inside that single sample was
+enough. It now takes the median of 5 floor runs and 9 compare runs. Checked: with
+the floor replaced by the cheap compare the test still fails (3 of 3), the
+property it guards (LOGIN-13) is untouched, and over 30 000 samples under 12 busy
+loops on 8 cores a single sample crossed the limit 2 times against 0 of 3 333
+median-of-9 groups. The CI failure rate was not reproduced locally.
+
+### Entry 233: the catalogue loads 12, then 12 more (default)
+
+The home grid and `/produk` revealed ten products at a time through seven
+hard-coded `10`s. They now share `CATALOG_PAGE_SIZE = 12` (`lib/catalog-page-size.ts`).
+The grid is two columns on a phone, so 10 and 12 both fill rows, but 12 also
+divides into 3 and 4 columns, the cards below the fold are lazy so the first
+view costs about the same, and revenleather already used 12. With the
+scroll-triggered load the step is barely felt. Paduka asked for it as the default
+(2026-11-01). Install-owned pages that carry their own count (revenleather
+`produk/index.astro`) are unchanged.
+
+### Entry 234: independent review of the 1.8.5 -> main changes, and its fixes
+
+A read-only reviewer with no stake in the code went through `git diff 7a207a0..HEAD`
+(`_fbp`, default brand, card twins, scroll load, page size, the flaky-test fix).
+No blocker or high finding; tests 1155 and check 0/0/0 re-run independently, and
+the Meta invariants held (one `fbq('init')`, event ids untouched, no per-visitor
+value in cached HTML, the minted cookie matches `FB_BROWSER_ID_PATTERN` and
+`FB_COOKIE_PATTERN` exactly). Fixed here:
+
+- **medium** `generate-card-derivatives.mjs`: a source replaced by a card-sized
+  image left its old twin on disk and in the list, so a card showed the previous
+  picture. The twin is now deleted and unlisted (tested). Freshness by mtime is a
+  marked `// lazy:` ceiling.
+- `autoLoadMore`: the newest observer report decides (a flick queuing
+  [visible, hidden] no longer loads), one page per gesture (a tall screen no longer
+  drains the catalogue), and Data Saver leaves only the button. The status lines
+  are `aria-live="polite"`.
+- Product JSON-LD trims the brand like the feeds do; two stale comments and the
+  file count in AGENTS.md corrected.
+- Left as they are, on purpose: revenleather's absolute-URL variant of
+  `cardImageSrc` (core emits no absolute upload URLs, so it is a missed saving, and
+  a port must compare `new URL().origin`, never `startsWith`); focus handling when
+  the focused button hides. A future consent banner must also gate the `_fbp`
+  write in the pixel bootstrap.
+- **Another timing-sensitive test, seen once:** `dev-providers.test.ts` "the
+  receiver-history stand-in parses into every risk band" failed in 1 of 4 full runs
+  while two other agents were running browsers and builds on the same machine, then
+  passed alone (3 of 3) and in two further full runs at load average ~11.8. It starts
+  a dev HTTP server on a random port and calls it with a client; not reproduced, not
+  changed. If it shows up in CI, read its error before retrying.
+
+### Entry 235: released as 1.8.6
+
+No migration. 1158 tests pass, `npm run check` 0/0/0. Version bump and "What's new"
+entry for the 2026-11-01 evening work, so the fleet has one number to compare:
+early `_fbp` (entry 229), `PUBLIC_DEFAULT_BRAND` (228), card twins (230, fixed in
+234), 12-per-page with scroll load (233). zvarashop and revenleather already run this
+code on their own 1.8.5 headers; they take the number with their next merge.

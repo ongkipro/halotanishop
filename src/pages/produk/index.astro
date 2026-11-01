@@ -7,7 +7,8 @@ import { formatIdr } from '../../lib/format-idr';
 import { getStorefrontProducts } from '../../lib/catalog';
 
 const products = await getStorefrontProducts(Astro.locals);
-const INITIAL_COUNT = 10;
+import { CATALOG_PAGE_SIZE } from '../../lib/catalog-page-size';
+const INITIAL_COUNT = CATALOG_PAGE_SIZE;
 ---
 
 <BaseLayout
@@ -44,7 +45,7 @@ const INITIAL_COUNT = 10;
 
           {products.length > INITIAL_COUNT && (
             <div class="mt-8 flex flex-col items-center gap-3" id="load-more-container">
-              <p class="text-xs text-[#767676]">
+              <p class="text-xs text-[#767676]" aria-live="polite">
                 Menampilkan <span id="visible-count" class="font-semibold text-[#111111]">{Math.min(INITIAL_COUNT, products.length)}</span> dari <span id="total-count" class="font-semibold text-[#111111]">{products.length}</span> produk
               </p>
               <button
@@ -68,8 +69,11 @@ const INITIAL_COUNT = 10;
   </main>
 
   <script>
-    const INITIAL_COUNT = 10;
-    const STEP = 10;
+    import { autoLoadMore } from '../../lib/auto-load-more';
+    import { CATALOG_PAGE_SIZE } from '../../lib/catalog-page-size';
+
+    const INITIAL_COUNT = CATALOG_PAGE_SIZE;
+    const STEP = CATALOG_PAGE_SIZE;
     let visibleCount = INITIAL_COUNT;
 
     const items = document.querySelectorAll<HTMLElement>('.product-card-item');
@@ -92,6 +96,7 @@ const INITIAL_COUNT = 10;
           loadMoreBtn.classList.add('hidden');
         }
       });
+      autoLoadMore(loadMoreBtn);
     }
   </script>
 </BaseLayout>

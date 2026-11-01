@@ -37,6 +37,26 @@ const shouldRenderPixel = /^\d{5,25}$/.test(String(pixelId || '').trim());
             .split('; ')
             .find((row) => row.startsWith(`${name}=`))
             ?.split('=')[1] || '';
+        // `_fbp` is minted by fbevents.js, which this component loads late (see
+        // `loadPixel`). The server-side PageView/ViewContent fire at once, so a
+        // first-time visitor's top-of-funnel CAPI events left without it: 31% of
+        // PageView and 21% of ViewContent rows carried `fbp`, against 99% of
+        // Purchase. Writing the cookie first, in Meta's own format, lets those
+        // events carry it; fbevents.js keeps an existing `_fbp` rather than
+        // replacing it. Client-side on purpose: the HTML stays cacheable.
+        if (!/^fb\.\d\.\d{10,20}\..+$/.test(readCookieValue('_fbp'))) {
+          try {
+            const fbpSecurity = window.location.protocol === 'https:'
+              ? 'SameSite=None; Secure'
+              : 'SameSite=Lax';
+            const fbpRandom = String(crypto.getRandomValues(new Uint32Array(1))[0]).padStart(10, '0');
+            document.cookie =
+              `_fbp=fb.1.${Date.now()}.${fbpRandom}; Path=/; Max-Age=${90 * 24 * 60 * 60}; ${fbpSecurity}`;
+          } catch {
+            // Without Web Crypto the pixel mints it later, as before.
+          }
+        }
+
         let externalId = readCookieValue(metaExternalIdCookie);
         if (!/^[a-f0-9]{32}$/.test(externalId)) {
           externalId = '';

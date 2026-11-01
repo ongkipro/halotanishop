@@ -317,6 +317,19 @@ const canonical = `${Astro.locals.tenant.siteUrl}${await nativeLandingCanonicalP
 
 ---
 
+## Card-sized images for static pages
+
+A product card shows its image at about 182 CSS px, so a 600 px `hero-product.webp`
+costs roughly three times the bytes it needs. For a static image (a product whose
+`image_url`, or a register `image`, is a path under `/images/`), run
+`npm run card-images` after adding or replacing it: it writes
+`hero-product-sm.webp` (480 px long edge) beside the original and lists it in
+`src/data/card-derivatives.ts`. `cardImageSrc` swaps only listed images, because a
+static file has no server fallback and a missing twin would answer 404 through the
+Worker. Uploads through the admin already get their `-sm` twin in the browser.
+Pass another glob to cover other folders:
+`npm run card-images -- 'public/images/shop/*.webp'`.
+
 ## Start from the sample
 
 `src/pages/contoh-landing.astro` is a complete working native landing page, with

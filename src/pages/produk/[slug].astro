@@ -87,10 +87,11 @@ const productTitle = product.seoTitle;
 const productDescription = product.seoDescription;
 // One builder for every Product JSON-LD (lib/json-ld.ts). This page and the
 // landing route used to hand-write their own, and disagreed: an AggregateOffer
-// here, the store's name as brand there.
+// here, a different brand fallback there.
 const productSchema = buildProductJsonLd({
   siteUrl: Astro.locals.tenant.siteUrl,
   organization: { name: Astro.locals.tenant.name },
+  defaultBrand: Astro.locals.tenant.defaultBrand,
   product: {
     name: product.productName,
     description: product.description,

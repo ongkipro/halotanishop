@@ -30,10 +30,35 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
-    version: "1.8.5",
+    version: "1.8.6",
     date: "1 November 2026",
     releaseTag: "2026.10-ops",
     isLatest: true,
+    highlight: "Atribusi Meta lebih lengkap, katalog lebih ringan, dan produk dimuat otomatis saat scroll.",
+    changes: [
+      {
+        title: "Cookie _fbp dibuat lebih awal",
+        description: "Pixel Meta ditunda demi kecepatan, sehingga event PageView dan ViewContent dari server untuk pengunjung baru sering terkirim tanpa _fbp (hanya 12-31% pada toko yang diukur). Cookie kini dibuat lebih dulu dalam format Meta, jadi event itu ikut membawanya.",
+      },
+      {
+        title: "Merek bawaan untuk katalog",
+        description: "Produk tanpa merek sendiri dilaporkan ke Google dan Meta dengan merek dari PUBLIC_DEFAULT_BRAND (kosong = nama toko), bukan selalu nama toko.",
+      },
+      {
+        title: "Gambar kartu produk lebih ringan",
+        description: "Gambar statis di bawah /images/ dapat memiliki pasangan 480 px untuk kartu produk lewat perintah npm run card-images. Tanpa perintah itu, tidak ada yang berubah.",
+      },
+      {
+        title: "Produk dimuat 12 per halaman dan otomatis saat scroll",
+        description: "Beranda dan /produk menampilkan 12 produk, lalu 12 berikutnya muncul saat tombol mendekati layar. Tombol tetap ada untuk keyboard dan mode hemat data.",
+      },
+    ],
+  },
+  {
+    version: "1.8.5",
+    date: "1 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
     highlight: "Event Meta CAPI yang tertunda terkirim lebih cepat saat toko sepi.",
     changes: [
       {
