@@ -326,7 +326,7 @@ export function AdminShell({
                     )}
                     <DropdownMenuItem onSelect={() => setChangelogOpen(true)}>
                       <History aria-hidden="true" />
-                      Catatan rilis
+                      What's new
                       <span className="ml-auto font-mono text-xs text-slate-400">v{CMS_VERSION.version}</span>
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
@@ -484,7 +484,7 @@ export function AdminShell({
                   <History className="size-4" aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-normal text-slate-900">Catatan Rilis</span>
+                  <span className="block text-sm font-normal text-slate-900">What's new</span>
                   <span className="block truncate text-xs text-slate-500">AdsBookCMS v{CMS_VERSION.version}</span>
                 </span>
                 <ChevronRight className="size-4 text-slate-300" aria-hidden="true" />

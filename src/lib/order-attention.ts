@@ -31,7 +31,14 @@ export type AttentionKey =
   | "needs_pickup"
   | "needs_drop_off";
 
-export type AttentionItem = { key: AttentionKey; label: string; hint: string; count: number; href: string; tone: "info" | "warn" | "bad" };
+/**
+ * `stale`: how many of `count` have waited longer than `STALE_AFTER_MS`
+ * (created that long ago) — the ones most at risk of being cancelled or
+ * forgotten. Absent where age is not the point (a parcel waits on a courier).
+ */
+export type AttentionItem = { key: AttentionKey; label: string; hint: string; count: number; stale?: number; href: string; tone: "info" | "warn" | "bad" };
+
+export const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 // lazy: the open orders are read whole and judged in JS, so the Mengantar gate
 // is the one function the push route runs. A store with more than this many
@@ -41,6 +48,7 @@ export type AttentionItem = { key: AttentionKey; label: string; hint: string; co
 export const ATTENTION_ROW_LIMIT = 2000;
 
 type PendingRow = {
+  created_at: string;
   payment_method: string | null;
   payment_status: string | null;
   list_status: string;
@@ -76,7 +84,7 @@ export async function readOrderAttention(
   const [pending, shipments, counts] = (await database.batch([
     database
       .prepare(
-        `SELECT o.payment_method, o.payment_status,
+        `SELECT o.created_at, o.payment_method, o.payment_status,
            (SELECT ${LIST_SHIPPING_STATUS_SQL} FROM orders s WHERE s.id = o.id) AS list_status,
            o.provider_order_id, o.provider_dispatch_error, o.provider_dispatch_claimed_at,
            o.destination_area_id, o.courier_code, w.pickup_address_id
@@ -98,21 +106,26 @@ export async function readOrderAttention(
     database.prepare(
       `SELECT
          SUM(CASE WHEN ${orderRowSql()} AND ${AWAITING_PAYMENT_SQL} THEN 1 ELSE 0 END) AS awaiting_payment,
-         SUM(CASE WHEN ${leadRowSql()} AND lead_follow_up_status = 'new' THEN 1 ELSE 0 END) AS leads_new
+         SUM(CASE WHEN ${orderRowSql()} AND ${AWAITING_PAYMENT_SQL} AND created_at < ?1 THEN 1 ELSE 0 END) AS awaiting_payment_stale,
+         SUM(CASE WHEN ${leadRowSql()} AND lead_follow_up_status = 'new' THEN 1 ELSE 0 END) AS leads_new,
+         SUM(CASE WHEN ${leadRowSql()} AND lead_follow_up_status = 'new' AND created_at < ?1 THEN 1 ELSE 0 END) AS leads_new_stale
        FROM orders`,
-    ),
-  ])) as [D1Result<PendingRow>, D1Result<ShipmentRow>, D1Result<{ awaiting_payment: number | null; leads_new: number | null }>];
+    ).bind(new Date(now - STALE_AFTER_MS).toISOString()),
+  ])) as [D1Result<PendingRow>, D1Result<ShipmentRow>, D1Result<{ awaiting_payment: number | null; awaiting_payment_stale: number | null; leads_new: number | null; leads_new_stale: number | null }>];
 
   const pendingRows = (pending.results ?? []).slice(0, ATTENTION_ROW_LIMIT);
   const shipmentRows = (shipments.results ?? []).slice(0, ATTENTION_ROW_LIMIT);
   const capped = (pending.results?.length ?? 0) > ATTENTION_ROW_LIMIT || (shipments.results?.length ?? 0) > ATTENTION_ROW_LIMIT;
 
   let confirm = 0;
+  let confirmStale = 0;
+  const staleBefore = now - STALE_AFTER_MS;
   let readyPush = 0;
   let pushProblem = 0;
   for (const row of pendingRows) {
     if (row.list_status !== "pending") continue;
     confirm += 1;
+    if (Date.parse(row.created_at) < staleBefore) confirmStale += 1;
     const error = row.provider_dispatch_error;
     const claimedAt = Date.parse(row.provider_dispatch_claimed_at || "");
     const inFlight = error === "DISPATCHING" && Number.isFinite(claimedAt) && now - claimedAt < MENGANTAR_DISPATCH_CLAIM_TTL_MS;
@@ -147,13 +160,13 @@ export async function readOrderAttention(
       ),
     ).length;
 
-  const totals = counts.results?.[0] ?? { awaiting_payment: 0, leads_new: 0 };
+  const totals = counts.results?.[0] ?? { awaiting_payment: 0, awaiting_payment_stale: 0, leads_new: 0, leads_new_stale: 0 };
   const items: AttentionItem[] = [
-    { key: "confirm", label: "Menunggu konfirmasi", hint: "Order baru, cek alamat dan risiko lalu konfirmasi", count: confirm, href: "/admin/orders?status=pending", tone: "info" },
+    { key: "confirm", label: "Menunggu konfirmasi", hint: "Order baru, cek alamat dan risiko lalu konfirmasi", count: confirm, stale: confirmStale, href: "/admin/orders?status=pending", tone: "info" },
     { key: "ready_push", label: "Siap push ke Mengantar", hint: "Lolos syarat push Mengantar; push dari daftar Menunggu", count: readyPush, href: "/admin/orders?status=pending", tone: "info" },
     { key: "push_problem", label: "Push Mengantar bermasalah", hint: "Ditolak atau hasil belum pasti. Yang ditolak tetap bisa dipush ulang setelah dibetulkan", count: pushProblem, href: "/admin/orders?status=pending", tone: "bad" },
-    { key: "awaiting_payment", label: "Menunggu pembayaran online", hint: "QRIS, VA, atau transfer yang belum dibayar pembeli", count: Number(totals.awaiting_payment) || 0, href: "/admin/orders?payment_status=unpaid", tone: "warn" },
-    { key: "leads_new", label: "Lead belum dihubungi", hint: "Pesanan tertinggal yang belum di-follow up", count: Number(totals.leads_new) || 0, href: "/admin/orders/abandoned?follow_up_status=new", tone: "warn" },
+    { key: "awaiting_payment", label: "Menunggu pembayaran online", hint: "QRIS, VA, atau transfer yang belum dibayar pembeli", count: Number(totals.awaiting_payment) || 0, stale: Number(totals.awaiting_payment_stale) || 0, href: "/admin/orders?payment_status=unpaid", tone: "warn" },
+    { key: "leads_new", label: "Lead belum dihubungi", hint: "Pesanan tertinggal yang belum di-follow up", count: Number(totals.leads_new) || 0, stale: Number(totals.leads_new_stale) || 0, href: "/admin/orders/abandoned?follow_up_status=new", tone: "warn" },
     { key: "needs_waybill", label: "Perlu dibuatkan resi", hint: "Sudah di Mengantar, resi belum terbit", count: queueCount("needs_waybill"), href: "/admin/shipping?queue=needs_waybill", tone: "warn" },
     { key: "needs_pickup", label: "Perlu jadwal pickup", hint: "Berresi, belum dijadwalkan pickup kurir", count: queueCount("needs_pickup"), href: "/admin/shipping?queue=needs_pickup", tone: "warn" },
     { key: "needs_drop_off", label: "Perlu drop-off", hint: "Berresi, antar ke counter kurir", count: queueCount("needs_drop_off"), href: "/admin/shipping?queue=needs_drop_off", tone: "warn" },

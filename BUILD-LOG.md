@@ -8095,3 +8095,35 @@ error and no failed request.
 - **Removed.** `home/LandingPagesSection.astro` (nothing renders it since the
   home page stopped listing landing pages; an install that kept its own home
   template keeps its own copy) and `ui/popover.tsx` (imported by nothing).
+
+### Entry 226: 1.8.4 — Dashboard layout, comparisons in the chart, English metric names, What's new
+
+No migration. 1144 tests pass, `npm run check` 0/0/0; the dashboard and the
+release-notes dialog opened at 1440 and 390 px with no script error, failed
+request or horizontal scroll.
+
+- **Layout.** The period, the comparison and refresh share one toolbar (the
+  full-width "Periode laporan" card is gone). Six KPI cards, then the revenue
+  chart beside the payment mix, then Action needed, the sales funnel and the
+  top lists, so the chart is on the first screen and open work sits below the
+  numbers (Paduka, 2026-11-01).
+- **Comparison** (`src/lib/dashboard-compare.ts`, `?compare=` and `?preset=`
+  on `/api/admin/analytics`): a day against the same weekday a week earlier, a
+  calendar month against the same dates a month earlier (clamped to month
+  length), else the equal period before; chosen per preset unless the
+  operator picks one. A period running to today is compared up to the same
+  moment (`compareCutoff`). The comparison's own buckets are returned and drawn
+  as a dashed line in the chart; a single day reads cumulatively by hour.
+- **KPIs.** AOV, lead conversion (orders over leads plus orders) and revenue
+  split COD/prepaid are new; every card carries a delta chip, "baru" when the
+  comparison was empty, a muted dash when there is nothing to compare.
+- **Action needed** is one row per queue with its count, a red "N >24j" chip
+  for what has waited over a day (`STALE_AFTER_MS`, confirm, awaiting payment,
+  leads), the explanation as a tooltip, and a one-minute refresh while the tab
+  is visible.
+- **Language.** Metric names are English on the dashboard and in Analitik
+  (Revenue, Orders, Leads, AOV, Delivered revenue, Funnel); sentences stay
+  Indonesian. The compare control is the admin `FilterSelect`.
+- **What's new** replaces "Catatan rilis" everywhere: the running release in
+  full as a check list, earlier releases one line each, opening into the same
+  list (`ChangeList`). The dialog footer no longer clips its close button.

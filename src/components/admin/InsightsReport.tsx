@@ -28,7 +28,7 @@ const Chart = lazy(() => import('./InsightsChart').catch(() => ({
   },
 })));
 const sectionClass = 'rounded-lg border border-border bg-card p-4 text-card-foreground';
-const metricLabels = { orders: 'Pesanan', leads: 'Lead', revenue: 'Omset' };
+const metricLabels = { orders: 'Orders', leads: 'Leads', revenue: 'Revenue' };
 
 function Loading() { return <div aria-busy="true" aria-label="Memuat laporan" className="flex flex-col gap-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-64 w-full" /></div>; }
 /** RTS above this share is flagged for review on every Analitik screen. */
@@ -207,8 +207,8 @@ function DrillName({ label, onOpen }: { label: string; onOpen: () => void }) {
 }
 
 const landingColumns = [
-  ['leads', 'Lead'], ['orders', 'Pesanan'], ['revenue', 'Omset'], ['delivered_revenue', 'Omset terkirim'],
-  ['average_order_value', 'Rata-rata'], ['closing_rate', 'Closing'], ['delivered_share', 'Terkirim'], ['return_share', 'RTS'],
+  ['leads', 'Leads'], ['orders', 'Orders'], ['revenue', 'Revenue'], ['delivered_revenue', 'Delivered revenue'],
+  ['average_order_value', 'AOV'], ['closing_rate', 'Closing'], ['delivered_share', 'Delivered'], ['return_share', 'RTS'],
 ] as const;
 type LandingRow = Landing['rows'][number];
 type LandingSort = 'label' | typeof landingColumns[number][0];
@@ -236,7 +236,7 @@ function LandingView({ data, query, mayReadOrders }: { data: Landing; query: str
     <Button variant="ghost" size="xs" className="-mx-2 uppercase tracking-wide text-muted-foreground" onClick={() => sortBy(key)}>{label}{sort === key && <span aria-hidden="true">{descending ? '↓' : '↑'}</span>}</Button>
   </TableHead>;
   return <section className="flex min-w-0 flex-col gap-3">
-    <p className="text-xs text-muted-foreground">Omset = nilai pesanan aktif, belum tentu dibayar. Closing = pesanan / (pesanan + lead). RTS merah = retur di atas 20%. Urutkan dengan mengetuk judul kolom.</p>
+    <p className="text-xs text-muted-foreground">Revenue = nilai pesanan aktif, belum tentu dibayar. Closing = pesanan / (pesanan + lead). RTS merah = retur di atas 20%. Urutkan dengan mengetuk judul kolom.</p>
     <FilterBar className="md:hidden"><FilterField label="Urutkan" htmlFor="landing-sort" size="lg"><FilterSelect id="landing-sort" icon={ArrowDownUp} value={sort} options={[{ value: 'label' as LandingSort, label: 'Nama halaman' }, ...landingColumns.map(([value, label]) => ({ value: value as LandingSort, label }))]} onValueChange={(key) => { setSort(key); setDescending(key !== 'label'); }} /></FilterField><Button variant="outline" onClick={() => setDescending(!descending)}>{descending ? 'Terbesar dulu' : 'Terkecil dulu'}</Button></FilterBar>
     <ReportTable label="Peringkat landing page">
       <TableHeader><TableRow>{sortHead('label', 'Halaman', false)}{landingColumns.map(([key, label]) => sortHead(key, label))}<TableHead className={headCell}>Kanal pesanan</TableHead></TableRow></TableHeader>
@@ -247,7 +247,7 @@ function LandingView({ data, query, mayReadOrders }: { data: Landing; query: str
       </TableRow>)}</TableBody>
     </ReportTable>
     <div className={listShell}>{rows.map((row) => <ListRow key={row.slug ?? SOURCE_SLUG_NONE_FILTER} title={name(row)} detail={channelSummary(row)} value={money(row.delivered_revenue)}
-      stats={[['Pesanan', number(row.orders)], ['Lead', number(row.leads)], ['Omset', money(row.revenue)], ['Closing', percent(row.closing_rate)], ['RTS', <ReturnShare value={row.return_share} />]]} />)}</div>
+      stats={[['Orders', number(row.orders)], ['Leads', number(row.leads)], ['Revenue', money(row.revenue)], ['Closing', percent(row.closing_rate)], ['RTS', <ReturnShare value={row.return_share} />]]} />)}</div>
   </section>;
 }
 
@@ -262,7 +262,7 @@ function ProductsView({ data }: { data: Products }) {
     <p className="text-sm">{number(data.totals.units)} unit aktif · {money(data.totals.revenue)} omset produk (tanpa ongkir)</p>
     <p className="text-xs text-muted-foreground">RTS dihitung per unit: retur / (terkirim + retur). Merah = di atas 20%.</p>
     <ReportTable label="Peringkat produk">
-      <TableHeader><TableRow><TableHead className={nameHead}>Produk</TableHead><TableHead className={numHead}>Unit aktif</TableHead><TableHead className={numHead}>Omset produk</TableHead><TableHead className={numHead}>Terkirim</TableHead><TableHead className={numHead}>Retur</TableHead><TableHead className={numHead}>RTS</TableHead><TableHead className={cn(headCell, 'min-w-48')}>Varian</TableHead></TableRow></TableHeader>
+      <TableHeader><TableRow><TableHead className={nameHead}>Produk</TableHead><TableHead className={numHead}>Unit aktif</TableHead><TableHead className={numHead}>Product revenue</TableHead><TableHead className={numHead}>Delivered</TableHead><TableHead className={numHead}>Retur</TableHead><TableHead className={numHead}>RTS</TableHead><TableHead className={cn(headCell, 'min-w-48')}>Varian</TableHead></TableRow></TableHeader>
       <TableBody>{data.rows.map((row) => <TableRow key={row.product_id ?? 'deleted'} className="align-top">
         <TableCell className={cn(nameCell, 'font-medium')}>{row.label}</TableCell>
         <TableCell className={numCell}>{number(row.units)}</TableCell>
@@ -283,8 +283,8 @@ function TrendView({ data, metric, setMetric }: { data: Trend; metric: 'orders' 
     <FilterBar><FilterField label="Metrik" htmlFor="trend-metric"><FilterSelect id="trend-metric" icon={ChartNoAxesCombined} value={metric} options={Object.entries(metricLabels).map(([value, label]) => ({ value: value as typeof metric, label }))} onValueChange={setMetric} /></FilterField></FilterBar>
     <div className="my-4 grid grid-cols-2 gap-4"><div><p className="text-xs text-muted-foreground">Periode terpilih</p><p className="whitespace-nowrap text-xl font-semibold tabular-nums sm:text-2xl">{format(data.total[metric])}</p></div><div><p className="text-xs text-muted-foreground">Sebelumnya · {data.previous.start} – {data.previous.end}</p><p className="whitespace-nowrap text-xl font-semibold tabular-nums sm:text-2xl">{format(data.previous[metric])}</p></div></div>
     {data.total.orders + data.total.leads === 0 && <p className="mb-3 text-sm">Tidak ada pesanan atau lead pada periode ini.</p>}
-    <figure><Suspense fallback={<Skeleton className="h-64 w-full" />}><Chart series={data.series} metric={metric} /></Suspense><figcaption className="mt-2 text-xs text-muted-foreground">{metricLabels[metric]} per hari · WIB. Hari tanpa data ditampilkan nol. Omset bukan konfirmasi pembayaran.</figcaption></figure>
-    <details className="mt-4"><summary className="cursor-pointer py-2 text-sm">Lihat data harian</summary><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Pesanan</TableHead><TableHead>Lead</TableHead><TableHead>Omset</TableHead></TableRow></TableHeader><TableBody>{data.series.map((day) => <TableRow key={day.date}><TableCell>{day.date}</TableCell><TableCell>{number(day.orders)}</TableCell><TableCell>{number(day.leads)}</TableCell><TableCell>{money(day.revenue)}</TableCell></TableRow>)}</TableBody></Table></details>
+    <figure><Suspense fallback={<Skeleton className="h-64 w-full" />}><Chart series={data.series} metric={metric} /></Suspense><figcaption className="mt-2 text-xs text-muted-foreground">{metricLabels[metric]} per hari · WIB. Hari tanpa data ditampilkan nol. Revenue bukan konfirmasi pembayaran.</figcaption></figure>
+    <details className="mt-4"><summary className="cursor-pointer py-2 text-sm">Lihat data harian</summary><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Orders</TableHead><TableHead>Leads</TableHead><TableHead>Revenue</TableHead></TableRow></TableHeader><TableBody>{data.series.map((day) => <TableRow key={day.date}><TableCell>{day.date}</TableCell><TableCell>{number(day.orders)}</TableCell><TableCell>{number(day.leads)}</TableCell><TableCell>{money(day.revenue)}</TableCell></TableRow>)}</TableBody></Table></details>
   </section>;
 }
 function LocationsView({ data, onPlace }: { data: Locations; onPlace: (province: string, city?: string | null) => void }) {
@@ -307,15 +307,15 @@ function LocationsView({ data, onPlace }: { data: Locations; onPlace: (province:
     {places.length === 0 && <p className="text-sm">{city ? 'Tidak ada kecamatan pada kota ini' : 'Tidak ada kota pada provinsi ini'} untuk filter terpilih.</p>}
     {(places.length > 0 || incomplete) && <>
       <ReportTable label={`Pesanan per ${level.toLowerCase()}`}>
-        <TableHeader><TableRow><TableHead className={nameHead}>{level}</TableHead><TableHead className={numHead}>Pesanan</TableHead><TableHead className={numHead}>Omset</TableHead><TableHead className={numHead}>Terkirim</TableHead><TableHead className={numHead}>Retur</TableHead><TableHead className={numHead}>RTS</TableHead></TableRow></TableHeader>
+        <TableHeader><TableRow><TableHead className={nameHead}>{level}</TableHead><TableHead className={numHead}>Orders</TableHead><TableHead className={numHead}>Revenue</TableHead><TableHead className={numHead}>Delivered</TableHead><TableHead className={numHead}>Retur</TableHead><TableHead className={numHead}>RTS</TableHead></TableRow></TableHeader>
         <TableBody>
           {places.map((place) => <TableRow key={place.key}><TableCell className={nameCell}>{name(place)}</TableCell><TableCell className={numCell}>{number(place.orders)}</TableCell><TableCell className={numCell}>{money(place.revenue)}</TableCell><TableCell className={numCell}>{number(place.delivered ?? 0)}</TableCell><TableCell className={numCell}>{number(place.returned ?? 0)}</TableCell><TableCell className={numCell}><ReturnShare value={place.return_share} /></TableCell></TableRow>)}
           {incomplete && <TableRow className="text-muted-foreground"><TableCell className={nameCell}><span className="cursor-help underline decoration-dotted underline-offset-4" title={incompleteNote}>Alamat belum dilengkapi</span></TableCell><TableCell className={numCell}>{number(incomplete.orders)}</TableCell><TableCell className={numCell}>{money(incomplete.revenue)}</TableCell><TableCell className={numCell}>{number(incomplete.delivered)}</TableCell><TableCell className={numCell}>{number(incomplete.returned)}</TableCell><TableCell className={numCell}><ReturnShare value={incomplete.return_share} /></TableCell></TableRow>}
         </TableBody>
       </ReportTable>
       <div className={listShell}>
-        {places.map((place) => <ListRow key={place.key} title={name(place)} value={money(place.revenue)} stats={[['Pesanan', number(place.orders)], ['Terkirim', number(place.delivered ?? 0)], ['Retur', number(place.returned ?? 0)], ['RTS', <ReturnShare value={place.return_share} />]]} />)}
-        {incomplete && <ListRow title={<span className="text-muted-foreground">Alamat belum dilengkapi</span>} detail={incompleteNote} value={money(incomplete.revenue)} stats={[['Pesanan', number(incomplete.orders)], ['RTS', <ReturnShare value={incomplete.return_share} />]]} />}
+        {places.map((place) => <ListRow key={place.key} title={name(place)} value={money(place.revenue)} stats={[['Orders', number(place.orders)], ['Terkirim', number(place.delivered ?? 0)], ['Retur', number(place.returned ?? 0)], ['RTS', <ReturnShare value={place.return_share} />]]} />)}
+        {incomplete && <ListRow title={<span className="text-muted-foreground">Alamat belum dilengkapi</span>} detail={incompleteNote} value={money(incomplete.revenue)} stats={[['Orders', number(incomplete.orders)], ['RTS', <ReturnShare value={incomplete.return_share} />]]} />}
       </div>
     </>}
     {data.unmatched_provinces.length > 0 && <p className="text-xs text-muted-foreground">Nama belum cocok dengan katalog: {data.unmatched_provinces.join(', ')}. Tidak digabung otomatis.</p>}
@@ -349,7 +349,7 @@ function TimesView({ data }: { data: Times }) {
 }
 
 const utmColumns = [
-  ['leads', 'Lead'], ['orders', 'Pesanan'], ['revenue', 'Omset'], ['delivered_revenue', 'Omset terkirim'],
+  ['leads', 'Leads'], ['orders', 'Orders'], ['revenue', 'Revenue'], ['delivered_revenue', 'Delivered revenue'],
   ['closing_rate', 'Closing'], ['delivered', 'Terkirim'], ['returned', 'Retur'], ['return_share', 'RTS'],
 ] as const;
 type UtmRow = Utm['rows'][number];
@@ -369,7 +369,7 @@ function UtmTable({ label, rows }: { label: string; rows: Array<{ key: string; n
       <TableBody>{rows.map((row) => <TableRow key={row.key}><TableCell className={nameCell}><div className="break-words font-medium">{row.name}</div>{row.detail && <div className="text-xs text-muted-foreground">{row.detail}</div>}</TableCell>{utmColumns.map(([key]) => <TableCell key={key} className={numCell}>{utmValue(row.metrics, key)}</TableCell>)}</TableRow>)}</TableBody>
     </ReportTable>
     <div className={listShell}>{rows.map((row) => <ListRow key={row.key} title={row.name} detail={row.detail} value={money(row.metrics.delivered_revenue)}
-      stats={[['Pesanan', number(row.metrics.orders)], ['Lead', number(row.metrics.leads)], ['Omset', money(row.metrics.revenue)], ['Closing', percent(row.metrics.closing_rate)], ['RTS', <ReturnShare value={row.metrics.return_share} />]]} />)}</div>
+      stats={[['Orders', number(row.metrics.orders)], ['Leads', number(row.metrics.leads)], ['Revenue', money(row.metrics.revenue)], ['Closing', percent(row.metrics.closing_rate)], ['RTS', <ReturnShare value={row.metrics.return_share} />]]} />)}</div>
   </>;
 }
 function UtmView({ data }: { data: Utm }) {
