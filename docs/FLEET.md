@@ -1,6 +1,6 @@
 # AdsBookCMS install fleet
 
-> Verified against disk: 2026-11-01 @ `453d3e9` (versions, sync, distance, deploy time and schema read with `npm run fleet:status` over every local clone late that evening; "Version" is the working tree, so "in tree" means merged locally, not necessarily pushed or deployed; the "Behind product" count grows with every product commit and is a snapshot)
+> Verified against disk: 2026-11-02 @ `eb0ced6` (versions, sync, distance, deploy time and schema read with `npm run fleet:status` and live `/hello` on 2026-11-02 after the 1.8.6 rollout; "Version" is the working tree)
 
 Every store that runs AdsBookCMS: one install = one repository = one Worker
 = one store (`AGENTS.md`). This file is the registry of which installs exist,
@@ -15,45 +15,52 @@ distance behind the product, last deploy and schema for each local clone.
 
 | # | Store (domain) | Repository | Branch | Version | Behind product | Schema (applied/expected) | Last deploy |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.5** + 2026-11-01 evening work | 0 | 93/93 | 2026-11-01 15:08 |
-| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.4** | 29 | 80/80 | 2026-11-01 |
-| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.4** | 29 | 80/80 | 2026-11-01 |
-| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.4** | 29 | 80/80 | 2026-11-01 |
-| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | 1.8.5 in tree, +8 unpushed | 22 | 80/80 | 2026-11-01 |
-| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | 1.8.5 in tree, +8 unpushed | 22 | 80/80 | 2026-11-01 |
-| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.4** | 29 | 80/80 | 2026-11-01 |
-| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.5** + 2026-11-01 evening work | 2 (shared page-size constant only) | 80/80 | 2026-11-01 15:01 |
-| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | 1.8.5 in tree, 318 uncommitted files | 157 | 67/80 | 2026-10-24 |
-| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | 1.8.5 in tree, +181 unpushed | 22 | 62/80 | 2026-10-18 |
+| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.6** | 0 | 93/93 | 2026-11-02 |
+| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
+| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
+| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
+| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
+| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | **1.8.6** | 0 | 80/80 | 2026-11-01 |
+| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.6** | 0 | 80/80 | 2026-11-02 |
+| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.6** | 0 | 80/80 | 2026-11-02 |
+| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | **1.8.6** | 0 | 80/80 | 2026-11-02 |
+| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | **1.8.6** | 0 | 80/80 | 2026-11-02 |
 | 11 | skincarebpom.shop | `ongkipro/skincarebpom` | `install/skincarebpom` | 1.8.5 in tree, 371 uncommitted files | 201 | 62/80 | 2026-10-18 |
-| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | 1.8.5 in tree, +24 unpushed | 22 | 79/80 | 2026-10-31 |
+| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | **1.8.6** | 0 | 80/80 | 2026-11-01 |
 
 All twelve repositories and the product (`ongkipro/adsbookcms`) are
 **public** since 2026-11-01, after a full-history scan found no secret or
 customer data (test fixtures and base64 inside payment SVGs only). Never commit
 a real token, `.dev.vars`, `.env` or customer export to any of them.
 
-### Unfinished rollouts of 1.8.5 (2026-11-01 evening)
+### Rollout of 1.8.6 (2026-11-02)
 
-A rollout of 1.8.5 was interrupted mid-way. Shipped and verified: **zvarashop**
-(also carries `PUBLIC_DEFAULT_BRAND` and the early `_fbp`, Worker version
-`08fff93d`: also the card twins and load-more on scroll) and **revenleather** (`8414aaa`, Worker version `e749164f`: 1.8.5
-plus the early `_fbp`). Merged
-into the working tree but **not pushed, and not proven deployed** (the "Last
-deploy" column is the clone's own record, which can predate the merge):
+Every install with a local clone runs 1.8.6 (live `/hello` and `fleet:status`
+agree) except **skincarebpom**, which has no local clone and stays on 1.5.11.
 
-| Install | State found | Before shipping |
-| --- | --- | --- |
-| bavenshop, halotanishop | 1.8.5 in tree, 8 commits ahead of origin (halotanishop also has 1 dirty file) | `npm test`, `npm run check`, push, `npm run deploy` |
-| cekat-shop | 1.8.5 in tree, 24 commits ahead of origin; schema 79/80 | same; read why 79/80 first |
-| klikinaja | 1.8.5 in tree, **181 commits ahead of origin**, schema 62/80, last deploy 2026-10-18 | find out what the 181 commits are before pushing; 18 migrations pending |
-| beranda-tani | 1.8.5 in tree with **318 uncommitted files**, 139 behind product, schema 67/80, last deploy 2026-10-24 | looks like a merge in progress: inspect `git status` and `MERGE_HEAD` before touching it |
-| skincarebpom | 1.8.5 in tree, **371 uncommitted files**, schema 62/80, last deploy 2026-10-18 | same caution as beranda-tani: inspect before touching |
-| permatamall, agritani-shop, taniniaga, numaskin-adbook | still 1.8.4, 29 behind product | merge `product/main`, then ship |
-
-The installs that are 22 behind product on 1.8.5 are missing the 2026-11-01
-evening work: `PUBLIC_DEFAULT_BRAND` (PR #131) and the early `_fbp` (PR #132,
-`TRACKING_SPECS.md` §16.1b), plus docs.
+- zvarashop (`3ee1ee1`, Worker `4d86c8e0`), numaskin-adbook (`be853139`),
+  klikinaja (`eac65816`, schema 62 → 80, only additive migrations),
+  revenleather (`07b357f`, `b720e725`) and beranda-tani (`d5f974b`, `c5ac4920`,
+  schema 67 → 80) were shipped on 2026-11-02; the other six were deployed on
+  2026-11-01. Each deploy went through `npm run deploy`, no `ALLOW_*` override.
+- **revenleather** keeps its engraving ("grafir") flow: the diff against the
+  pre-merge head is empty for all 20 files under `src` that mention grafir, and the two conflicting
+  catalogue files kept the install's version. The live product page still
+  renders `grafir_text`. An order carrying an engraving was not placed.
+- **beranda-tani**: the "318 uncommitted files" were an unfinished merge of
+  1.8.5, not lost work. It was closed (generated route-map and lucide subset
+  regenerated), then 1.8.6 merged; `ProductsSection.astro` and
+  `produk/index.astro` keep the Petani Sejahtera theme, which has no search or
+  load-more by design. A D1 export was taken before the deploy (kept outside
+  the repository; it holds customer data). The alias domains petanisawit.com
+  and beranda.click answer 301.
+- klikinaja has no products and no orders (read-only count on 2026-11-02) and
+  no Meta Pixel; cekat.shop likewise shows an empty catalogue and no Pixel.
+  Both were so before the rollout.
+- Placement: all eleven D1 databases run in APAC (`wrangler d1 info`). Ten
+  Workers already used Smart Placement (ADR-030); klikinaja gained it on
+  2026-11-02 (Worker `f237a992`). Cloudflare offers no Indonesia region, so
+  Singapore is the closest the fleet can be.
 
 ## Infrastructure
 
