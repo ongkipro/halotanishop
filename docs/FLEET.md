@@ -1,6 +1,6 @@
 # AdsBookCMS install fleet
 
-> Verified against disk: 2026-11-01 @ `fbcb8ba` (1.8.4 deployed to seven installs; carukesi and zanobyshop decommissioned; versions read from each install's `src/lib/version.ts` and `npm run fleet:status`, infrastructure from each `wrangler.jsonc`, visibility from GitHub)
+> Verified against disk: 2026-11-01 @ `0dd1dc3` (versions, sync, distance, deploy time and schema read with `npm run fleet:status` over the local clones that evening; "Version" is the working tree, so "in tree" means merged locally, not necessarily pushed or deployed)
 
 Every store that runs AdsBookCMS: one install = one repository = one Worker
 = one store (`AGENTS.md`). This file is the registry of which installs exist,
@@ -15,23 +15,43 @@ distance behind the product, last deploy and schema for each local clone.
 
 | # | Store (domain) | Repository | Branch | Version | Behind product | Schema (applied/expected) | Last deploy |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.4** | 0 | 93/93 | 2026-11-01 |
-| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.4** | 0 | 80/80 | 2026-11-01 |
-| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.4** | 0 | 80/80 | 2026-11-01 |
-| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.4** | 0 | 80/80 | 2026-11-01 |
-| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | **1.8.4** | 0 | 80/80 | 2026-11-01 |
-| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | **1.8.4** | 0 | 80/80 | 2026-11-01 |
-| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.4** | 0 | 80/80 | 2026-11-01 |
-| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | 1.7.13 | 129 | 67/67 | 2026-10-30 |
-| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | 1.7.13 | 128 | 67/67 | 2026-10-24 |
-| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | 1.5.11 | 172 | 62/62 | 2026-10-18 |
+| 1 | zvara.shop | `ongkipro/zvarashop` | `install/zvarashop` | **1.8.5** | 0 | 93/93 | 2026-11-01 |
+| 2 | permatamall.shop | `ongkipro/permatamall` | `main` | **1.8.4** | 11 | 80/80 | 2026-11-01 |
+| 3 | agritani.shop | `ongkipro/agritani-shop` | `install/agritani-shop` | **1.8.4** | 11 | 80/80 | 2026-11-01 |
+| 4 | taniniaga.shop | `ongkipro/taniniaga` | `install/taniniaga` | **1.8.4** | 11 | 80/80 | 2026-11-01 |
+| 5 | halotani.shop | `ongkipro/halotanishop` | `install/halotanishop` | 1.8.5 in tree, +8 unpushed | 4 | 80/80 | 2026-11-01 |
+| 6 | baven.shop | `ongkipro/bavenshop` | `install/bavenshop` | 1.8.5 in tree, +8 unpushed | 4 | 80/80 | 2026-11-01 |
+| 7 | page.numaskin.id | `ongkipro/numaskin-adbook` | `main` | **1.8.4** | 11 | 80/80 | 2026-11-01 |
+| 8 | page.revenleather.com | `ongkipro/revenleather` | `main` | **1.8.5** | 4 | 80/80 | 2026-11-01 |
+| 9 | petanisejahtera.com (+ petanisawit.com, beranda.click) | `ongkipro/beranda-tani` | `install/beranda-tani` | 1.8.5 in tree, 318 uncommitted files | 139 | 67/80 | 2026-10-24 |
+| 10 | klikinaja.shop | `ongkipro/klikinaja` | `install/klikinaja` | 1.8.5 in tree, +181 unpushed | 4 | 62/80 | 2026-10-18 |
 | 11 | skincarebpom.shop | `ongkipro/skincarebpom` | `install/skincarebpom` | 1.5.11 | — (no local clone) | — | — |
-| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` | 1.8.0 | — (no local clone) | — | — |
+| 12 | cekat.shop | `ongkipro/cekat-shop` | `main` (local clone) | 1.8.5 in tree, +24 unpushed | 4 | 79/80 | 2026-10-31 |
 
 All twelve repositories and the product (`ongkipro/adsbookcms`) are
 **public** since 2026-11-01, after a full-history scan found no secret or
 customer data (test fixtures and base64 inside payment SVGs only). Never commit
 a real token, `.dev.vars`, `.env` or customer export to any of them.
+
+### Unfinished rollouts of 1.8.5 (2026-11-01 evening)
+
+A rollout of 1.8.5 was interrupted mid-way. Shipped and verified: **zvarashop**
+(also carries `PUBLIC_DEFAULT_BRAND` and the early `_fbp`, Worker version
+`11b08a82`) and **revenleather** (`4861ef6`, Worker version `4882c044`). Merged
+into the working tree but **not pushed, and not proven deployed** (the "Last
+deploy" column is the clone's own record, which can predate the merge):
+
+| Install | State found | Before shipping |
+| --- | --- | --- |
+| bavenshop, halotanishop | 1.8.5 in tree, 8 commits ahead of origin (halotanishop also has 1 dirty file) | `npm test`, `npm run check`, push, `npm run deploy` |
+| cekat-shop | 1.8.5 in tree, 24 commits ahead of origin; schema 79/80 | same; read why 79/80 first |
+| klikinaja | 1.8.5 in tree, **181 commits ahead of origin**, schema 62/80, last deploy 2026-10-18 | find out what the 181 commits are before pushing; 18 migrations pending |
+| beranda-tani | 1.8.5 in tree with **318 uncommitted files**, 139 behind product, schema 67/80, last deploy 2026-10-24 | looks like a merge in progress: inspect `git status` and `MERGE_HEAD` before touching it |
+| permatamall, agritani-shop, taniniaga, numaskin-adbook | still 1.8.4, 11 behind product | merge `product/main`, then ship |
+
+The installs that are 4 behind product on 1.8.5 are missing only the 2026-11-01
+evening work: `PUBLIC_DEFAULT_BRAND` (PR #131) and the early `_fbp` (PR #132,
+`TRACKING_SPECS.md` §16.1b), plus docs.
 
 ## Infrastructure
 
@@ -94,6 +114,12 @@ Everything else merges `product/main` as is; regenerate `docs/ROUTE-MAP.md`,
 - **zvarashop** — its own catalogue migrations occupy `0067`–`0079`, so product
   `0067`–`0079` are `0080`–`0092` there and `schemaVersion` is 93. A new product
   migration is renumbered on merge.
+- **zvarashop** also sets `PUBLIC_DEFAULT_BRAND` to `Zvara` in `wrangler.jsonc`
+  (39 of its 70 products have no brand of their own; the feeds and product
+  JSON-LD report `Zvara` for them instead of the store name `Zvara Shop`). A
+  merge of the product template must not reset it. Open data item: product
+  `99840` (Theravol Natural Oil) has no `google_product_category`; set it in the
+  admin.
 - **permatamall** — the reference store. Its footer keeps a "Meta Ads &
   Privasi" → `/meta-ads` link (Meta App Basic Settings needs it).
 - **taniniaga** — favicons and `public/images/logo.svg` are its own.
@@ -105,6 +131,21 @@ Everything else merges `product/main` as is; regenerate `docs/ROUTE-MAP.md`,
   `main` often — fast-forward before deploying.
 - **revenleather** — the brand's Indonesian ads/COD funnel; the main shop is
   Shopify. `PUBLIC_SITE_NOINDEX=true`, `PUBLIC_SITE_BRAND_MARK` for its mark.
+  Install-owned and protected on every merge: the **grafir** (engraving)
+  feature (`FormMiddleContent`, `FormHybridContent`, `GeoIpResolvedForm`,
+  `form-middle.ts`, `form-hybrid.ts`, `approved-grafir`, the `customer_note`
+  flow through `OrdersTable`/`OrderDetail`/admin API/`payment`/`thanks`, the
+  `ps:thanks-note-updated` sync), its own hero/header/footer/brand
+  components, `EDGE_CACHE_SECONDS=600`, `/testimoni` removed, the WhatsApp
+  contact fallback. Take core's version of everything else. Taken from 1.8.5:
+  the "Mulai" price label. Deliberately not taken (clash with its dark header
+  and look): SiteBrand logo upload, the watermark/credit footer, the
+  "Halaman" link. Local `dev:local` loops on 301 because `routes` makes the
+  Worker see `page.revenleather.com`; run it from a temporary config without
+  `routes`. Not yet checked after the 1.8.5 deploy: the warehouse count for
+  migration 0072 (more than one warehouse changes quoting by province), why
+  `/sitemap.xml` answers 172 bytes (probably `PUBLIC_SITE_NOINDEX`), and why its
+  GitHub Actions runs fail within 3 seconds.
 - **beranda-tani** — breadcrumb and footer are install-themed (Petani
   Sejahtera); expect conflicts there.
 
