@@ -195,7 +195,8 @@ function readCookieValue(cookieHeader: string, name: string): string | undefined
 /**
  * Meta's browser identifiers, read server-side.
  *
- * `_fbp` is written by `fbevents.js`; `_fbc` is written by the middleware the
+ * `_fbp` is written by the `MetaPixelBase` bootstrap before the deferred
+ * `fbevents.js` loads (which keeps it); `_fbc` is written by the middleware the
  * moment an ad click lands with `fbclid`, and again by the pixel once it loads.
  * `externalId` is a random first-party key minted by `MetaPixelBase`. All three
  * are first-party on the storefront origin, so a same-origin request carries
@@ -214,7 +215,7 @@ export function readMetaBrowserIds(
   if (!cookieHeader) return {};
   // The click-id cookie is the fallback for `_fbc` alone: the middleware
   // synthesises it from `fbclid` at landing, so it exists on ad traffic even
-  // before the pixel runs. `_fbp` has no such origin — only the pixel mints it.
+  // before the pixel runs. `_fbp` has no such origin — only the pixel bootstrap in the browser mints it.
   const clickIds = readClickIdCookie(request);
   const externalId = readCookieValue(cookieHeader, META_EXTERNAL_ID_COOKIE);
   const fbp = readCookieValue(cookieHeader, "_fbp");

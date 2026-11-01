@@ -45,7 +45,7 @@ const INITIAL_COUNT = CATALOG_PAGE_SIZE;
 
           {products.length > INITIAL_COUNT && (
             <div class="mt-8 flex flex-col items-center gap-3" id="load-more-container">
-              <p class="text-xs text-[#767676]">
+              <p class="text-xs text-[#767676]" aria-live="polite">
                 Menampilkan <span id="visible-count" class="font-semibold text-[#111111]">{Math.min(INITIAL_COUNT, products.length)}</span> dari <span id="total-count" class="font-semibold text-[#111111]">{products.length}</span> produk
               </p>
               <button

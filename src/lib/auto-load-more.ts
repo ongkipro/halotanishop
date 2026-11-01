@@ -20,16 +20,24 @@ export function autoLoadMore(
   Observer: typeof IntersectionObserver | undefined = typeof IntersectionObserver === "undefined"
     ? undefined
     : IntersectionObserver,
+  saveData: boolean = typeof navigator !== "undefined" &&
+    Boolean((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData),
 ): (() => void) | undefined {
-  if (!button || !Observer) return undefined;
+  // Data Saver on: the visitor asked for fewer bytes, so the button is the only path.
+  if (!button || !Observer || saveData) return undefined;
 
   let armed = false;
   const observer = new Observer(
     (entries) => {
-      if (!armed || !entries.some((entry) => entry.isIntersecting)) return;
+      // The newest report decides: a quick flick can queue [visible, hidden], and
+      // loading for a button that is already past is not what the visitor did.
+      if (!armed || !entries[entries.length - 1]?.isIntersecting) return;
       // Hidden (display none or the `hidden` class) means nothing is left.
       if (button.offsetParent === null) return;
       button.click();
+      // One page per gesture: a tall or wide screen would otherwise chain page
+      // after page until the catalogue is drained. The next scroll or touch re-arms.
+      armed = false;
       observer.unobserve(button);
       observer.observe(button);
     },
@@ -41,7 +49,6 @@ export function autoLoadMore(
   const arm = () => {
     if (armed) return;
     armed = true;
-    for (const type of events) win.removeEventListener(type, arm);
     // Re-observe so a button already on screen is reported once more, armed.
     observer.unobserve(button);
     observer.observe(button);

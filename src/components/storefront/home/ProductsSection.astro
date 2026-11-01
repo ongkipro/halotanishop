@@ -120,7 +120,7 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
     class="mt-6 flex flex-col items-center gap-3"
     hidden={products.length === 0}
   >
-    <p id="catalog-status" class="text-xs text-[#555555]">
+    <p id="catalog-status" class="text-xs text-[#555555]" aria-live="polite">
       Menampilkan <span id="product-visible-count">{Math.min(CATALOG_PAGE_SIZE, products.length)}</span> dari <span id="product-total-count">{products.length}</span> produk
     </p>
     {
@@ -213,7 +213,7 @@ const formatPrice = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
     });
 
     filterAndRender();
-    // The next ten load as the button nears the screen; the button stays as the
+    // The next page loads as the button nears the screen; the button stays as the
     // keyboard and no-script path.
     autoLoadMore(loadMoreBtn);
   }
