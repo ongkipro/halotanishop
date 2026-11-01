@@ -54,8 +54,13 @@ agree) except **skincarebpom**, which has no local clone and stays on 1.5.11.
   load-more by design. A D1 export was taken before the deploy (kept outside
   the repository; it holds customer data). The alias domains petanisawit.com
   and beranda.click answer 301.
-- klikinaja and cekat.shop have an empty catalogue and no Meta Pixel; that was
-  true before the rollout.
+- klikinaja has no products and no orders (read-only count on 2026-11-02) and
+  no Meta Pixel; cekat.shop likewise shows an empty catalogue and no Pixel.
+  Both were so before the rollout.
+- Placement: all eleven D1 databases run in APAC (`wrangler d1 info`). Ten
+  Workers already used Smart Placement (ADR-030); klikinaja gained it on
+  2026-11-02 (Worker `f237a992`). Cloudflare offers no Indonesia region, so
+  Singapore is the closest the fleet can be.
 
 ## Infrastructure
 
