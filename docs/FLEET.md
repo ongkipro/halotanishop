@@ -66,8 +66,9 @@ Eleven of the twelve installs run **1.8.8** (`fleet:status`: clean, synced,
 - numaskin-adbook's first 1.8.7 deploy was refused by the preflight because
   `origin/main` held five native landing pages the clone lacked; merging
   `origin` first fixed it, which is what the preflight is for.
-- Still not checked: a rendered visual pass of the pages shipped today, and the
-  one skipped test every install now reports (the product baseline says none).
+- Visual pass done 2026-11-02 (BUILD-LOG entry 238): no overflow, broken image or
+  page error on any store; revenleather's headline font URLs were 404 and are
+  fixed. Still not checked: the one skipped test every install now reports (the product baseline says none).
 
 ### Rollout of 1.8.6 (2026-11-02)
 
