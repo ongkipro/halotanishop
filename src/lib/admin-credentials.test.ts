@@ -69,13 +69,23 @@ test('the login timing work floor is a real PBKDF2 verification', async () => {
   // Not short-circuited: a wrong password still runs the derivation and returns false.
   assert.equal(await verifyPasswordHash('not-the-seeded-password', DEFAULT_ADMIN_PASSWORD_HASH), false);
 
-  const floorStart = performance.now();
-  await verifyPasswordHash('not-the-seeded-password', DEFAULT_ADMIN_PASSWORD_HASH);
-  const floorCost = performance.now() - floorStart;
-
-  const compareStart = performance.now();
-  await secureEqual('not-the-seeded-password', 'admin');
-  const compareCost = performance.now() - compareStart;
+  // Medians of several runs, not one measurement each. The digest compare takes
+  // a few hundredths of a millisecond, so a single GC pause or a busy CI runner
+  // landing inside that one sample inflated it past floorCost / 10 and failed
+  // the suite with nothing wrong in the code. A median ignores the outliers a
+  // shared machine produces and still moves with a floor that became free work.
+  const median = (values: number[]) => [...values].sort((x, y) => x - y)[Math.floor(values.length / 2)];
+  const measure = async (runs: number, work: () => Promise<unknown>) => {
+    const samples: number[] = [];
+    for (let i = 0; i < runs; i++) {
+      const start = performance.now();
+      await work();
+      samples.push(performance.now() - start);
+    }
+    return median(samples);
+  };
+  const floorCost = await measure(5, () => verifyPasswordHash('not-the-seeded-password', DEFAULT_ADMIN_PASSWORD_HASH));
+  const compareCost = await measure(9, () => secureEqual('not-the-seeded-password', 'admin'));
 
   assert.ok(
     floorCost > compareCost * 10,
