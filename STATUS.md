@@ -1,6 +1,16 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `de910e1` (1.8.9 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `156a214` (1.9.0 released, not yet rolled out; 1.8.9 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`)
+
+## 2026-11-02 — 1.9.0: the default CTA is blue (released, not rolled out)
+
+`main` carries 1.9.0: `--sf-accent` is `#2563eb` and the buttons that were hard-coded ink
+read the token with a blue fallback (ADR-019 amendment). Rendered on the local build:
+"Pesan sekarang", the selected variant card, the order summary tint, the payment's "Salin
+Nomor VA" and the 404 button are blue, no page error. **No install has it yet**; a store
+that never overrode the tokens turns blue on its next merge, numaskin, beranda-tani and
+revenleather keep their own colour. Rolling it out changes the checkout button of seven
+live stores, so it waits for Paduka's go.
 
 ## 2026-11-02 — 1.8.9: payment page follows the store accent
 

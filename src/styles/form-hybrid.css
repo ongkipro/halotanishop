@@ -3,14 +3,16 @@
 [data-hybrid-form-root],
 [data-middle-form-root] {
   color: #1a1a1a;
-  /* Shopify-theme palette (Dawn, design/refs/dawn-pdp): ink carries every
-     selected / focused / primary control, a neutral grey marks what is
-     filled or chosen, and empty fields are plain white with a hairline. A
+  /* Ink for text, blue for the one action (ADR-019, amended 2026-11-02):
+     --sf-accent carries every selected / focused / primary control, a pale
+     tint of it marks what is filled or chosen, and empty fields are plain
+     white with a hairline. #2563eb is 5.17:1 under white text, #1d4ed8 on
+     hover 6.7:1. A
      store re-brands by overriding these tokens (ADR-019), never a call site. */
-  --sf-accent: #121212;
-  --sf-accent-strong: #333333;
-  --sf-accent-soft: #f3f3f3;
-  --sf-accent-ring: rgba(18, 18, 18, 0.22);
+  --sf-accent: #2563eb;
+  --sf-accent-strong: #1d4ed8;
+  --sf-accent-soft: #eff6ff;
+  --sf-accent-ring: rgba(37, 99, 235, 0.28);
   --sf-field: #ffffff;
   /* An empty input is white; a filled one takes --sf-accent-soft, so a buyer
      can still see at a glance which fields are waiting. */
