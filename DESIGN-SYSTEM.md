@@ -1,6 +1,6 @@
 # AdsBookCMS — Design System
 
-> Verified against disk: 2026-10-31 @ `4aacb40` + `feat/storefront-breadcrumb` working tree (storefront §1.1 Shopify-theme palette, §3 PDP order, login panel §1.3; §2, §7.4 as rewritten for compact-market v2)
+> Verified against disk: 2026-11-01 @ `d0ea0d2` (1.8.3: §3 header, footer and home order; §7.3; earlier: storefront §1.1 Shopify-theme palette, §3 PDP order, login panel §1.3; §2, §7.4 as rewritten for compact-market v2)
 >
 > **The public palette is neutral plus one overridable accent (ADR-019, as
 > amended 2026-08-23).** Colour tokens below that describe the retired gold
@@ -44,7 +44,7 @@ replacing the v2 blue accent.
 | `#111111` | Primary ink — text, selected chip fill, monogram tile |
 | `#555555` | Secondary text |
 | `#767676` | Tertiary text, struck-through compare price |
-| `#F3F3F3` | Soft surface — tagline line, search well, info notes, review cards, footer, the canvas outside the column on wide screens, section separators (`border-t-8`) |
+| `#F3F3F3` | Soft surface — search well, info notes, review cards, the canvas outside the column on wide screens, section separators (`border-t-8`) |
 | `#E5E5E5` | Outline of pill controls at rest (chips, search, secondary buttons) |
 | `#EDEDED` | The hairline above the sticky buy bar |
 | `#E5E5E5` faded | The rule under the header: a 1px `linear-gradient` from transparent to `#E5E5E5` at 20%/80% and back, so it fades out at both edges |
@@ -195,7 +195,7 @@ category and variant counts unreadable on a phone ("RUMAH TANGG… 2 VARIAN")
 and gave every store the same boutique accent.
 
 - Wordmark: `text-[15px] font-bold uppercase tracking-[0.08em]`, the tenant's own name, one line — `SiteBrand.astro`. Shown only while the store has no uploaded logo (`tenant.logo` is `DEFAULT_TENANT_LOGO`); an uploaded logo replaces it, 32px tall, at most 168px wide, sized inline. No monogram tile.
-- Announcement line: "Official Store" with a solid blue (`#1D6FEB`) badge-check, `text-xs font-semibold` on `#F3F3F3`, above the header — `SiteHeader.astro`. The tagline is no longer drawn there.
+- Header (1.8.3): the wordmark or logo, centred and alone, with "Official Store" under it — a solid blue (`#1D6FEB`) badge-check, `text-[11px] font-semibold` in `#555555` — `SiteHeader.astro`. The announcement bar above the header and the catalogue icon were removed; the footer carries the navigation.
 - Page `h1`: `text-2xl font-bold tracking-[-0.02em]` — `PageIntro.astro`; PDP `h1` `text-xl`
 - Section heading: `text-xl font-bold tracking-[-0.02em]` (home), `text-base font-bold` (PDP sections)
 - Card title: `text-sm leading-5`, at most two lines (`line-clamp-2`), the price directly under it (`mt-0.5`), no reserved height: a one-line title's price sits higher than its neighbour's, as in the Shopify theme, while the card frames still align (grid stretch, `h-full flex-col`)
@@ -228,9 +228,16 @@ cards in the form) and filled space with generic attributes ("Fokus Produk",
 "Ketersediaan: seluruh varian tersedia").
 
 Sections (in order):
-- Home: "Official Store" line (blue badge-check) → header (text wordmark, or the uploaded logo; a package icon to `/produk`), not sticky, closed by a rule that fades at both ends → swipeable hero card →
-  catalogue (heading, search, category chips, 2-column grid) → landing pages →
-  footer.
+- Home: header (centred wordmark or uploaded logo, "Official Store" under it), not sticky, closed by a rule that fades at both ends → swipeable square hero card →
+  catalogue (heading, search, category chips, 2-column grid) → footer. Landing
+  pages are not listed on the home page; `/landing-page` lists them.
+- Footer (1.8.3, `SiteFooter.astro`): white, opened by the header's fading
+  hairline; two link groups, Belanja (Semua produk, Halaman) and Bantuan
+  (Kontak, Pengiriman & Retur, Kebijakan Privasi, Syarat & Ketentuan), headings
+  `text-[13px] font-bold uppercase`; the store name behind them as a watermark
+  (`#111111` at 7%, `font-black`, sized `(100cqi − 2.5rem) / (0.66 × length)`,
+  at most 6rem, never stretched); © year, store name and an ongki.pro credit.
+  It reads no database.
 - `/produk`: breadcrumb → title with product count → grid.
 - PDP: breadcrumb → photo → offer (name, rating/sold if real, price with
   "Mulai" when variants differ, compare price, short copy, "N pilihan: …",
@@ -296,6 +303,16 @@ box-shadow: none
 Textarea overrides — `min-height: 4.4rem`, `padding-top: 1.25rem`, `padding-bottom: 0.38rem`, `resize: vertical` (`:289-294`).
 
 Shipped values: `border-color: #E5E5E5; background: #ffffff; color: #111111` (`form-hybrid.css`).
+
+Field states (1.8.3, one marked block at the end of `form-hybrid.css`, removable
+whole): focus keeps the 1px border and adds a 3px `--sf-accent-ring` ring drawn
+as a box-shadow (no layout shift); a validated field takes a green edge
+(`--sf-valid-border`) and a tick at its trailing edge, hidden while it is edited;
+an invalid field being fixed takes a red ring. Variant rows take
+`--sf-field-border`, darken on hover, double their ink edge with an inset
+shadow when chosen, and their radios are visually hidden rather than
+`display: none`, so Tab and the arrow keys reach them. The floating label is
+untouched. Transitions are off under `prefers-reduced-motion`.
 
 ### 4.2 Floating label
 

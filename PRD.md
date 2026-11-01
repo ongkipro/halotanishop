@@ -1,6 +1,6 @@
 # PRD — AdsBookCMS (single)
 
-> Verified against disk: 2026-10-31 @ `d61afbe` (A38 cancelled; A46, REQ-249 amendment; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-01 @ `d0ea0d2` (REQ-194 amended for 1.8.3; other sections retain their recorded evidence)
 
 ## A43 — Resolve kecamatan to Mengantar areas without calling Mengantar
 
