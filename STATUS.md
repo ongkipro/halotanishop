@@ -1,8 +1,10 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `0b6a44d` (1.8.9 released; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `de910e1` (1.8.9 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
 
 ## 2026-11-02 — 1.8.9: payment page follows the store accent
+
+Rolled out to eleven of the twelve installs the same day (`docs/FLEET.md`, "Rollout of 1.8.9").
 
 The payment page now loads the `form-hybrid.css` token layer and uses `--sf-accent`
 and `--sf-accent-strong` for its buttons and markers (ADR-019), so numaskin (navy) and

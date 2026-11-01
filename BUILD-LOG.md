@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `0b6a44d` (Entry 239; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `de910e1` (Entry 240; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8393,3 +8393,14 @@ confirmation and status markers take `var(--sf-accent)` / `--sf-accent-strong` i
 tokens, so the rest look unchanged. `payment-accent.test.ts` guards it at source. TRK-1 is
 closed on the nine-install `fbp` measurement; EMQ-1 records the Events Manager read Paduka
 deferred.
+
+### Entry 240: 1.8.9 rolled out to the fleet
+
+Eleven of twelve installs (skincarebpom excluded by instruction) run 1.8.9; `fleet:status`
+clean, synced, 0 behind. Per-install Worker ids and the conflict notes are in the agents'
+reports, summarised in `docs/FLEET.md` ("Rollout of 1.8.9"). Evidence for the visible
+change: with a VA state placed in `sessionStorage`, "Salin Nomor VA" computes
+`rgb(0,43,73)` on numaskin, `rgb(27,94,32)` on beranda-tani and `rgb(18,18,18)` on
+zvara, and the three renders were opened and compared. revenleather keeps its own
+themed page, so two of the product's payment-accent tests are skipped there. Not verified:
+a payment with a real provider payload.
