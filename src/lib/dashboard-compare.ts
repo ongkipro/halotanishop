@@ -32,9 +32,22 @@ function shiftMonth(date: string, months: number) {
   return target.toISOString().slice(0, 10);
 }
 
+const lastDayOfMonth = (date: string) => {
+  const [year, month] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+};
+
 export function compareRange(start: string, end: string, mode: CompareMode) {
   if (mode === "week") return { start: shiftAdminDate(start, -7), end: shiftAdminDate(end, -7) };
-  if (mode === "month") return { start: shiftMonth(start, -1), end: shiftMonth(end, -1) };
+  if (mode === "month") {
+    // A whole calendar month compares with the whole month before it: 1–30
+    // Sep against all of August, not 1–30 Aug (review 2026-11-01).
+    if (start.endsWith("-01") && end === lastDayOfMonth(start)) {
+      const previousStart = shiftMonth(start, -1);
+      return { start: previousStart, end: lastDayOfMonth(previousStart) };
+    }
+    return { start: shiftMonth(start, -1), end: shiftMonth(end, -1) };
+  }
   const days = daysBetweenAdminDates(start, end) + 1;
   const previousEnd = shiftAdminDate(start, -1);
   return { start: shiftAdminDate(previousEnd, -(days - 1)), end: previousEnd };
@@ -43,10 +56,15 @@ export function compareRange(start: string, end: string, mode: CompareMode) {
 /**
  * When the period runs to today it is still filling, so the comparison stops
  * at the same moment of its own day: the instant `now` minus the distance
- * between the two starts. Null when the period is already over.
+ * between the two starts. Null when the period is already over, or when that
+ * moment falls after the comparison has ended (nothing to cut).
  */
-export function compareCutoff(start: string, end: string, compareStart: string, now = Date.now()) {
+export function compareCutoff(start: string, end: string, compareStart: string, compareEnd: string, now = Date.now()) {
   if (end < formatJakartaDate(new Date(now))) return null;
   const offsetDays = daysBetweenAdminDates(compareStart, start);
-  return new Date(now - offsetDays * 86_400_000).toISOString();
+  const cutoff = now - offsetDays * 86_400_000;
+  // Past the comparison's own last moment (00:00 WIB the day after
+  // `compareEnd`) nothing is cut, so there is no cutoff to report.
+  const compareEndsAt = Date.parse(`${shiftAdminDate(compareEnd, 1)}T00:00:00+07:00`);
+  return cutoff >= compareEndsAt ? null : new Date(cutoff).toISOString();
 }

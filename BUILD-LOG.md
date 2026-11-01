@@ -8115,7 +8115,7 @@ request or horizontal scroll.
   moment (`compareCutoff`). The comparison's own buckets are returned and drawn
   as a dashed line in the chart; a single day reads cumulatively by hour.
 - **KPIs.** AOV, lead conversion (orders over leads plus orders) and revenue
-  split COD/prepaid are new; every card carries a delta chip, "baru" when the
+  split COD/non-COD are new; every card carries a delta chip, "baru" when the
   comparison was empty, a muted dash when there is nothing to compare.
 - **Action needed** is one row per queue with its count, a red "N >24j" chip
   for what has waited over a day (`STALE_AFTER_MS`, confirm, awaiting payment,
@@ -8127,3 +8127,10 @@ request or horizontal scroll.
 - **What's new** replaces "Catatan rilis" everywhere: the running release in
   full as a check list, earlier releases one line each, opening into the same
   list (`ChangeList`). The dialog footer no longer clips its close button.
+- **Review fixes before release.** A whole calendar month compares with the
+  whole month before it (1–30 Sep against all of August, February against all
+  of January); the "sampai jam yang sama" caption appears only when the
+  comparison was actually cut (`compareCutoff` takes the comparison's end);
+  the non-COD revenue figure is labelled "Non-COD", since it holds unpaid
+  QRIS/VA orders too; KPI values are never truncated and step down by length
+  on phones (16, 14, 12px) so "Rp 1.234.567.890" fits a 360px card.

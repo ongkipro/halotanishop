@@ -95,6 +95,8 @@ const compactRupiah = (value: number) => {
   if (value >= 1_000) return `Rp${Math.round(value / 1_000)}rb`;
   return `Rp${Math.round(value)}`;
 };
+/** Phone size for a KPI value by length: 13 characters ("Rp 12.345.678") at 16px is the most a 360px half-width card holds. */
+const kpiValueSize = (value: string) => (value.length <= 13 ? "text-base" : value.length <= 14 ? "text-sm" : "text-xs");
 const percentage = (value: number) => `${value.toLocaleString("id-ID", { maximumFractionDigits: 1 })}%`;
 const dmy = (value: string) => value.split("-").reverse().join("/");
 const num = (value: unknown) => Number(value) || 0;
@@ -357,7 +359,7 @@ export function AnalyticsDashboard({
     {
       label: "Revenue",
       value: currency(data.total_revenue),
-      note: `COD ${compactRupiah(data.cod_revenue)} · Prepaid ${compactRupiah(data.prepaid_revenue)}`,
+      note: `COD ${compactRupiah(data.cod_revenue)} · Non-COD ${compactRupiah(data.prepaid_revenue)}`,
       title: `Nilai ${data.live_orders} order aktif. Sudah dibayar ${currency(data.collected_revenue)}; uang COD masuk setelah paket diterima.`,
       delta: <Delta current={data.total_revenue} previous={prev?.total_revenue} kind="percent" />,
       tone: "text-emerald-700",
@@ -555,7 +557,10 @@ export function AnalyticsDashboard({
           <Card key={metric.label} className="overflow-hidden border-slate-200 shadow-none" title={metric.title}>
             <CardContent className="p-3.5 sm:p-4">
               <p className="text-xs font-medium text-slate-500">{metric.label}</p>
-              <p className={`mt-1.5 truncate text-lg font-semibold tabular-nums tracking-tight sm:text-xl ${metric.tone}`}>{metric.value}</p>
+              {/* Never truncated: a cut money figure hides digits. On a phone the
+                  size steps down with the figure's length so even
+                  "Rp 1.234.567.890" fits a 360px half-width card. */}
+              <p className={`mt-1.5 whitespace-nowrap font-semibold tabular-nums tracking-tight sm:text-xl ${kpiValueSize(metric.value)} ${metric.tone}`}>{metric.value}</p>
               <div className="mt-1 flex min-h-5 flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 {metric.delta}
                 <span className="line-clamp-2 text-xs leading-4 text-slate-500">{metric.note}</span>

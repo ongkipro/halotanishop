@@ -46,7 +46,7 @@ const CHANGELOG_RELEASES: ChangelogRelease[] = [
       },
       {
         title: "KPI baru",
-        description: "AOV, Lead conversion, dan Revenue terpisah COD vs Prepaid. Setiap kartu menampilkan naik/turun, \"baru\" bila pembanding kosong, atau tanda strip bila belum ada data.",
+        description: "AOV, Lead conversion, dan Revenue terpisah COD vs Non-COD. Setiap kartu menampilkan naik/turun, \"baru\" bila pembanding kosong, atau tanda strip bila belum ada data.",
       },
       {
         title: "Action needed yang ringkas",

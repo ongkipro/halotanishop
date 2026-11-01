@@ -169,7 +169,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     let previousRange: { start: string; end: string; cutoff: string | null } | null = null;
     if (startParam && endParam) {
       const range = compareRange(startParam, endParam, compareMode);
-      const cutoff = compareCutoff(startParam, endParam, range.start);
+      const cutoff = compareCutoff(startParam, endParam, range.start, range.end);
       previousRange = { ...range, cutoff };
       const previousSql = cutoff
         ? summarySql.replace(dateFilter, `${dateFilter} AND created_at < ?`)
