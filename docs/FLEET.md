@@ -186,7 +186,7 @@ Everything else merges `product/main` as is; regenerate `docs/ROUTE-MAP.md`,
   port data and SEO changes by hand. Other sessions push landing pages to its
   `main` often — fast-forward before deploying.
 - **revenleather** — the brand's Indonesian ads/COD funnel; the main shop is
-  Shopify. `PUBLIC_SITE_NOINDEX=true`, `PUBLIC_SITE_BRAND_MARK` for its mark.
+  Shopify. Indexable since 2026-11-02 (`PUBLIC_SITE_NOINDEX` removed by Paduka's decision; it was `true` before), `PUBLIC_SITE_BRAND_MARK` for its mark.
   Install-owned and protected on every merge: the **grafir** (engraving)
   feature (`FormMiddleContent`, `FormHybridContent`, `GeoIpResolvedForm`,
   `form-middle.ts`, `form-hybrid.ts`, `approved-grafir`, the `customer_note`
@@ -200,8 +200,8 @@ Everything else merges `product/main` as is; regenerate `docs/ROUTE-MAP.md`,
   Worker see `page.revenleather.com`; run it from a temporary config without
   `routes`. Checked 2026-11-01: one warehouse (so
   migration 0072 changes nothing), 80/80 migrations applied, the empty
-  `/sitemap.xml` and Lighthouse's SEO 69 are `PUBLIC_SITE_NOINDEX=true` working as
-  designed (do not "fix"), and its CI is green (the 3-second failures were runs
+  `/sitemap.xml` and Lighthouse's SEO 69 were `PUBLIC_SITE_NOINDEX=true` working as
+  designed until it was removed on 2026-11-02 (sitemap now lists 86 URLs), and its CI is green (the 3-second failures were runs
   of 2026-10-30 that predate the merge). Its feed has 79 items, all branded
   `Reven Leather`; five laptop bags and sleeves carry no
   `google_product_category` on purpose (Google's taxonomy has no laptop-bag

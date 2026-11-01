@@ -4,7 +4,7 @@
 > **Install model:** **1 installer = 1 Worker = 1 store.** Isolation comes from the deployment boundary, not from request-time tenant routing.
 > **This repository:** the product. It deploys nothing; each install deploys from its own repository against its own resources.
 > **First install:** `permatamall.shop`, in the separate `ongkipro/permatamall` repository, carrying its own catalogue in its own database. Its `cmsads-*` resource names are legacy and deliberately not renamed.
-> Verified against disk: 2026-11-01 @ `d0ea0d2` (1.8.3: §3 order lists, export and dashboard open work; earlier sections retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `f53486c` (§3 home SEO text and native-landing Product JSON-LD rows added; earlier sections retain their recorded evidence)
 
 This document describes what the system **actually is**. Where the intended AdsBookCMS product differs from what ships today, the gap is stated explicitly in §10 rather than written as if it were already true. Code and executable evidence win over this document; when they disagree, fix the document.
 
@@ -79,6 +79,8 @@ Runs on every request, in order: canonical host redirect (`www` → apex), ad cl
 | Public API | `/api/*` — checkout, locations, shipping rates, payment methods, order status, Meta events |
 | Headless API | `/api/v1/*` — storefront descriptor, products, geo, shipping rates, checkout, tracking events |
 | Admin payment reconciliation | `/api/admin/payment-reconciliation` |
+| Home SEO text (1.8.7) | `src/lib/home-seo.ts`: `homeTitle()` (no repeated store name, at most 60 characters) and `homeDescription()` (a description under 70 characters gains the store's own categories). `src/pages/index.astro` is the only caller. |
+| Native landing Product JSON-LD (1.8.8) | `BaseLayout` resolves the request path against the native-landing register (`src/data/native-landing-pages.ts`), reads that entry's `productSlug` from the catalogue and passes `src/lib/native-landing-product.ts` output to `JsonLdSchema`. A page that passes its own `product` keeps it; a native page must not also write a Product block by hand (ADR-033). |
 | Admin order lists and export (1.8.3) | `/api/admin/orders`, `/api/admin/abandoned-orders`, `/api/admin/shipping` build their WHERE from `src/lib/order-list-filter.ts`, which `/api/admin/orders/export?kind=orders\|abandoned\|shipping` (CSV, `src/lib/order-export.ts`) shares, so an export holds the rows its screen shows. `AWAITING_PAYMENT_SQL` (online, unpaid, not voided, latest instruction not expired) is the "Belum dibayar" filter and card; `PAYMENT_EXPIRED_SQL` reads expiry from `payment_transactions`, the only place it is recorded. |
 | Dashboard open work (1.8.3) | `/api/admin/orders/attention` (`src/lib/order-attention.ts`): counts read with each linked list's own rule — the order list's void-aware status, `getMengantarDispatchEligibility` with the env pickup fallback, `matchesShippingQueue` over the shipping window. `/api/admin/shipping` orders `processing` parcels first inside its 200-row window so the queue tabs hold what the dashboard counts. |
 | Insights (A37) | `/api/admin/insights/{landing,trend,products,locations,times}` — owner/admin/advertiser only, aggregates, bounded 90-day Jakarta period, one D1 batch per request; `order-metrics.ts` shares revenue rules with dashboard. No-store follows admin middleware. Five `/admin/analytics/*` pages share InsightsPage/InsightsReport; trend alone imports the lazy chart. UI acceptance remains A-357–A-362 (browser blocked). |
