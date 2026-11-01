@@ -30,10 +30,23 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
-    version: "1.8.4",
+    version: "1.8.5",
     date: "1 November 2026",
     releaseTag: "2026.10-ops",
     isLatest: true,
+    highlight: "Event Meta CAPI yang tertunda terkirim lebih cepat saat toko sepi.",
+    changes: [
+      {
+        title: "Antrean CAPI dikuras lebih banyak per jam",
+        description: "Cron per jam kini mengirim sampai 30 event tertunda (sebelumnya 10) dan berhenti bila Meta menolak, sehingga jatah kirim ulang event lain tidak terbuang.",
+      },
+    ],
+  },
+  {
+    version: "1.8.4",
+    date: "1 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
     highlight: "Dashboard yang lebih ringkas: grafik di layar pertama, pembanding di dalam grafik, dan istilah metrik dalam English.",
     changes: [
       {
