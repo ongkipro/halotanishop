@@ -1,6 +1,6 @@
 # AdsBookCMS
 
-> Verified against disk: 2026-09-26 @ `fd18362` + working tree
+> Verified against disk: 2026-11-02 @ `f53486c` (test count only; the rest retains its recorded evidence and links to the owning documents)
 
 A self-contained direct-response commerce CMS that installs onto Cloudflare Workers. One install runs one store: storefront, landing-page builder, checkout with COD and online payment, order management, courier dispatch, ad-signal tracking, and an admin dashboard — in a single Worker with its own database.
 
@@ -108,7 +108,7 @@ Every command below exists in `package.json`.
 npm run dev            # astro dev on :4321 — no Worker bindings
 npm run cf:dev         # wrangler dev --local
 
-npm test               # node --test over src/lib/*.test.ts  (754 tests)
+npm test               # node --test over src/lib/*.test.ts  (1165 tests)
 npm run route-map      # regenerate docs/ROUTE-MAP.md + route-map.xml from src/pages
 npm run check          # astro check && tsc --noEmit
 npm run build          # astro build

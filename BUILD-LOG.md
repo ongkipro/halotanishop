@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `e21d975` (Entry 236; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `0b6a44d` (Entry 239; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8311,9 +8311,9 @@ code on their own 1.8.5 headers; they take the number with their next merge.
 
 ### Entry 236: 1.8.6 rolled out to the fleet
 
-No product code changed. Every install with a local clone now runs 1.8.6
-(`npm run fleet:status` and live `/hello` agree); skincarebpom has no clone and
-stays on 1.5.11. Registry and per-install notes: `docs/FLEET.md`.
+No product code changed. Eleven of the twelve installs now run 1.8.6
+(`npm run fleet:status` and live `/hello` agree); skincarebpom was left out by instruction (clone
+on 1.8.5 with 371 uncommitted files, last deployed 2026-10-18). Registry and per-install notes: `docs/FLEET.md`.
 
 - Shipped 2026-11-02: zvarashop, numaskin-adbook, klikinaja (schema 62 to 80,
   additive migrations only), revenleather, beranda-tani (schema 67 to 80). The
@@ -8334,3 +8334,62 @@ stays on 1.5.11. Registry and per-install notes: `docs/FLEET.md`.
   on the installs shipped today, an engraving order end to end.
 - Process note: a sub-agent mistyped `git config core.filemode core.autocrlf`
   in beranda-tani and restored it at once; repository state was unchanged.
+
+### Entry 237: 1.8.7 and 1.8.8, SEO pass
+
+No migration. 1163 and 1165 tests pass, `npm run check` 0/0/0.
+
+- **1.8.7** `src/lib/home-seo.ts`: `homeTitle()` never repeats the store name and
+  cuts at a word to 60 characters; `homeDescription()` extends a description
+  under 70 characters with the store's own categories (deduplicated, at most
+  five) and trims one over 160. Wired into `src/pages/index.astro`. Found by a
+  fleet audit: zvara's title was "Zvara Shop — Zvara Shop, toko online ..." at
+  131 characters and four stores had descriptions of 28-47.
+- **1.8.8** `src/lib/native-landing-product.ts`: a request whose path is an
+  active native register slug gets a `Product` block from `BaseLayout`,
+  built from the catalogue product named by `productSlug`. A page that passes
+  its own `product` keeps it. Native pages are hand-written route files per
+  install (zvara has about 55), so doing it in the layout was one change
+  instead of an edit per page. The blocks the pages wrote themselves must go:
+  permatamall's three `nutrilove-*` pages had one each and would have shown
+  two; removed there. Spec: `docs/NATIVE_LANDING_PAGE_SPEC.md`.
+- Both versions went to all eleven installs the same day; per-install result,
+  Worker ids and the JSON-LD proof are in `docs/FLEET.md`.
+- Lighthouse and robots findings (not changed, with reasons) are in STATUS.md.
+- Lesson: `git commit --amend` is refused by the hook and a version bump needs
+  `npm run route-map` run after it, because the map carries the version; the
+  test caught it, the order is what to remember.
+
+### Entry 238: visual check after the 1.8.8 rollout
+
+No product code changed. Playwright over all eleven stores at 390 and 1280 px
+(home, `/produk`, the first product page, `/payment?preview=1`; tracking
+requests blocked), then the screenshots opened: no horizontal overflow, no broken
+image, no page error, no blank page on any of the 88 renders. cekat.shop and
+klikinaja.shop show "Katalog sedang disiapkan" and have no product page, as
+expected. `/payment` is the product's neutral black-and-white layout on every
+store except revenleather (leather theme, 2026-11-02); it does not use a store's
+brand colour (numaskin is teal), an open design choice, not a defect.
+
+Found and fixed in revenleather only: the `Cormorant Garamond` font files named in
+`thanks.astro` (regular and italic) returned 404 from `fonts.gstatic.com`, so the
+headline had been falling back to Georgia; `/payment` had copied one of them. Both
+pages now use the current `v21` files (revenleather `main`, Worker `40652b92`),
+`document.fonts` reports `loaded` on `/payment`. `/thanks` itself needs a real order
+to render and was checked by fetching the two URLs (200), not by a page view.
+Lesson: a font URL pasted into a page is never tested by the build; the browser's
+`requestfailed` event is what shows it.
+
+Not done and not possible from here: Purchase on a fresh order (a production
+write), Event Match Quality and Search Console (accounts), the `fbp` re-measure
+(due about 2026-11-11, UNIMPLEMENTED_SPECS TRK-1).
+
+### Entry 239: released as 1.8.9, payment accent tokens
+
+No migration. 1167 tests, `npm run check` 0/0/0. `src/pages/payment.astro` imports the
+re-brand token layer and marks its root `data-hybrid-form-root`; primary buttons, copy
+confirmation and status markers take `var(--sf-accent)` / `--sf-accent-strong` instead of
+`#121212`/`#333333`. Only numaskin (`#002b49`) and beranda-tani (`#1b5e20`) override the
+tokens, so the rest look unchanged. `payment-accent.test.ts` guards it at source. TRK-1 is
+closed on the nine-install `fbp` measurement; EMQ-1 records the Events Manager read Paduka
+deferred.

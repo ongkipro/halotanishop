@@ -30,10 +30,23 @@ interface ChangelogRelease {
 // changelog.test.ts fails when version.ts moves without a matching entry here.
 const CHANGELOG_RELEASES: ChangelogRelease[] = [
   {
-    version: "1.8.8",
+    version: "1.8.9",
     date: "2 November 2026",
     releaseTag: "2026.10-ops",
     isLatest: true,
+    highlight: "Halaman pembayaran mengikuti warna aksen toko.",
+    changes: [
+      {
+        title: "Warna aksen toko di halaman pembayaran",
+        description: "Tombol dan penanda utama di halaman pembayaran kini memakai token aksen toko (--sf-accent), sama seperti form checkout. Toko yang belum mengubah aksen tampil seperti sebelumnya.",
+      },
+    ],
+  },
+  {
+    version: "1.8.8",
+    date: "2 November 2026",
+    releaseTag: "2026.10-ops",
+    isLatest: false,
     highlight: "Halaman landing native kini memberi Google data produk (harga dan ketersediaan).",
     changes: [
       {
