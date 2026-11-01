@@ -15,6 +15,8 @@ export interface PublicTenantConfig {
   /** PUBLIC_SITE_NOINDEX: the whole store stays out of search (see siteNoindex). */
   noindex: boolean;
   tagline: string;
+  /** Brand reported for a product that has none of its own (feeds, JSON-LD); falls back to the store name. */
+  defaultBrand: string;
   themeColor: string;
   locale: string;
   openGraphLocale: string;
@@ -196,6 +198,7 @@ export function resolveTenantConfig(
     brandMark: imagePath(getEnvValue("PUBLIC_SITE_BRAND_MARK")),
     noindex: siteNoindex(),
     tagline,
+    defaultBrand: text(getEnvValue("PUBLIC_DEFAULT_BRAND")) || name,
     themeColor: themeColor(
       pick(row?.theme_color, "PUBLIC_SITE_THEME_COLOR", defaults.themeColor),
     ),

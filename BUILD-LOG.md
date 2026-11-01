@@ -8157,3 +8157,15 @@ No migration. 1146 tests pass, `npm run check` 0/0/0. Released as 1.8.5
   Graph API v26.0 everywhere. skincarebpom's hourly cron, commented out since
   2026-08-22 to free a slot for zanobyshop, is registered again.
 - PRD A47 records the 1.8.3–1.8.4 dashboard requirements (REQ-274–279).
+
+### Entry 228: `PUBLIC_DEFAULT_BRAND` — the brand for a product that has none
+
+No migration, no version bump. 1148 tests pass, `npm run check` 0/0/0.
+
+- A product with no `products.brand` was reported to Google and Meta under the
+  store name (`Zvara Shop` on zvara.shop, 39 of 70 items). `PUBLIC_DEFAULT_BRAND`
+  now supplies that fallback in the Google/Meta catalog feeds and the product
+  JSON-LD, through `tenant.defaultBrand`. Empty keeps the store name, so no
+  install changes until it sets the variable. A product's own brand always wins.
+- It is a build-time `vars` entry, like the other `PUBLIC_*` values: it takes
+  effect after `npm run build`, not by redeploying an old bundle.
