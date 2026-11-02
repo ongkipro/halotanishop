@@ -1,6 +1,15 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `56bb886` (1.9.2 plus PRs #157-#161 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `cf4ce18` (1.9.2 plus PRs #157-#164 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+
+## 2026-11-02 — revenleather QRIS/VA and the fee shown to the buyer
+
+revenleather offers AutoLaris QRIS and five VAs again (its area pair was missing), so Gratis
+Grafir and the COD-excluded provinces are no longer limited to manual transfer; COD hides in
+those provinces as designed (checked live on four districts). A live test order (INV-10357)
+showed checkout adding a fee the provider never billed; the store is now `seller` like the
+rest of the fleet and the payment page no longer lists an unbilled fee (PR #164). BUILD-LOG
+entry 246; PAY-2 and OPS-1 open.
 
 ## 2026-11-02 — Fixes after 1.9.2 (no version bump)
 

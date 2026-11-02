@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `56bb886` (Entry 245; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `cf4ce18` (Entry 246; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8495,4 +8495,35 @@ verified live.
   (same pixel id). Tracked as PIX-2. Testing note in TRACKING_SPECS §16.1d.
 
 1172 tests, check 0/0/0, build and docs check clean.
+
+### Entry 246: revenleather QRIS/VA for Gratis Grafir and excluded provinces, a live test order
+
+Reported by Paduka: on revenleather, Gratis Grafir (non-COD by design) offered no AutoLaris
+QRIS or VA. `/api/payment-methods` had every AutoLaris channel off with "Area origin/
+destination AutoLaris belum diatur.": the install's `wrangler.jsonc` lacked
+`AUTOLARIS_ORDER_ORIGIN_ID`/`AUTOLARIS_ORDER_DESTINATION_ID`, the account's `courir_id: 1`
+pair every other AutoLaris store sets. Key, warehouse (address present) and the store's
+AutoLaris switch were already in place. Pair `3517100`/`3518010` added after Paduka confirmed
+the same AutoLaris account as zvara and baven; Worker `0de45297`.
+
+Province rule checked live on `/full-form?product_id=ammar-sling-bag` (forced full form, no
+grafir): Jayapura Selatan (Papua) and Kupang Barat (NTT) show QRIS, five VAs and the Mandiri
+manual transfer with COD hidden; Kebayoran Baru (DKI) and Denpasar Barat (Bali) show the
+same plus COD. The store's list is the 15-province default (`PA,PB,PD,PT,PE,PS,MA,MU,NT,KU,
+SR,GO,KR,AC,BE`). The rule lives in `form-hybrid.ts` (`isCodDisabledByProvince() ||
+isGrafirRequested()`), and `isCodBlockedForProvince` refuses COD on the server.
+
+Test order (Paduka's request): INV-10357, Gratis Grafir "TEST", Kebayoran Baru, SiCepat
+Rp8.500, QRIS. Pixel and `/api/meta-event` were blocked in the browser; no plugin is active;
+a QRIS Purchase fires only when paid. AutoLaris answered with a QR (EMV tag 54 = 858600). It
+also exposed a money-display bug: the store's fee bearer was `buyer`, so checkout showed
+"Biaya Admin Rp6.011" and Rp864.611, but AutoLaris returned amount 858600, admin 6011,
+total 858600. Read-only across the fleet, every recent AutoLaris transaction on zvara,
+permatamall and beranda-tani (all `seller`) has provider total equal to the order total;
+zvara's `buyer` rows from August had amount plus fee. The account bills the order total
+now. Fixes: revenleather's `payment_fee_bearer` set to `seller` (one D1 row), so checkout
+shows "QRIS Tanpa biaya admin" at Rp858.600; and PR #164: the payment page reads a fee the
+provider did not add (total equals amount) as the seller's, whatever the store setting says.
+INV-10357 stays `pending`, its QR expires on its own; cancel it in the admin
+(UNIMPLEMENTED_SPECS OPS-1). No version bump, no changelog.
 

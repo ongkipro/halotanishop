@@ -1,6 +1,6 @@
 # AdsBookCMS install fleet
 
-> Verified against disk: 2026-11-02 @ `56bb886` (versions, sync, distance, deploy time and schema read with `npm run fleet:status`, plus the live submit-button colour of nine stores, after the 1.9.2 rollout; "Version" is the working tree)
+> Verified against disk: 2026-11-02 @ `cf4ce18` (versions, sync, distance, deploy time and schema read with `npm run fleet:status`, plus the live submit-button colour of nine stores, after the 1.9.2 rollout; "Version" is the working tree)
 
 Every store that runs AdsBookCMS: one install = one repository = one Worker
 = one store (`AGENTS.md`). This file is the registry of which installs exist,
@@ -260,6 +260,14 @@ Everything else merges `product/main` as is; regenerate `docs/ROUTE-MAP.md`,
   `main` often — fast-forward before deploying.
 - **revenleather** — the brand's Indonesian ads/COD funnel; the main shop is
   Shopify. Indexable since 2026-11-02 (`PUBLIC_SITE_NOINDEX` removed by Paduka's decision; it was `true` before), `PUBLIC_SITE_BRAND_MARK` for its mark.
+  AutoLaris QRIS/VA need `AUTOLARIS_ORDER_ORIGIN_ID`/`AUTOLARIS_ORDER_DESTINATION_ID`
+  in its own `wrangler.jsonc` (`3517100`/`3518010`, the same AutoLaris account as
+  zvara and baven, confirmed by Paduka 2026-11-02); without them every QRIS/VA
+  channel is off ("Area origin/destination AutoLaris belum diatur") and Gratis
+  Grafir and the COD-excluded provinces can only pay by manual transfer. Payment
+  fee bearer is `seller` (D1 `stores.payment_fee_bearer`, aligned 2026-11-02): this
+  AutoLaris account bills the buyer the order total and keeps the fee, so `buyer`
+  showed a fee no QR asked for.
   Install-owned and protected on every merge: the **grafir** (engraving)
   feature (`FormMiddleContent`, `FormHybridContent`, `GeoIpResolvedForm`,
   `form-middle.ts`, `form-hybrid.ts`, `approved-grafir`, the `customer_note`
