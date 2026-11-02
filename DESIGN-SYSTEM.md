@@ -199,7 +199,7 @@ and gave every store the same boutique accent.
 - Page `h1`: `text-2xl font-bold tracking-[-0.02em]` — `PageIntro.astro`; PDP `h1` `text-xl`
 - Section heading: `text-xl font-bold tracking-[-0.02em]` (home), `text-base font-bold` (PDP sections)
 - Card title: `text-sm leading-5`, at most two lines (`line-clamp-2`), the price directly under it (`mt-0.5`), no reserved height: a one-line title's price sits higher than its neighbour's, as in the Shopify theme, while the card frames still align (grid stretch, `h-full flex-col`)
-- Card price: `text-[15px] font-bold`; "Mulai" in `text-xs` only when variants differ in price
+- Card price: `text-[15px] font-bold`; "Mulai" in `text-xs` only when variants differ in price. The discount pill sits in this row after the compare price, never over the photo: supplier banners carry their headline in the top-left corner and the pill hid it
 - PDP price: `text-[26px] font-bold`
 - Meta and helper text: `text-xs` / `text-[13px]`, never below 12px
 - Breadcrumb: `text-[13px]`, one line, never truncated. A long trail scrolls sideways (scrollbar hidden) and opens scrolled to its end, so the current page (`font-semibold`, `aria-current="page"`) reads whole; the left edge fades only while part of the trail is out of view. Chevron (`m9 18 6-6-6-6`, `#B3B3B3`) separates; a `/` home crumb is a house icon whose label stays its accessible name. `<ol>` of `<li>`
