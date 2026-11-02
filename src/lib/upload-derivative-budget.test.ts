@@ -24,3 +24,18 @@ test("the asset route does not pin a stand-in body for a year", () => {
   assert.match(assets, /standIn \? 'public, max-age=600'/);
   assert.equal((assets.match(/standIn = Boolean\(object\)/g) ?? []).length, 2, "both fallbacks mark the stand-in");
 });
+
+test("every admin image upload a card can show stores its -sm twin through one helper", () => {
+  const editor = readFileSync(new URL("../components/admin/LandingPageEditor.tsx", import.meta.url), "utf8");
+  for (const [name, source] of [["ProductForm", form], ["LandingPageEditor", editor]] as const) {
+    assert.match(source, /uploadCardDerivative\(/, `${name} stores the card twin`);
+  }
+});
+
+test("the landing editor reads the upload route's own shape", () => {
+  const editor = readFileSync(new URL("../components/admin/LandingPageEditor.tsx", import.meta.url), "utf8");
+  // upload-r2 answers `jsonOk({ url, fileName })`, i.e. `{ success, url, fileName }`.
+  assert.match(route, /jsonOk\(\{\s*url:/);
+  assert.doesNotMatch(editor, /payload\.data\.url/);
+  assert.match(editor, /src: String\(payload\.url\)/);
+});

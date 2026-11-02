@@ -10,9 +10,9 @@ import { searchTaxonomy, suggestGoogleCategories, taxonomyLeaf, type TaxonomyRow
 import { catalogProductIdOrNull } from "../../lib/catalog-feed";
 import { formatKg } from "../../lib/weight";
 import {
-  CARD_IMAGE_EDGE,
   MAX_ENCODED_BYTES,
   convertImageToWebP,
+  uploadCardDerivative,
 } from "../../lib/client-image";
 type Variant = {
   key: string;
@@ -268,17 +268,7 @@ export function ProductForm({ productId, storeName = "" }: { productId?: string;
       // falls back to the full image, so a failure here costs bytes on the
       // catalogue grid rather than a broken tile, and must not lose an upload
       // the operator already completed - but it is reported, not swallowed.
-      let cardMissing = false;
-      try {
-        const cardFile = await convertImageToWebP(webpFile, CARD_IMAGE_EDGE);
-        const cardForm = new FormData();
-        cardForm.set("file", cardFile);
-        cardForm.set("derivative_of", String(result.fileName || ""));
-        const cardResponse = await fetch("/api/admin/upload-r2", { method: "POST", body: cardForm });
-        if (!cardResponse.ok) cardMissing = true;
-      } catch {
-        cardMissing = true;
-      }
+      const cardMissing = !(await uploadCardDerivative(webpFile, String(result.fileName || "")));
 
       setStatusTone(cardMissing ? "idle" : "success");
       setStatus(

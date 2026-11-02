@@ -25,7 +25,7 @@ import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Badge } from "../ui/badge";
 import { formatIdr } from "../../lib/format-idr";
-import { MAX_ENCODED_BYTES, convertImageToWebP } from "../../lib/client-image";
+import { MAX_ENCODED_BYTES, convertImageToWebP, uploadCardDerivative } from "../../lib/client-image";
 
 type Variant = {
   id: number;
@@ -328,14 +328,21 @@ export default function LandingPageEditor({ landingPageId }: Props) {
       formData.set("file", image);
       const response = await fetch("/api/admin/upload-r2", { method: "POST", body: formData });
       const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.error || "Gagal mengunggah gambar.");
+      // The route answers `{ success, url, fileName }`. This read a nested `data.url`
+      // from 2026-08-28: R2 stored the file, then the editor threw and never set
+      // the section's image.
+      if (!response.ok || !payload.success || !payload.url) throw new Error(payload.error || "Gagal mengunggah gambar.");
       setSections((current) =>
         current.map((section) =>
           section.id === sectionId
-            ? { ...section, content_config: { ...section.content_config, src: payload.data.url } }
+            ? { ...section, content_config: { ...section.content_config, src: String(payload.url) } }
             : section,
         ),
       );
+      // The first image section is the page's card on /landing-page.
+      if (!(await uploadCardDerivative(image, String(payload.fileName || "")))) {
+        toast.warning("Gambar tersimpan, tetapi versi kartu gagal dibuat. Kartu memakai gambar penuh.");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal mengolah gambar.");
     } finally {

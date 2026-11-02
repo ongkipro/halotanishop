@@ -111,3 +111,23 @@ export function convertImageToWebP(
     img.src = url;
   });
 }
+
+/**
+ * Store the card-sized `-sm` twin of an upload beside it (480 px, served by
+ * `cardImageSrc`). Resolves false, never throws, when it could not be stored:
+ * the original upload already succeeded, and the asset route falls back to the
+ * full image, so the caller tells the operator instead of failing the upload.
+ * Every admin path that stores an image a card may show calls this.
+ */
+export async function uploadCardDerivative(source: File, fileName: string): Promise<boolean> {
+  try {
+    const card = await convertImageToWebP(source, CARD_IMAGE_EDGE);
+    const form = new FormData();
+    form.set("file", card);
+    form.set("derivative_of", fileName);
+    const response = await fetch("/api/admin/upload-r2", { method: "POST", body: form });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
