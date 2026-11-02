@@ -1,6 +1,6 @@
 # AdsBookCMS install fleet
 
-> Verified against disk: 2026-11-02 @ `43c6cb3` (versions, sync, distance, deploy time and schema read with `npm run fleet:status`, plus the live submit-button colour of nine stores, after the 1.9.2 rollout; "Version" is the working tree)
+> Verified against disk: 2026-11-02 @ `56bb886` (versions, sync, distance, deploy time and schema read with `npm run fleet:status`, plus the live submit-button colour of nine stores, after the 1.9.2 rollout; "Version" is the working tree)
 
 Every store that runs AdsBookCMS: one install = one repository = one Worker
 = one store (`AGENTS.md`). This file is the registry of which installs exist,
@@ -65,6 +65,25 @@ browser, nothing submitted, no order):
 - Not measured live: `/thanks` buttons (they need an order), taniniaga's sticky bar
   (element not found on the product page tested), every native landing page's own
   buttons.
+
+### Fixes after 1.9.2, PRs #157-#161 (2026-11-02, no version bump)
+
+Rolled to the eleven installs in three passes (#157-#159 by four agents, #160 and #161 by
+one sequential script that stops an install on a conflict, a failed test or a refused
+guard). Every install ended at `0 behind`, clean and synced. Conflicts: product docs only
+(`--theirs`, route map regenerated), plus the install-owned cards on numaskin
+(`ProductListItem`, `ProductImageGallery`, `[slug]`), beranda-tani (`ProductListItem`,
+`[slug]`) and revenleather (`ProductListItem`), kept as the install's and, on Reven, given
+only the pill move. Brand colours re-measured after the merge: numaskin rgb(0,43,73),
+beranda-tani rgb(27,94,32), revenleather rgb(138,90,59).
+
+Data, not code: card twins (`-sm`) backfilled into R2 on agritani (2), baven (8), halotani
+(3) and zvara (2); taniniaga's two missing twins had no gain over the originals and were
+left. The two Saratoga uploads on agritani and halotani re-encoded in place at 960 px.
+
+The one skipped test in each install is the product-tree check that every file under
+`public/images` is referenced; an install's `public/images` is merchant catalogue, so it is
+skipped on purpose.
 
 ### Rollout of 1.8.9 (2026-11-02)
 

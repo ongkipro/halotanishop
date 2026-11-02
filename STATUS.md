@@ -1,6 +1,15 @@
 # STATUS — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `43c6cb3` (1.9.2 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+> Verified against disk: 2026-11-02 @ `56bb886` (1.9.2 plus PRs #157-#161 on eleven of the twelve installs; fleet registry in `docs/FLEET.md`; the sections below retain their dated evidence)
+
+## 2026-11-02 — Fixes after 1.9.2 (no version bump)
+
+PRs #157-#161 on all eleven installs, `package.json` still 1.9.2 by Paduka's instruction:
+discount pill in the price row (listing and product page), card twins no longer spend the
+upload budget, a stand-in is never cached as if it were the twin (route and Worker upload
+cache), and the landing editor's image upload works again (broken since 2026-08-28). Baven's
+catalogue data tidied in D1. Missing twins backfilled on five stores and verified live.
+Details in BUILD-LOG entry 245; open items PIX-2, HANG-1 and IMG-1 in UNIMPLEMENTED_SPECS.
 
 ## 2026-11-02 — 1.9.2: the default CTA is orange, form states corrected
 

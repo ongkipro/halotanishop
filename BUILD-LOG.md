@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `43c6cb3` (Entry 244; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `56bb886` (Entry 245; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8449,3 +8449,50 @@ fixed as 1.9.2. UNIMPLEMENTED_SPECS REV-1 records the cleanup that stops the pro
 being edited per install. Process note: `pkill -f` and `pgrep -f` with a pattern matching the
 shell's own command line killed the calling shell twice (once in this session, once in an
 agent); stop servers by PID.
+
+### Entry 245: baven tidy-up, card images, upload cache, landing editor upload (no version bump)
+
+Paduka asked for these fixes without a version bump or changelog entry; `package.json` stays
+1.9.2. Product PRs #157-#161, rolled to all eleven installs (skincarebpom excluded) and
+verified live.
+
+- Baven data (D1, written on Paduka's go-ahead, prices untouched): one variant pattern
+  (`1 Botol` / `Beli 2 Botol Hemat`; colour bundles add "(warna via CS)"), Orthomil and
+  Sadoer product and landing titles cut to 56 and 51 characters (Garlive landing to 48),
+  Orthomil's category aligned to "Kesehatan", and 26 product meta descriptions extended
+  from 70-111 to 113-193 characters with the real "from" price and the variant count.
+- Discount pill: off the photo, into the price row, on listing cards (#157) and the
+  product page (#159). Supplier banners carry their headline in the top-left corner and
+  the pill hid it. numaskin, beranda-tani and revenleather keep their own cards; Reven
+  received only the pill move and keeps its "Gratis Grafir" badge.
+- Missing card twins: `-sm` was missing on agritani 4/4, halotani 5/5, baven 8/27,
+  taniniaga 2/4 and zvara 1/41 card images, so the full image downloaded twice. Three causes,
+  three fixes: the twin counted against the 20 uploads an hour and its 429 was swallowed
+  (#157: free, and reported); the asset route served the full image as a stand-in with a
+  one-year immutable header (#158: 600 s); the Worker's own upload cache (`edge-cache.ts`,
+  one day, query string ignored) stored the stand-in, so a twin written to R2 later stayed
+  hidden (#160: stand-ins are marked `X-Asset-Stand-In` and never stored, and the key
+  carries a generation that abandoned the entries already stored). The twins were backfilled
+  into each store's R2 (480 px, q66; baven's two PNGs stored as WebP bytes under their
+  `.png` key). After #160 no stale twin was left on any of the five stores, without a
+  Cloudflare purge. What looked like a CDN cache was the Worker's Cache API.
+- Landing editor image upload had been broken since `92ffde1` (2026-08-28): it read a
+  nested `data.url` the upload route never returns, so R2 stored the file and the editor
+  threw before setting the section image. Not caught because local runs bind no R2. #161
+  reads `payload.url` and stores the card twin through one helper (`uploadCardDerivative`)
+  shared with the product form.
+- agritani.shop review: Worker on Smart Placement, D1 in APAC, `cf-placement: local-SIN`.
+  Server time matches halotani (TTFB 0.17-0.41 s on a miss). Home LCP 1.9 s against 0.6 s on
+  halotani: the two Saratoga uploads are 1254 px (56 and 76 KB) for a 358 px slot; they were
+  re-encoded in place at 960 px q72 (24 and 33 KB) on agritani and halotani, originals kept
+  in the session scratchpad. Re-measure once the Worker upload cache (one day) turns over.
+  Intermittent hung requests (8-35 s, 4-10% of cache misses) seen once did not reproduce
+  after the redeploy (0 of 120); production tail showed 45 requests `ok`, CPU median 25 ms.
+  Tracked as HANG-1.
+- Pixel: the "Invalid parameter format for currency" warning on agritani comes from a Meta
+  signal rule on the dataset (`ss_rks` currency rule `2179328356294174`) that scrapes a
+  currency from the page, not from our payload: the `fbq` queue is identical to halotani's
+  (same pixel id). Tracked as PIX-2. Testing note in TRACKING_SPECS §16.1d.
+
+1172 tests, check 0/0/0, build and docs check clean.
+

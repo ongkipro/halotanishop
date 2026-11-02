@@ -1,6 +1,6 @@
 # AdsBookCMS Meta Pixel, CAPI, GTM, and Google Ads Specification
 
-> Verified against disk: 2026-11-02 @ `0b6a44d` (§16.1c follow-up on nine installs; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `56bb886` (§16.1d pixel testing notes added; other sections retain their recorded evidence)
 
 This document owns the technical tracking contract for AdsBookCMS-rendered and headless storefronts. It covers event semantics, identity, browser/server boundaries, deduplication, durable delivery, store configuration, and verification. It does not claim attribution certainty, legal compliance, consent applicability, or live provider acceptance.
 
@@ -934,6 +934,19 @@ Pixel: the step from 19-49% to 95-100% `fbp` happens in the first full hour afte
 install's own deploy (agritani 49 to 100 at 16h UTC, taniniaga 55 to 100, bavenshop
 82 to 100, numaskin 0 to 96, beranda-tani 44 to 76 to 100 around its 18:24 deploy). All rows
 `sent`. This closes TRK-1; the sample is hours, so the optional look in a week stays.
+
+### 16.1d Two traps when testing the Pixel in a headless browser (2026-11-02)
+
+- **No beacon is not a broken Pixel.** fbevents' bot blocking drops every `/tr` request
+  when the user agent says `HeadlessChrome`; set a normal mobile Chrome user agent before
+  concluding anything from missing beacons. With one set, agritani, halotani and baven all
+  sent their PageView.
+- **Instrumenting `fbq` can create the warning you are chasing.** Wrapping `window.fbq` in
+  a Proxy made fbevents report "Multiple pixels with conflicting versions". Read the stub's
+  `fbq.queue` with `fbevents.js` blocked instead: it shows exactly what the page asked for.
+- A console warning that one store shows and another on the same pixel id does not is not
+  in our code. The beacon's `ss_rks` field names the dataset-side signal rule that produced
+  it (UNIMPLEMENTED_SPECS PIX-2).
 
 ### 16.2 "Purchases are missing in Ads Manager": measure before changing code (2026-10-24)
 
