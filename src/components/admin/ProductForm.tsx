@@ -267,19 +267,25 @@ export function ProductForm({ productId, storeName = "" }: { productId?: string;
       // The card-sized sibling. Its absence is not an error: the asset route
       // falls back to the full image, so a failure here costs bytes on the
       // catalogue grid rather than a broken tile, and must not lose an upload
-      // the operator already completed.
+      // the operator already completed - but it is reported, not swallowed.
+      let cardMissing = false;
       try {
         const cardFile = await convertImageToWebP(webpFile, CARD_IMAGE_EDGE);
         const cardForm = new FormData();
         cardForm.set("file", cardFile);
         cardForm.set("derivative_of", String(result.fileName || ""));
-        await fetch("/api/admin/upload-r2", { method: "POST", body: cardForm });
+        const cardResponse = await fetch("/api/admin/upload-r2", { method: "POST", body: cardForm });
+        if (!cardResponse.ok) cardMissing = true;
       } catch {
-        // deliberately ignored - see above
+        cardMissing = true;
       }
 
-      setStatusTone("success");
-      setStatus("Gambar berhasil diunggah dalam format WebP.");
+      setStatusTone(cardMissing ? "idle" : "success");
+      setStatus(
+        cardMissing
+          ? "Gambar berhasil diunggah, tetapi versi kartu katalog gagal dibuat. Katalog memakai gambar penuh sampai diunggah ulang."
+          : "Gambar berhasil diunggah dalam format WebP.",
+      );
     } catch (reason) {
       setStatusTone("error");
       setStatus(

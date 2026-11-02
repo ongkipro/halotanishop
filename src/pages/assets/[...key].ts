@@ -18,18 +18,22 @@ export const GET: APIRoute = async ({ params, locals }) => {
   if (!bucket) return new Response('Asset storage unavailable', { status: 503 });
 
   let object = await bucket.get(key);
+  // True when the body is a stand-in for the object that was asked for.
+  let standIn = false;
   // A derivative that was never generated - an image uploaded before the
   // storefront started asking for one - falls back to the full image. The card
   // then costs more than it should, which is the old behaviour, rather than
   // rendering a broken tile.
   if (!object && DERIVATIVE_SUFFIX.test(key)) {
     object = await bucket.get(key.replace(DERIVATIVE_SUFFIX, '$1'));
+    standIn = Boolean(object);
   }
   // Catalog feeds ask for a `.jpg` sibling of each WebP upload (Meta takes
   // JPEG or PNG only - see feedImagePath). Until one is stored, the WebP is
   // served, which is what the feed linked before.
   if (!object && FEED_JPEG.test(key)) {
     object = await bucket.get(key.replace(FEED_JPEG, '.webp'));
+    standIn = Boolean(object);
   }
   if (!object) return new Response('Not found', { status: 404 });
 
@@ -41,7 +45,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
   if (object.httpMetadata?.cacheControl) headers.set('Cache-Control', object.httpMetadata.cacheControl);
   if (object.httpMetadata?.cacheExpiry) headers.set('Expires', object.httpMetadata.cacheExpiry.toUTCString());
   headers.set('ETag', object.httpEtag);
-  headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  // A stand-in must not be pinned for a year: once the real derivative is
+  // stored, the edge would keep serving the full image under the card's URL
+  // (agritani's home downloaded two 56-76 KB heroes twice for months).
+  headers.set('Cache-Control', standIn ? 'public, max-age=600' : 'public, max-age=31536000, immutable');
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
   return new Response(object.body as unknown as BodyInit, { headers });

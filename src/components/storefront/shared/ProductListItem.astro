@@ -34,6 +34,8 @@ const hasDiscount = comparePrice > product.price;
 // "Mulai" only when the variants really differ in price; a card that says
 // "from" over one price is hedging for nothing.
 const hasRange = new Set(product.variants.map((variant) => variant.price).filter((price) => typeof price === 'number')).size > 1;
+// The discount pill sits in the price row, never over the photo: supplier
+// banners carry their headline in the top-left corner and the pill hid it.
 // The price sits right under the title (one or two lines, clamped), as in
 // the Shopify theme; the cards still line up because the grid stretches each
 // one to its row and the text block fills the rest.
@@ -58,11 +60,6 @@ const discountPercentage = hasDiscount
         fetchpriority={eager ? 'high' : undefined}
         decoding="async"
       />
-      {discountPercentage > 0 && (
-        <span class="absolute left-2 top-2 rounded-full bg-[#334FB4] px-1.5 py-0.5 text-[11px] font-bold leading-4 text-white">
-          -{discountPercentage}%
-        </span>
-      )}
     </div>
 
     <div class="flex flex-1 flex-col px-0.5 pt-2">
@@ -71,6 +68,9 @@ const discountPercentage = hasDiscount
         {hasRange && <span class="text-xs text-[#555555]">Mulai</span>}
         <span class="text-[15px] font-bold text-[#111111]">{formatPrice(product.price)}</span>
         {hasDiscount && <span class="text-xs text-[#767676] line-through">{formatPrice(comparePrice)}</span>}
+        {discountPercentage > 0 && (
+          <span class="rounded-full bg-[#334FB4] px-1.5 py-0.5 text-[11px] font-bold leading-4 text-white">-{discountPercentage}%</span>
+        )}
       </p>
       {product.variants.length > 1 && <p class="mt-0.5 text-xs text-[#767676]">{product.variants.length} pilihan</p>}
     </div>

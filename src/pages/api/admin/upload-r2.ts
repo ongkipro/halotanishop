@@ -53,16 +53,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return jsonError("Ukuran file maksimal 2 MB.", 413);
     }
 
+    const formData = await request.formData();
+    // A card-sized derivative rides along with the upload it belongs to and
+    // costs the operator nothing: it counted against the twenty before, so ten
+    // products' worth of uploads ran the budget dry and a later `-sm` could be
+    // refused (429) unnoticed. A card whose `-sm` is missing is served the full
+    // image under a second URL and downloads it twice. The derivative still needs a valid parent key, a
+    // signed-in admin and the same size and signature checks below.
+    const derivativeOf = String(formData.get("derivative_of") || "").trim();
     // Peek first, spend only once the object is stored: a rejected file is
     // not an upload and must not eat the operator's twenty.
     const uploadDatabase = env?.OMS_DB as D1Database | undefined;
     const uploadBucketKey = `admin-upload:${getClientIp(request.headers)}`;
-    const uploads = await checkRateLimit(uploadDatabase, uploadBucketKey, MAX_UPLOADS_PER_HOUR, 3_600_000, false);
-    if (!uploads.allowed) {
-      return jsonError("Batas 20 upload per jam telah tercapai.", 429);
+    if (!derivativeOf) {
+      const uploads = await checkRateLimit(uploadDatabase, uploadBucketKey, MAX_UPLOADS_PER_HOUR, 3_600_000, false);
+      if (!uploads.allowed) {
+        return jsonError("Batas 20 upload per jam telah tercapai.", 429);
+      }
     }
-
-    const formData = await request.formData();
     const fileInput = formData.get("file");
     const file = fileInput instanceof File ? fileInput : null;
 
@@ -95,7 +103,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // storefront can address it by name without a second column. The base key
     // is echoed back by the caller rather than trusted freely: it must match
     // the exact shape this route generates, and the suffix is appended here.
-    const derivativeOf = String(formData.get("derivative_of") || "").trim();
     let fileName: string;
     if (derivativeOf) {
       if (!BASE_KEY.test(derivativeOf)) {
@@ -112,7 +119,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         contentDisposition: "inline",
       },
     });
-    await checkRateLimit(uploadDatabase, uploadBucketKey, MAX_UPLOADS_PER_HOUR, 3_600_000);
+    if (!derivativeOf) await checkRateLimit(uploadDatabase, uploadBucketKey, MAX_UPLOADS_PER_HOUR, 3_600_000);
     return jsonOk({
       url: `/assets/${fileName}`,
       fileName,

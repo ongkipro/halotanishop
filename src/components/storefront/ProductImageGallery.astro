@@ -22,10 +22,9 @@
 interface Props {
   images: string[];
   productName: string;
-  discountPercentage?: number;
 }
 
-const { images, productName, discountPercentage = 0 } = Astro.props;
+const { images, productName } = Astro.props;
 const gallery = images.filter((image) => image.trim());
 ---
 
@@ -44,11 +43,6 @@ const gallery = images.filter((image) => image.trim());
           fetchpriority={idx === 0 ? 'high' : undefined}
           draggable={false}
         />
-        {idx === 0 && discountPercentage > 0 && (
-          <span class="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-[#334FB4] px-2 py-0.5 text-xs font-bold leading-5 text-white">
-            -{discountPercentage}%
-          </span>
-        )}
       </div>
     ))}
   </div>
