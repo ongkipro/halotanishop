@@ -561,7 +561,13 @@ if (Array.from(Astro.url.searchParams.keys()).some((key) => key !== 'preview')) 
       orderNumberEl.textContent = orderNumber;
       const amount = numeric(payment.amount);
       const adminFee = numeric(payment.admin_fee);
-      const sellerBearsFee = payment.fee_bearer === 'seller';
+      // The provider's total is what the buyer is charged. When it equals the
+      // amount, the fee was not added to the bill whatever the store setting
+      // says (revenleather, 2026-11-02: "buyer" showed Rp6.011 on top of a QR
+      // that asked for the amount alone), so the page reads it as the seller's.
+      const sellerBearsFee =
+        payment.fee_bearer === 'seller' ||
+        (adminFee > 0 && numeric(payment.total_amount) === amount);
       const computedTotal = numeric(payment.total_amount) || (sellerBearsFee ? amount : amount + adminFee);
       payment.total_amount = computedTotal;
       totalEl.textContent = formatRp(computedTotal);
