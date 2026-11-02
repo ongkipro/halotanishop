@@ -18,3 +18,9 @@ test("the product form reports a derivative that failed instead of swallowing it
   assert.match(form, /cardMissing/);
   assert.doesNotMatch(form, /deliberately ignored/);
 });
+
+test("the asset route does not pin a stand-in body for a year", () => {
+  const assets = readFileSync(new URL("../pages/assets/[...key].ts", import.meta.url), "utf8");
+  assert.match(assets, /standIn \? 'public, max-age=600'/);
+  assert.equal((assets.match(/standIn = Boolean\(object\)/g) ?? []).length, 2, "both fallbacks mark the stand-in");
+});
