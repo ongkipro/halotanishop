@@ -1,6 +1,6 @@
 # Tasks: AdsBookCMS
 
-> Verified against disk: 2026-10-31 @ `d61afbe` (A38 cancelled; A-444; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `b4db64e` (A46 added for PAY-2; other sections retain their recorded evidence)
 
 ## A21 — A landing page may become the product page
 
@@ -4380,3 +4380,76 @@ order.
   -> REQ: all of A35–A43 · deps: [A-419] · Done when: the release notes list
   each migration and each behaviour change an operator will see.
 
+
+## A46 — Payment fee bearer matches what AutoLaris actually bills (PAY-2)
+
+Added 2026-11-02 from a live test order (INV-10357, revenleather). Read
+UNIMPLEMENTED_SPECS PAY-2 and BUILD-LOG entry 246 first.
+
+**The defect.** `stores.payment_fee_bearer` decides who pays the QRIS/VA admin
+fee: `buyer` adds it to the checkout total, `seller` absorbs it. This AutoLaris
+account bills the buyer the order total and keeps the fee whatever the request
+asked for: every recent provider transaction on zvara, permatamall, beranda-tani
+and the revenleather test order has `payment_transactions.total_amount = amount`
+(test order: amount 858600, admin 6011, total 858600; the QR's EMV tag 54 was
+858600). A `buyer` store therefore shows "Biaya Admin Rp6.011 / Total Rp864.611"
+at checkout while the QR asks Rp858.600. zvara's `buyer` rows from August had
+`total = amount + fee`, so the account's behaviour changed at some point.
+
+**Already done (do not redo).** revenleather set to `seller` (one D1 row). PR
+#164: `/payment` reads a fee the provider did not add (total equals amount) as
+the seller's, on all eleven installs. Every store with AutoLaris live (zvara,
+permatamall, baven, beranda-tani, revenleather) is `seller`.
+
+**Still wrong.** klikinaja and cekat are `buyer` with AutoLaris not configured
+yet; `buyer` is the column default (`src/db/migrations/0020_violet_kylun.sql`),
+so every new install starts with the mismatch; and checkout's fee comes from the
+local table (`src/lib/payment-fee-policy.ts`), not from what the provider bills.
+
+**Decision gate (Paduka, before A-449).** Ask AutoLaris whether this account can
+bill the admin fee to the buyer. Yes: `buyer` stays a real option and A-449 is
+about honouring it. No (expected): `buyer` is not a real option for this account.
+
+- [ ] **A-447** — Make `seller` the default for new installs.
+  New forward migration (never edit `0020`): SQLite cannot alter a column
+  default in place, so follow the repository's table-rebuild pattern only if a
+  default is truly required; otherwise make the code treat a missing or unset
+  bearer as `seller` (`normalizePaymentFeeBearer` in `payment-fee-policy.ts`)
+  and update the seed / install wizard / `INSTALLATION.md` so a new store is
+  written as `seller`. Grep every caller of `normalizePaymentFeeBearer` and
+  `payment_fee_bearer` first.
+  -> REQ: PAY-2 · deps: [] · Done when: a fresh local D1 (`npm run dev:local`,
+  empty database) shows QRIS "Tanpa biaya admin" at checkout, a focused test
+  proves the default, and `npm test` / `npm run check` stay green.
+- [ ] **A-448** — Set klikinaja and cekat to `seller`.
+  One row each, `UPDATE stores SET payment_fee_bearer='seller' WHERE id=(SELECT
+  id FROM stores ORDER BY id LIMIT 1) AND payment_fee_bearer='buyer'`, via
+  `npx wrangler d1 execute <db> --remote` from each install's directory
+  (`klikinaja-d1`, the cekat database name is in its `wrangler.jsonc`). Remote
+  D1 writes need Paduka's go-ahead (AGENTS.md §5); this task records it.
+  -> REQ: PAY-2 · deps: [] · Done when: a read of `stores.payment_fee_bearer`
+  on all eleven installs returns `seller`, and `/api/payment-methods` on
+  klikinaja.shop and cekat.shop reports `fee_bearer: "seller"` for QRIS.
+- [ ] **A-449** — Never promise a total the provider will not bill.
+  If the gate answered "no": hide or disable `buyer` in the admin payment
+  settings with a one-line reason, and keep the server refusing it. If "yes":
+  keep `buyer`, and after `/submit` compare `payment.total` with the checkout
+  total (`autolaris-fee-mismatch` is only logged today in
+  `src/lib/autolaris-payment.ts`); surface a mismatch to the operator in the
+  order detail instead of the log alone.
+  -> REQ: PAY-2 · deps: [decision gate] · Done when: tests cover the chosen
+  branch, and the admin screen is opened in a browser at 390 px and 1280 px.
+- [ ] **A-450** — Prove it with one order and close PAY-2.
+  One QRIS test order on a store with AutoLaris live, labelled as a test in the
+  name and address ("TEST ORDER ... JANGAN DIPROSES"), Pixel and
+  `/api/meta-event` blocked in the browser, never paid. Compare the checkout
+  total, `/payment`, `payment_transactions.total_amount` and the QR's EMV tag 54.
+  -> REQ: PAY-2 · deps: [A-447, A-448, A-449] · Done when: the four figures
+  agree, BUILD-LOG gets one entry, PAY-2 moves to closed in
+  UNIMPLEMENTED_SPECS, and FLEET.md records which installs were changed.
+
+Constraints for whoever picks this up: no version bump and no admin changelog
+entry unless Paduka asks (these are fixes); product changes go through a PR to
+`main`, then the per-install merge and `npm run deploy` (RELEASE.md §7, merge
+rules in docs/FLEET.md; revenleather, numaskin and beranda-tani keep their own
+files); every deploy and remote D1 write is Paduka's to approve.
