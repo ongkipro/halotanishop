@@ -245,8 +245,8 @@ test("middleware: an upload is fetched from R2 once, then served without D1 or t
   const first = await run(`${href}?v=1`, image);
   assert.equal(first.response.headers.get("x-edge-cache"), "MISS");
   await new Promise((resolve) => setTimeout(resolve, 10));
-  const entry = cache.map.get(href)!;
-  assert.ok(entry, "stored without the query string");
+  const entry = cache.map.get(`${href}?__g=2`)!;
+  assert.ok(entry, "stored without the visitor's query string, under the current generation");
   assert.equal(entry.headers.get("cache-control"), "public, max-age=86400", "the edge keeps it a day");
 
   const second = await run(href, image);
@@ -262,4 +262,12 @@ test("middleware: an upload is fetched from R2 once, then served without D1 or t
   await run(missing, async () => new Response("Not found", { status: 404 }));
   await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(cache.map.has(missing), false);
+  assert.equal(cache.map.has(`${missing}?__g=2`), false);
+
+  // A stand-in (the full image answering for a missing `-sm`) is not remembered
+  // either: once the real derivative is stored, the next request must reach it.
+  const card = href.replace(".webp", "-sm.webp");
+  await run(card, async () => new Response("full-bytes", { status: 200, headers: { "content-type": "image/webp", "x-asset-stand-in": "1" } }));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(cache.map.has(`${card}?__g=2`), false);
 });

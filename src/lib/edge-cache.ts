@@ -154,10 +154,22 @@ export function writeEdgeCache(
  */
 export const UPLOAD_EDGE_CACHE_SECONDS = 86_400;
 
+/** Marks a body served in place of the object asked for (a missing `-sm`). */
+export const STAND_IN_HEADER = "X-Asset-Stand-In";
+
+/**
+ * Bumped when entries already in the cache must be abandoned at once. "2": a
+ * missing `-sm` had been stored as its stand-in (the full image) and kept being
+ * served for a day after the real derivative was written to R2.
+ */
+const UPLOAD_CACHE_GENERATION = "2";
+
 /** The cache key for an upload; the query string never selects different bytes. */
 export function uploadCacheRequest(request: Request, url: URL): Request | null {
   if (request.method !== "GET" || !url.pathname.startsWith("/assets/uploads/")) return null;
-  return new Request(new URL(url.pathname, url.origin));
+  const key = new URL(url.pathname, url.origin);
+  key.searchParams.set("__g", UPLOAD_CACHE_GENERATION);
+  return new Request(key);
 }
 
 export async function readUploadCache(
@@ -184,7 +196,9 @@ export function writeUploadCache(
   locals?: { cfContext?: { waitUntil(task: Promise<unknown>): void } },
   cache: EdgeCacheStore | null = defaultCache(),
 ) {
-  if (!cache || response.status !== 200) return;
+  // A stand-in is never stored: its URL gets different bytes the moment the
+  // real derivative exists, which is exactly what an upload entry assumes cannot happen.
+  if (!cache || response.status !== 200 || response.headers.has(STAND_IN_HEADER)) return;
   const copy = new Response(response.clone().body, response);
   copy.headers.set("Cache-Control", `public, max-age=${UPLOAD_EDGE_CACHE_SECONDS}`);
   const task = cache.put(key, copy).catch((error) => console.error("upload-cache-write-failed", error));

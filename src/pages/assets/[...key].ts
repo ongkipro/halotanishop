@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getRuntimeEnv } from '../../lib/env';
+import { STAND_IN_HEADER } from '../../lib/edge-cache';
 
 export const prerender = false;
 
@@ -49,6 +50,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   // stored, the edge would keep serving the full image under the card's URL
   // (agritani's home downloaded two 56-76 KB heroes twice for months).
   headers.set('Cache-Control', standIn ? 'public, max-age=600' : 'public, max-age=31536000, immutable');
+  if (standIn) headers.set(STAND_IN_HEADER, '1');
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Content-Security-Policy', "default-src 'none'; sandbox");
   return new Response(object.body as unknown as BodyInit, { headers });
