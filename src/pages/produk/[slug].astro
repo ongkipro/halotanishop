@@ -152,7 +152,6 @@ const productSchemaJson = JSON.stringify(productSchema).replace(/</g, '\\u003c')
       <ProductImageGallery
         images={productImages}
         productName={product.productName}
-        discountPercentage={displayDiscount}
       />
     </div>
 
@@ -188,6 +187,13 @@ const productSchemaJson = JSON.stringify(productSchema).replace(/</g, '\\u003c')
           displayComparePrice > displayPrice && (
             <span class="text-sm text-[#767676] line-through">
               Rp{Math.round(displayComparePrice).toLocaleString('id-ID')}
+            </span>
+          )
+        }
+        {
+          displayDiscount > 0 && (
+            <span class="rounded-full bg-[#334FB4] px-2 py-0.5 text-xs font-bold leading-5 text-white">
+              -{displayDiscount}%
             </span>
           )
         }

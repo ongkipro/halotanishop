@@ -655,8 +655,9 @@ script**.
 - Image `block aspect-square w-full object-cover`, `draggable={false}`
 - First photo `loading="eager"`, `decoding="sync"`, `fetchpriority="high"` — it
   is the page's LCP element; the rest are lazy and async
-- One red `rounded-md` discount pill over the first frame, only when a compare
-  price exists; the category badge is gone (the breadcrumb names it)
+- The discount pill (`#334FB4`, `rounded-full`) sits in the price row after the
+  compare price, only when a compare price exists, never over the photo; the
+  category badge is gone (the breadcrumb names it)
 
 This section previously described a scroll-snap carousel with a `w-14` vertical
 thumb rail, `aspect-[3/4]` frames and a `#C5A880` active border. None of those
