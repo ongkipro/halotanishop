@@ -41,7 +41,7 @@
   // from SIN. Static assets still serve from the nearest colo. Cloudflare needs
   // up to 15 minutes of multi-location traffic to decide (ADR-030).
   "placement": {
-    "mode": "smart"
+    "region": "aws:ap-southeast-1"
   },
 
   // The one secret a store cannot run without, and the only one the Deploy
