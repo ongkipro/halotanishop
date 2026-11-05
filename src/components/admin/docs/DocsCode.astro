@@ -1,0 +1,18 @@
+---
+// A copyable code block. The copy button is wired once by the docs page.
+interface Props {
+  code: string;
+  label?: string;
+}
+const { code, label = 'bash' } = Astro.props;
+---
+
+<figure class="my-4 overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+  <figcaption class="flex items-center justify-between border-b border-slate-800 py-1 pl-3 pr-1">
+    <span class="font-mono text-xs text-slate-400">{label}</span>
+    <button type="button" data-docs-copy class="inline-flex min-h-8 items-center rounded px-2.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">
+      Salin
+    </button>
+  </figcaption>
+  <pre class="overflow-x-auto p-3 text-[13px] leading-6 text-slate-100"><code>{code.trim()}</code></pre>
+</figure>

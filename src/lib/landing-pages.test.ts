@@ -509,6 +509,15 @@ test("the public listing links a claimed page to the product URL it answers on",
   assert.equal((await listPublicLandingPages(locals)).some((page) => page.slug === orphan.slug), false);
 });
 
+test("the public listing leaves out an alias slug that declares another page canonical", async () => {
+  const { locals } = createLocals();
+  const original = await createLandingPage(locals, { slug: "promo-utama", title: "Promo Utama", product_id: "20001" });
+  const alias = await createLandingPage(locals, { slug: "promo-utama-2", title: "Promo Utama (2)", product_id: "20001" });
+  const slugs = (await listPublicLandingPages(locals, new Set([alias.slug]))).map((page) => page.slug);
+  assert.equal(slugs.includes(original.slug), true);
+  assert.equal(slugs.includes(alias.slug), false);
+});
+
 test("the public listing finds each product by primary key, not by scanning landing pages per product", async () => {
   const { database, locals } = createLocals();
   await createLandingPage(locals, { slug: "promo-plan", title: "Promo Plan", product_id: "20001" });

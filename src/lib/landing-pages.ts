@@ -9,6 +9,7 @@ import {
   activeNativeLandingPages,
   isNativeLandingId,
   nativeLandingIdFor,
+  nonCanonicalNativeSlugs,
   type NativeLandingPage,
 } from "./native-landing-pages.ts";
 
@@ -1195,6 +1196,12 @@ export function landingThumbnail(input: {
 
 export async function listPublicLandingPages(
   locals: App.Locals,
+  // A second ad slug that declares another page canonical (`canonicalSlug`)
+  // is an alias, not a page of its own: the sitemap already leaves it out, and
+  // listing it showed visitors a duplicate card (petanisejahtera
+  // "Aussie Formula Baru (2)") and a count the sitemap disagreed with
+  // (taniniaga: 32 listed, 28 in the sitemap).
+  aliasSlugs: ReadonlySet<string> = nonCanonicalNativeSlugs(),
 ): Promise<PublicLandingPage[]> {
   const result = await getDatabase(locals)
     .prepare(
@@ -1226,7 +1233,7 @@ export async function listPublicLandingPages(
       first_image_config: string | null;
     }>();
 
-  return (result.results ?? []).map((row) => ({
+  return (result.results ?? []).filter((row) => !aliasSlugs.has(row.slug)).map((row) => ({
     slug: row.slug,
     title: row.title,
     excerpt: (row.meta_description || "").trim(),

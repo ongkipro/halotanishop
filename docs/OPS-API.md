@@ -1,6 +1,6 @@
 # AdsBookCMS — Operations API contract
 
-> Verified against disk: 2026-10-30 @ `645963a` + feat/a45-cli working tree
+> Verified against disk: 2026-11-02 @ `b4db64e` + feat/developer-guide working tree
 
 The operations API lets a store's own tooling — a script, a spreadsheet sync,
 the `adsbook` CLI, an agent — read the store's orders. It is the server-to-server
@@ -14,6 +14,13 @@ parameter and field) is the OpenAPI 3.1 document the install serves at
 `src/lib/ops-openapi.test.ts` fails when that document and the operations table
 in `src/lib/ops-api.ts` disagree, or when the order serializer writes a field the
 schema does not name. Requirements: PRD A45, REQ-251 to REQ-264.
+
+Operators read the same rules in Indonesian in the admin Docs book
+(`/admin/docs`, owner and admin). Its endpoint, scope, limit and CLI tables are
+rendered from `OPS_OPERATIONS`, `HEADLESS_OPERATIONS`, the scope lists and the
+CLI's own usage text; its prose is owned by this document and
+STOREFRONT_INTEGRATION.md, so a rule changed here is changed there too
+(`src/components/admin/docs/DocsChapter.astro`).
 
 ## 1. Calling it
 

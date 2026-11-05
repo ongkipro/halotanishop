@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { buttonVariants } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "../ui/chart";
-import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { ChevronRight, CircleCheck, CreditCard, GitCompareArrows, PackageCheck, RefreshCw } from "lucide-react";
 import { FilterSelect } from "./filter-bar";
 import { ADMIN_DEFAULT_DATE_FILTER, resolveAdminDateSelection } from "../../lib/admin-date-filter";
@@ -22,6 +20,9 @@ import { AdminDateRangeFilter, type AdminDateSelection } from "./AdminDateRangeF
  * it reports on a shorter window than the order lists and hides the presets
  * that would exceed it.
  */
+// Recharts is the admin's largest chunk; the cards and "Action needed" paint
+// without it and the chart fills its reserved box when it arrives.
+const DashboardRevenueChart = lazy(() => import("./DashboardRevenueChart"));
 const DASHBOARD_MAX_RANGE_DAYS = 31;
 const DASHBOARD_HIDDEN_PRESETS = ["90d", "180d"] as const;
 const ATTENTION_REFRESH_MS = 60_000;
@@ -202,6 +203,33 @@ export function AnalyticsDashboard({
       }
       if (compareChoice !== "auto") query.set("compare", compareChoice);
 
+      // The Analitik menu's own rankings over the same days, requested beside
+      // the cards rather than after them (it was a second round trip), not
+      // awaited: the cards paint first, and a failure hides this card only.
+      if (showInsights && start && end) {
+        const rangeQuery = `date_filter=custom&date_start=${start}&date_end=${end}`;
+        const read = async (path: string) => {
+          const res = await fetch(`/api/admin/insights/${path}?${rangeQuery}`, { headers: { Accept: "application/json" } });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok || !Array.isArray(body?.data?.rows)) throw new Error(body?.error || "Ranking gagal dimuat.");
+          return body.data.rows as Array<Record<string, unknown>>;
+        };
+        void Promise.all([read("products"), read("landing")])
+          .then(([products, pages]) => {
+            if (sequence !== requestSequence.current) return;
+            setRankings({
+              products: products.slice(0, 5).map((row) => ({ label: String(row.label ?? ""), revenue: num(row.revenue), units: num(row.units) })),
+              pages: pages.filter((row) => row.kind !== "none").slice(0, 5).map((row) => ({ label: String(row.label ?? ""), revenue: num(row.revenue), orders: num(row.orders) })),
+            });
+          })
+          .catch((reason) => {
+            if (sequence !== requestSequence.current) return;
+            console.error("dashboard-rankings", reason);
+            setRankings(null);
+          });
+      } else {
+        setRankings(null);
+      }
       try {
         const response = await fetch(`/api/admin/analytics?${query}`, { headers: { Accept: "application/json" } });
         const payload = await response.json().catch(() => ({}));
@@ -270,32 +298,6 @@ export function AnalyticsDashboard({
               }
             : null,
         });
-        // The Analitik menu's own rankings over the same days, not awaited:
-        // the cards paint first, and a failure hides this card only.
-        if (showInsights && start && end) {
-          const rangeQuery = `date_filter=custom&date_start=${start}&date_end=${end}`;
-          const read = async (path: string) => {
-            const res = await fetch(`/api/admin/insights/${path}?${rangeQuery}`, { headers: { Accept: "application/json" } });
-            const body = await res.json().catch(() => ({}));
-            if (!res.ok || !Array.isArray(body?.data?.rows)) throw new Error(body?.error || "Ranking gagal dimuat.");
-            return body.data.rows as Array<Record<string, unknown>>;
-          };
-          void Promise.all([read("products"), read("landing")])
-            .then(([products, pages]) => {
-              if (sequence !== requestSequence.current) return;
-              setRankings({
-                products: products.slice(0, 5).map((row) => ({ label: String(row.label ?? ""), revenue: num(row.revenue), units: num(row.units) })),
-                pages: pages.filter((row) => row.kind !== "none").slice(0, 5).map((row) => ({ label: String(row.label ?? ""), revenue: num(row.revenue), orders: num(row.orders) })),
-              });
-            })
-            .catch((reason) => {
-              if (sequence !== requestSequence.current) return;
-              console.error("dashboard-rankings", reason);
-              setRankings(null);
-            });
-        } else {
-          setRankings(null);
-        }
       } catch (reason) {
         if (sequence !== requestSequence.current) return;
         setError(reason instanceof Error ? reason.message : "Dashboard gagal dimuat.");
@@ -595,42 +597,14 @@ export function AnalyticsDashboard({
               </div>
             ) : (
               <div className="h-[240px] w-full sm:h-[260px]">
-                <ChartContainer
-                  config={{
-                    revenue: { label: "Periode ini", color: "var(--admin-accent)" },
-                    compare: { label: prev ? COMPARE_LABELS[prev.mode].replace(/^vs /, "") : "Pembanding", color: "#94a3b8" },
-                  }}
-                  className="h-full w-full"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                      <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="date"
-                        tickFormatter={(value) => {
-                          const text = String(value);
-                          if (text.includes(":")) return text.split(" ")[1].substring(0, 2);
-                          const [year, month, day] = text.slice(0, 10).split("-");
-                          return year && month && day ? `${Number(day)}/${Number(month)}` : text;
-                        }}
-                        tickLine={false}
-                        axisLine={false}
-                        tick={{ fontSize: 10, fill: "#64748b" }}
-                        dy={8}
-                        minTickGap={8}
-                      />
-                      {/* 72px: "Rp1,4jt" and "Rp700rb" clipped at Recharts' default 60. */}
-                      <YAxis width={72} tickFormatter={(value) => compactRupiah(Number(value))} tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: "#64748b" }} />
-                      <ChartTooltip cursor={{ fill: "rgba(148,163,184,0.06)" }} content={<ChartTooltipContent />} />
-                      {hourly ? (
-                        <Line dataKey="revenue" type="monotone" stroke="var(--color-revenue)" strokeWidth={2.5} dot={false} connectNulls={false} />
-                      ) : (
-                        <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[5, 5, 0, 0]} maxBarSize={34} />
-                      )}
-                      {prev && <Line dataKey="compare" type="monotone" stroke="var(--color-compare)" strokeWidth={2} strokeDasharray="5 4" dot={false} />}
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
+                <Suspense fallback={<Skeleton className="h-full w-full rounded-xl" />}>
+                  <DashboardRevenueChart
+                    data={chartData}
+                    hourly={hourly}
+                    compareLabel={prev ? COMPARE_LABELS[prev.mode].replace(/^vs /, "") : undefined}
+                    formatValue={compactRupiah}
+                  />
+                </Suspense>
               </div>
             )}
           </CardContent>

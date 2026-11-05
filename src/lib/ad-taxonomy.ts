@@ -136,9 +136,11 @@ export const TAXONOMY_RULES: readonly TaxonomyRule[] = [
     productType: "Kecantikan & Perawatan > Skincare",
     // Not "kulit": it means leather as often as skin, and filed every leather
     // card holder in a leather-goods store under Skin Care.
+    // Not "kojien" either: taniniaga sells a plant-nutrient called Kojien, and
+    // its title alone filed it under Skin Care in both feeds (2026-11-03).
     keywords: [
       "skincare", "skin care", "serum", "lotion", "cream", "krim", "pemutih", "kojic",
-      "kojien", "wajah", "glowing", "acne", "jerawat", "toner", "sunscreen"
+      "wajah", "glowing", "acne", "jerawat", "toner", "sunscreen"
     ],
   },
   {

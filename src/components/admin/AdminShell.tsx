@@ -37,6 +37,7 @@ import {
   ArrowUpRight,
   ChevronDown,
   ChevronRight,
+  BookOpen,
   History,
   Settings,
   Store,
@@ -102,6 +103,9 @@ export function AdminShell({
   const [sidebarOpen, setSidebarOpen] = React.useState(sidebarDefaultOpen);
   const [changelogOpen, setChangelogOpen] = React.useState(false);
   const groups = mustChangePassword ? [] : getVisibleNavGroups(adminRole);
+  // The API & CLI docs speak to whoever manages API keys: owner and admin
+  // (auth.ts ADMIN_PAGE_ROUTES holds /admin/docs for them alone).
+  const docsHref = !mustChangePassword && (adminRole === "owner" || adminRole === "admin") ? "/admin/docs" : undefined;
   const searchItems = mustChangePassword ? [] : getSearchableNavItems(adminRole);
   const allItems = groups.flatMap((group) => group.items);
   const currentItem = [...allItems, profileNavItem, statusNavItem].find(
@@ -215,6 +219,7 @@ export function AdminShell({
           adminRole={adminRole}
           restricted={mustChangePassword}
           onOpenChangelog={() => setChangelogOpen(true)}
+          docsHref={docsHref}
         />
         <SidebarInset className="min-w-0 bg-transparent">
           <header className="admin-topbar sticky top-0 z-30 flex h-[60px] shrink-0 items-center border-b border-slate-200/70 bg-white/90 px-3 backdrop-blur-xl md:h-16 md:px-6">
@@ -321,6 +326,14 @@ export function AdminShell({
                           <Store aria-hidden="true" />
                           Lihat storefront
                           <ArrowUpRight className="ml-auto text-slate-400" aria-hidden="true" />
+                        </a>
+                      </DropdownMenuItem>
+                    )}
+                    {docsHref && (
+                      <DropdownMenuItem asChild>
+                        <a href={docsHref}>
+                          <BookOpen aria-hidden="true" />
+                          Docs API & CLI
                         </a>
                       </DropdownMenuItem>
                     )}
@@ -472,6 +485,13 @@ export function AdminShell({
                 <span className="min-w-0 flex-1"><span className="block text-sm font-normal text-slate-900">{profileNavItem.label}</span><span className="block truncate text-xs text-slate-500">{profileNavItem.description}</span></span>
                 <ChevronRight className="size-4 text-slate-300" aria-hidden="true" />
               </a>
+              {docsHref && (
+                <a href={docsHref} className="mb-2 flex min-h-13 items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600"><BookOpen className="size-4" aria-hidden="true" /></span>
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-normal text-slate-900">Docs</span><span className="block truncate text-xs text-slate-500">API key, Headless API, Operations API, CLI</span></span>
+                  <ChevronRight className="size-4 text-slate-300" aria-hidden="true" />
+                </a>
+              )}
               <button
                 type="button"
                 onClick={() => {

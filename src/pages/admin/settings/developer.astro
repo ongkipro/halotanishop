@@ -68,63 +68,15 @@ export const prerender = false;
 
     <HeadlessApiManagement client:load />
 
-    <!-- Headless API Reference Cards -->
-    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-      <h2 class="text-base font-semibold text-slate-950">Dokumentasi REST API v1</h2>
-      <p class="mt-1 text-xs leading-5 text-slate-500">
-        Endpoint Headless API terautentikasi yang dapat dipanggil dari frontend kustom menggunakan API key aktif.
-      </p>
-
-      <div class="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3.5 text-xs">
-          <div class="flex items-center gap-2">
-            <span class="rounded bg-blue-600 px-1.5 py-0.5 font-mono text-xs font-semibold text-white">GET</span>
-            <code class="font-semibold text-slate-900">/api/v1/storefront</code>
-          </div>
-          <p class="mt-1 text-slate-600">Ambil konfigurasi toko, nama merchant, dan info branding.</p>
-        </div>
-
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3.5 text-xs">
-          <div class="flex items-center gap-2">
-            <span class="rounded bg-blue-600 px-1.5 py-0.5 font-mono text-xs font-semibold text-white">GET</span>
-            <code class="font-semibold text-slate-900">/api/v1/products</code>
-          </div>
-          <p class="mt-1 text-slate-600">Daftar katalog produk aktif, varian, dan harga.</p>
-        </div>
-
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3.5 text-xs">
-          <div class="flex items-center gap-2">
-            <span class="rounded bg-blue-600 px-1.5 py-0.5 font-mono text-xs font-semibold text-white">GET</span>
-            <code class="font-semibold text-slate-900">/api/v1/products/:slug</code>
-          </div>
-          <p class="mt-1 text-slate-600">Detail produk spesifik berdasarkan slug.</p>
-        </div>
-
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3.5 text-xs">
-          <div class="flex items-center gap-2">
-            <span class="rounded bg-emerald-600 px-1.5 py-0.5 font-mono text-xs font-semibold text-white">POST</span>
-            <code class="font-semibold text-slate-900">/api/v1/checkout</code>
-          </div>
-          <p class="mt-1 text-slate-600">Submit pesanan checkout (COD & Non-COD) dari form kustom.</p>
-        </div>
-
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3.5 text-xs">
-          <div class="flex items-center gap-2">
-            <span class="rounded bg-blue-600 px-1.5 py-0.5 font-mono text-xs font-semibold text-white">GET</span>
-            <code class="font-semibold text-slate-900">/api/v1/geo/districts?q=...</code>
-          </div>
-          <p class="mt-1 text-slate-600">Pencarian cepat nama kecamatan/kota pelanggan.</p>
-        </div>
-
-        <div class="rounded-lg border border-slate-100 bg-slate-50 p-3.5 text-xs">
-          <div class="flex items-center gap-2">
-            <span class="rounded bg-indigo-600 px-1.5 py-0.5 font-mono text-xs font-semibold text-white">POST</span>
-            <code class="font-semibold text-slate-900">/api/v1/geo/shipping-rates</code>
-          </div>
-          <p class="mt-1 text-slate-600">Kalkulasi otomatis opsi kurir & tarif ongkir ke lokasi tujuan.</p>
-        </div>
-      </div>
-    </div>
+    <!-- The endpoint reference lives in the Docs book, generated from the
+         operation tables; a hand-written card list here missed two routes. -->
+    <a href="/admin/docs/api-key" class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:bg-slate-50 md:p-5">
+      <span class="min-w-0 flex-1">
+        <span class="block text-sm font-semibold text-slate-950">Docs API &amp; CLI</span>
+        <span class="mt-0.5 block text-xs leading-5 text-slate-500">Scope, endpoint Headless API dan Operations API, CLI adsbook, serta kode error.</span>
+      </span>
+      <span class="text-sm font-medium text-slate-700" aria-hidden="true">Buka →</span>
+    </a>
   </div>
 
   <script>

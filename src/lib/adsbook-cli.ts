@@ -23,7 +23,7 @@ export type CliIo = {
 
 type Credentials = { url: string; key: string };
 
-const USAGE = `adsbook — AdsBookCMS operations API client
+export const ADSBOOK_CLI_USAGE = `adsbook — AdsBookCMS operations API client
 
   adsbook login --url <https://toko.example> [--key <key>]
   adsbook logout
@@ -214,7 +214,7 @@ export async function runAdsbookCli(io: CliIo): Promise<number> {
   const [command, ...args] = io.argv;
   try {
     if (!command || command === "help" || command === "--help" || command === "-h") {
-      io.stdout(USAGE);
+      io.stdout(ADSBOOK_CLI_USAGE);
       return command ? 0 : 1;
     }
     if (command === "login") await login(io, args);
@@ -222,7 +222,7 @@ export async function runAdsbookCli(io: CliIo): Promise<number> {
       await rm(credentialsPath(io.home), { force: true });
       io.stdout("Logout: kredensial dihapus.\n");
     } else if (command === "orders") await orders(io, args);
-    else throw new CliError(`Perintah tidak dikenal: ${command}\n\n${USAGE}`);
+    else throw new CliError(`Perintah tidak dikenal: ${command}\n\n${ADSBOOK_CLI_USAGE}`);
     return 0;
   } catch (error) {
     // parseArgs and CliError messages carry no secret; anything else is reduced to its message.

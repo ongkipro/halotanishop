@@ -1,5 +1,6 @@
 import type { Product } from "../data/products";
 import { formatIdr } from "./format-idr.ts";
+import { cheapestVariant } from "./form-config.ts";
 
 export interface CatalogProductRow {
   id: number;
@@ -158,9 +159,7 @@ export function mergeStorefrontCatalog(
     // figure the product page already shows. It used to be whichever variant
     // D1 returned first, so a product whose larger size was entered first
     // listed that size's price on every card while its page said less.
-    const fromVariant = variants.reduce((low, variant) =>
-      variant.price < low.price ? variant : low,
-    );
+    const fromVariant = cheapestVariant(variants)!;
 
     catalog.push({
         catalogId: product.id,

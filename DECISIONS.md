@@ -1,6 +1,6 @@
 # Architecture Decision Record — AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `be6ee6a` (ADR-019 amendment adds the 1.9.2 form states; earlier ADRs retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `8566bf6` (ADR-034 pins placement to Singapore; earlier ADRs retain their recorded evidence)
 
 Append-only. One decision per entry. A decision is recorded here only when it constrains future work; implementation detail belongs in `ARCHITECTURE.md`, remaining work in `UNIMPLEMENTED_SPECS.md`.
 
@@ -1270,3 +1270,38 @@ follow D1, not copy in a file.
 **Rejected alternatives.** *Editing every native page* (does not scale, drifts
 from the register). *Rewriting the HTML in middleware* (couples SEO to string
 surgery on every response).
+
+---
+
+## ADR-034 — Pin the Worker to Singapore instead of Smart Placement
+
+**Date:** 2026-11-02 · **Status:** Accepted (Paduka: "pastikan server Singapore").
+Amends ADR-030 decision 1. `wrangler.jsonc` `placement`.
+
+**Context.** ADR-030 turned on Smart Placement so the fetch handler runs beside
+D1, and recorded that Cloudflare "can decline". It did: on page.revenleather.com,
+16 uncached requests from one workstation landed on SIN, MRS, CDG and LAX. SIN
+answered in 0.3-0.4 s (`cf-placement: local-SIN`); MRS and CDG were moved to SIN
+(`remote-SIN`, about 1 s); LAX was **not** moved (`local-LAX`) and took 2.0-2.9 s,
+every D1 read crossing the Pacific. A Lighthouse run measured a product page's
+document at 3.38 s for the same reason. Since 2026-01-22 Cloudflare offers an
+explicit placement hint, `placement.region`, which runs the Worker in the data
+center nearest a named cloud region
+([placement](https://developers.cloudflare.com/workers/configuration/placement/)).
+D1 itself can only be hinted to `apac`, and every fleet database runs there
+(`wrangler d1 info`).
+
+**Decision.** The template and each install whose D1 runs in APAC set
+`"placement": { "region": "aws:ap-southeast-1" }` (Singapore). An install whose
+D1 is elsewhere sets that region, or keeps `"mode": "smart"`.
+
+**Evidence.** revenleather, Worker `e5ac2f20`: every request now answers
+`remote-SIN` or `local-SIN`, LAX included; LAX-entry product pages fell from
+2.0-2.9 s to a median 1.1 s, SIN stayed 0.4 s.
+
+**Consequences.** A visitor whose colo is far from Singapore pays one hop to
+SIN instead of one hop per D1 read. If Cloudflare ever moves a D1 primary out
+of South-East Asia, the pin works against it; `cf-placement` and the D1
+region (`wrangler d1 info`) are the two things to re-check. Each install's
+`wrangler.jsonc` is its own (keepours), so the fleet changes one install at a
+time.

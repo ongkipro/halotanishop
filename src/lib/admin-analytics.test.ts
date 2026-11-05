@@ -227,3 +227,42 @@ test("the trend bars sum to exactly the omset card — one released-order rule f
   // it is released in order-lifecycle.ts and must not count as omset.
   assert.equal(data.live_orders, 2);
 });
+
+test("the dashboard's six reads are in flight together, not one after another (ADR-030)", async () => {
+  const { d1 } = createAnalyticsDatabase();
+  let inFlight = 0;
+  let peak = 0;
+  // Every read waits a tick before answering, so a sequential handler never
+  // has more than one outstanding and a parallel one has all six.
+  const slow = {
+    prepare(sql: string) {
+      const statement = d1.prepare(sql);
+      const wrap = (method: "first" | "all") => async (...args: unknown[]) => {
+        inFlight += 1;
+        peak = Math.max(peak, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight -= 1;
+        return (statement as any)[method](...args);
+      };
+      const bound = {
+        bind: (...values: unknown[]) => {
+          const inner = statement.bind(...values);
+          return {
+            first: async () => { inFlight += 1; peak = Math.max(peak, inFlight); await new Promise((r) => setTimeout(r, 5)); inFlight -= 1; return inner.first(); },
+            all: async () => { inFlight += 1; peak = Math.max(peak, inFlight); await new Promise((r) => setTimeout(r, 5)); inFlight -= 1; return inner.all(); },
+          };
+        },
+        first: wrap("first"),
+        all: wrap("all"),
+      };
+      return bound;
+    },
+  } as unknown as D1Database;
+
+  const response = await GET({
+    locals: { runtimeEnv: { OMS_DB: slow } },
+    url: new URL("https://cms.test/api/admin/analytics?preset=this_month&startDate=2026-08-01&endDate=2026-08-18&interval=day"),
+  } as never);
+  assert.equal(response.status, 200);
+  assert.equal(peak, 6);
+});

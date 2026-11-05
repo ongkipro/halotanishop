@@ -51,3 +51,26 @@ test("a number saved as 08… comes back in the international form wa.me needs",
   } as unknown as D1Database;
   assert.equal(await getStoreSupportWhatsapp(locals(database)), "6281234567890");
 });
+
+test("the public payment summary names only what the checkout offers (revenleather, 2026-11-02)", async () => {
+  const { joinIndonesian, summarizePaymentMethods } = await import("./public-store.ts");
+  const rows = [
+    { payment_method: "cod", name: "COD (Bayar di Tempat)", is_active: true },
+    { payment_method: "qris", name: "QRIS", is_active: true },
+    { payment_method: "bank_transfer", name: "Virtual Account BCA", is_active: true },
+    { payment_method: "bank_transfer", name: "Virtual Account Mandiri", is_active: true },
+    { payment_method: "bank_transfer", name: "Virtual Account BSI", is_active: false },
+    { payment_method: "manual_transfer", name: "Transfer Bank BCA", is_active: false },
+    { payment_method: "manual_transfer", name: "Transfer Bank MANDIRI", is_active: true },
+  ];
+  assert.deepEqual(summarizePaymentMethods(rows), [
+    "COD (bayar di tempat)",
+    "QRIS",
+    "Virtual Account BCA, Mandiri",
+    "transfer bank Mandiri",
+  ]);
+  assert.deepEqual(summarizePaymentMethods(rows.map((row) => ({ ...row, is_active: row.payment_method === "cod" }))), ["COD (bayar di tempat)"]);
+  assert.equal(joinIndonesian(["JNE"]), "JNE");
+  assert.equal(joinIndonesian(["JNE", "SPX"]), "JNE dan SPX");
+  assert.equal(joinIndonesian(["JNE", "J&T", "SPX"]), "JNE, J&T, dan SPX");
+});

@@ -42,7 +42,7 @@ type ApiEnvelope<T> = {
 type KeyListData = { keys: DeveloperApiKey[]; audit_events: HeadlessAuditEvent[] };
 type KeyCreationData = { key: DeveloperApiKey; secret: string };
 
-const SCOPE_OPTIONS: ReadonlyArray<{ value: HeadlessScope; label: string }> = [
+export const SCOPE_OPTIONS: ReadonlyArray<{ value: HeadlessScope; label: string }> = [
   { value: "storefront:read", label: "Storefront" },
   { value: "catalog:read", label: "Katalog" },
   { value: "shipping:read", label: "Ongkir" },

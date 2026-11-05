@@ -126,7 +126,66 @@ export const GET: APIRoute = async ({ locals, url }) => {
       FROM orders
       ${dateFilter}
     `;
-    const row = await (database as D1Database).prepare(summarySql).bind(...params).first() as AnalyticsRow | null;
+    // The funnel's first step: leads still unconverted, created in the period.
+    // A lead that checked out became an order and is counted there instead.
+    const leadConditions = [LEAD_ROW, ...conditions.slice(1)];
+
+    // The comparison period (`dashboard-compare.ts`): last week's same
+    // weekday for a day, last month's same dates for a month, else the equal
+    // period just before. A period running to today is compared only up to
+    // the same moment of its own day. Only for a dated request.
+    const requestedCompare = url.searchParams.get('compare');
+    const compareMode = isCompareMode(requestedCompare)
+      ? requestedCompare
+      : defaultCompareMode(url.searchParams.get('preset') || '');
+    let previousRange: { start: string; end: string; cutoff: string | null } | null = null;
+    if (startParam && endParam) {
+      const range = compareRange(startParam, endParam, compareMode);
+      previousRange = { ...range, cutoff: compareCutoff(startParam, endParam, range.start, range.end) };
+    }
+
+    const groupBy = interval === 'hour' ? "STRFTIME('%Y-%m-%d %H:00:00', created_at, '+7 hours')" : "DATE(created_at, '+7 hours')";
+    const trendSql = `
+      SELECT
+        ${groupBy} as date,
+        COALESCE(SUM(CASE WHEN ${RELEASED_ORDER} THEN 0 ELSE total_amount END), 0) as revenue,
+        COUNT(*) as orders
+      FROM orders
+      ${dateFilter}
+      GROUP BY ${groupBy}
+      ORDER BY date ASC
+    `;
+
+    // Six independent reads, sent together (ADR-030's budget): they used to
+    // run one after another, six round trips before the dashboard's cards.
+    const db = database as D1Database;
+    const cutoff = previousRange?.cutoff ?? null;
+    const previousParams = previousRange
+      ? (cutoff ? [previousRange.start, previousRange.end, cutoff] : [previousRange.start, previousRange.end])
+      : [];
+    const [row, leadRow, trendsResult, before, beforeLeads, previousTrendRows] = await Promise.all([
+      db.prepare(summarySql).bind(...params).first() as Promise<AnalyticsRow | null>,
+      db.prepare(`SELECT COUNT(*) AS leads FROM orders WHERE ${leadConditions.join(' AND ')}`)
+        .bind(...params)
+        .first<{ leads: number | string | null }>(),
+      db.prepare(trendSql).bind(...params).all<TrendRow>(),
+      previousRange
+        ? db.prepare(cutoff ? summarySql.replace(dateFilter, `${dateFilter} AND created_at < ?`) : summarySql)
+          .bind(...previousParams)
+          .first() as Promise<AnalyticsRow | null>
+        : Promise.resolve(null),
+      previousRange
+        ? db.prepare(`SELECT COUNT(*) AS leads FROM orders WHERE ${leadConditions.join(' AND ')}${cutoff ? ' AND created_at < ?' : ''}`)
+          .bind(...previousParams)
+          .first<{ leads: number | string | null }>()
+        : Promise.resolve(null),
+      // The comparison's own buckets, whole (not cut at the moment), lined up
+      // with the current ones by position: hour h against hour h, day i
+      // against day i. The chart draws it as a dashed overlay.
+      previousRange
+        ? db.prepare(trendSql).bind(previousRange.start, previousRange.end).all<TrendRow>()
+        : Promise.resolve(null),
+    ]);
 
     const totalOrders = Number(row?.total_orders ?? 0);
     const totalRevenue = Number(row?.total_revenue ?? 0);
@@ -147,41 +206,10 @@ export const GET: APIRoute = async ({ locals, url }) => {
     // order never dispatched cannot be returned, so counting it in the base
     // reported 0% RTS on any store that had not shipped yet.
     const rtsBase = deliveredOrders + returnedOrders;
-
-    // The funnel's first step: leads still unconverted, created in the period.
-    // A lead that checked out became an order and is counted there instead.
-    const leadConditions = [LEAD_ROW, ...conditions.slice(1)];
-    const leadRow = await (database as D1Database)
-      .prepare(`SELECT COUNT(*) AS leads FROM orders WHERE ${leadConditions.join(' AND ')}`)
-      .bind(...params)
-      .first<{ leads: number | string | null }>();
     const leads = Number(leadRow?.leads ?? 0);
 
-    // The comparison period (`dashboard-compare.ts`): last week's same
-    // weekday for a day, last month's same dates for a month, else the equal
-    // period just before. A period running to today is compared only up to
-    // the same moment of its own day. Only for a dated request.
-    const requestedCompare = url.searchParams.get('compare');
-    const compareMode = isCompareMode(requestedCompare)
-      ? requestedCompare
-      : defaultCompareMode(url.searchParams.get('preset') || '');
     let previous: Record<string, unknown> | null = null;
-    let previousRange: { start: string; end: string; cutoff: string | null } | null = null;
-    if (startParam && endParam) {
-      const range = compareRange(startParam, endParam, compareMode);
-      const cutoff = compareCutoff(startParam, endParam, range.start, range.end);
-      previousRange = { ...range, cutoff };
-      const previousSql = cutoff
-        ? summarySql.replace(dateFilter, `${dateFilter} AND created_at < ?`)
-        : summarySql;
-      const before = await (database as D1Database)
-        .prepare(previousSql)
-        .bind(...(cutoff ? [range.start, range.end, cutoff] : [range.start, range.end]))
-        .first() as AnalyticsRow | null;
-      const beforeLeads = await (database as D1Database)
-        .prepare(`SELECT COUNT(*) AS leads FROM orders WHERE ${leadConditions.join(' AND ')}${cutoff ? ' AND created_at < ?' : ''}`)
-        .bind(...(cutoff ? [range.start, range.end, cutoff] : [range.start, range.end]))
-        .first<{ leads: number | string | null }>();
+    if (previousRange) {
       const beforeOnline = Number(before?.online_orders ?? 0);
       const beforeDelivered = Number(before?.delivered_orders ?? 0);
       const beforeReturned = Number(before?.returned_orders ?? 0);
@@ -191,8 +219,8 @@ export const GET: APIRoute = async ({ locals, url }) => {
       const beforeLeadCount = Number(beforeLeads?.leads ?? 0);
       previous = {
         mode: compareMode,
-        start_date: range.start,
-        end_date: range.end,
+        start_date: previousRange.start,
+        end_date: previousRange.end,
         partial: Boolean(cutoff),
         total_revenue: beforeRevenue,
         live_orders: beforeLive,
@@ -203,35 +231,10 @@ export const GET: APIRoute = async ({ locals, url }) => {
         online_orders: beforeOnline,
         rts_rate: pct(beforeReturned, beforeDelivered + beforeReturned),
         rts_base: beforeDelivered + beforeReturned,
+        trends: buildTrends(previousTrendRows?.results ?? [], previousRange.start, previousRange.end, interval),
       };
     }
-
-    const groupBy = interval === 'hour' ? "STRFTIME('%Y-%m-%d %H:00:00', created_at, '+7 hours')" : "DATE(created_at, '+7 hours')";
-    const trendSql = `
-      SELECT
-        ${groupBy} as date,
-        COALESCE(SUM(CASE WHEN ${RELEASED_ORDER} THEN 0 ELSE total_amount END), 0) as revenue,
-        COUNT(*) as orders
-      FROM orders
-      ${dateFilter}
-      GROUP BY ${groupBy}
-      ORDER BY date ASC
-    `;
-    const trendsResult = await (database as D1Database).prepare(trendSql).bind(...params).all<TrendRow>();
     const trends = buildTrends(trendsResult.results ?? [], startParam, endParam, interval);
-
-    // The comparison's own buckets, whole (not cut at the moment), lined up
-    // with the current ones by position: hour h against hour h, day i
-    // against day i. The chart draws it as a dashed overlay.
-    let previousTrends: Array<{ date: string; revenue: number; orders: number }> = [];
-    if (previousRange) {
-      const rows = await (database as D1Database)
-        .prepare(trendSql)
-        .bind(previousRange.start, previousRange.end)
-        .all<TrendRow>();
-      previousTrends = buildTrends(rows.results ?? [], previousRange.start, previousRange.end, interval);
-    }
-    if (previous) previous.trends = previousTrends;
 
     return jsonOk({
       data: {

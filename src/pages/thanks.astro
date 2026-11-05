@@ -319,7 +319,7 @@ const productCatalog = products.map((item) => ({
           <div class="flex justify-between gap-3 px-3 py-2.5 text-[13px]">
             <span class="text-[#555555]">Nominal order</span><strong id="payment-amount" class="text-right font-semibold text-[#111111]">-</strong>
           </div>
-          <div class="flex justify-between gap-3 px-3 py-2.5 text-[13px]">
+          <div id="payment-admin-fee-row" class="flex justify-between gap-3 px-3 py-2.5 text-[13px]">
             <span class="text-[#555555]">Biaya admin</span><strong id="payment-admin-fee" class="text-right font-semibold text-[#111111]">-</strong>
           </div>
           <div class="flex justify-between gap-3 px-3 py-2.5 text-[13px]">
@@ -545,6 +545,11 @@ const productCatalog = products.map((item) => ({
     const paymentChannel = pick('payment_channel', '');
     const paymentAmount = pickNum('payment_amount', 0);
     const paymentAdminFee = pickNum('payment_admin_fee', 0);
+    // A QRIS/VA fee the seller bears is between the store and AutoLaris
+    // (Paduka, 2026-11-02): the buyer is not shown it. Same rule as /payment
+    // and paymentFeeIsSellers(): a bill that did not grow is the seller's.
+    const sellerBearsPaymentFee = pick('payment_fee_bearer', 'buyer') === 'seller'
+      || (paymentAdminFee > 0 && Math.round(pickNum('total_payment', 0)) === Math.round(pickNum('payment_amount', 0)));
     const paymentVirtualAccount = pick('payment_virtual_account', '');
     const paymentQrPayload = pick('payment_qr_payload', '');
     const paymentCode = pick('payment_code', '');
@@ -699,6 +704,7 @@ const productCatalog = products.map((item) => ({
       document.getElementById('payment-channel').textContent = channelName;
       document.getElementById('payment-amount').textContent = fmt(paymentAmount || totalPayment);
       document.getElementById('payment-admin-fee').textContent = fmt(paymentAdminFee);
+      document.getElementById('payment-admin-fee-row').hidden = sellerBearsPaymentFee || !paymentAdminFee;
       document.getElementById('payment-billed-total').textContent = fmt(totalPayment);
       document.getElementById('note-list').innerHTML = `
         <div class="grid grid-cols-[18px_1fr] gap-2.5"><span class="mt-[11px] size-1.5 rounded-full bg-[#121212]"></span><p>Pembayaran sebesar <span class="font-bold text-[#111111]">${fmt(totalPayment || productTotal || productPrice || 0)}</span> sudah diterima.</p></div>
@@ -737,6 +743,7 @@ const productCatalog = products.map((item) => ({
       document.getElementById('payment-channel').textContent = channelName;
       document.getElementById('payment-amount').textContent = fmt(paymentAmount || totalPayment);
       document.getElementById('payment-admin-fee').textContent = fmt(paymentAdminFee);
+      document.getElementById('payment-admin-fee-row').hidden = sellerBearsPaymentFee || !paymentAdminFee;
       document.getElementById('payment-billed-total').textContent = fmt(totalPayment);
       setPaymentDetail('payment-va-row', 'payment-va', paymentVirtualAccount);
       setPaymentDetail('payment-code-row', 'payment-code', paymentCode);

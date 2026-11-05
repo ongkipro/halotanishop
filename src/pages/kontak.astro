@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import LegalPage from '../components/storefront/shared/LegalPage.astro';
 import { getTenantLegalPage } from '../data/legal';
 import { getStorePublicContact } from '../lib/public-store';
+import { withStoreName } from '../lib/tenant';
 
 const contact = await getStorePublicContact(Astro.locals);
 const data = getTenantLegalPage('contact', Astro.locals.tenant.name, {
@@ -13,7 +14,7 @@ const data = getTenantLegalPage('contact', Astro.locals.tenant.name, {
 });
 ---
 
-<BaseLayout title={`${data.title} - ${Astro.locals.tenant.name}`} description={data.description}>
+<BaseLayout title={withStoreName(data.title, Astro.locals.tenant.name)} description={data.description}>
   <LegalPage
     badge={data.badge}
     title={data.title}

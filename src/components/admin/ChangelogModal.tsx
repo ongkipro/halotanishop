@@ -40,6 +40,22 @@ const CHANGELOG_RELEASES: ChangelogRelease[] = [
         title: "Kolom terisi tetap abu-abu, bingkai fokus gelap",
         description: "Dengan tombol oranye, kolom yang sudah terisi kembali berlatar abu-abu netral (bukan peach), dan kolom yang sedang diketik berbingkai gelap dengan cincin aksen, supaya tidak tertukar dengan bingkai merah saat error.",
       },
+      {
+        title: "Docs: panduan admin, API, dan CLI",
+        description: "Buku panduan teks dari tombol Docs di kartu AdsBookCMS bawah sidebar (owner dan admin). Bagian Panduan admin menjelaskan pesanan, pengiriman, pembayaran dan biaya admin, katalog dan landing page, iklan dan analitik, serta pengaturan. Bagian Integrasi menjelaskan API key, Headless API, Operations API, CLI adsbook, dan kode error; daftar endpoint dan scope-nya dibaca langsung dari sistem.",
+      },
+      {
+        title: "Tagihan QRIS/VA sama dengan total di checkout",
+        description: "Bila biaya admin ditanggung pembeli, nominal QR atau VA kini memang ditambah biaya admin (VA BCA Rp6.500, VA lain Rp3.000, QRIS sekitar 0,7%), sama dengan total yang dilihat pembeli saat checkout, dan toko tetap menerima total pesanan utuh. Bila ditanggung toko, pembeli tidak melihat biaya admin dan biaya itu mengurangi nominal yang diterima toko.",
+      },
+      {
+        title: "Nominal diterima toko di detail pesanan",
+        description: "Detail pesanan QRIS/VA menampilkan nominal yang diterima toko. Bila biaya admin dibayar pembeli, biaya itu dan total yang ditagih ke pembeli ikut ditampilkan.",
+      },
+      {
+        title: "Toko baru: biaya admin ditanggung pembeli",
+        description: "Instalasi baru memakai pengaturan biaya admin QRIS/VA dan COD ditanggung pembeli. Pengaturannya bisa diubah di menu Pembayaran.",
+      },
     ],
   },
   {

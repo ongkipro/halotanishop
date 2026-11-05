@@ -56,7 +56,7 @@ export function buildLlmsTxt(store: LlmsTxtStore, products: readonly Product[]):
     "## Cara memesan",
     "",
     "- Pesan langsung dari halaman produk: pilih varian, isi nama, nomor WhatsApp dan alamat lengkap.",
-    "- Metode pembayaran dan ongkos kirim yang tersedia ditampilkan di form pesanan sesuai alamat tujuan.",
+    "- Metode pembayaran dan ongkos kirim ditampilkan di form pesanan bila form menampilkannya; bila tidak, toko mengonfirmasinya sebelum pesanan diproses.",
     "- Setiap pesanan dicek toko sebelum dikirim; toko dapat menghubungi pembeli lewat WhatsApp untuk konfirmasi.",
     "",
     "## Produk",

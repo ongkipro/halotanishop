@@ -106,7 +106,7 @@ export const legalPages = {
         title: 'Area dan Biaya Pengiriman',
         paragraphs: [
           'Jangkauan pengiriman, pilihan kurir, dan layanan bergantung pada alamat tujuan dan berat pesanan.',
-          'Ongkos kirim dihitung otomatis di formulir pemesanan dan ditampilkan sebelum pesanan dikirim.',
+          'Bila formulir pemesanan menampilkan pilihan kurir, ongkos kirim dihitung otomatis dan ditampilkan sebelum pesanan dikirim. Bila tidak, ongkos kirim dan biaya lain dikonfirmasi oleh tim kami sebelum pesanan diproses.',
         ],
       },
       {
@@ -119,7 +119,7 @@ export const legalPages = {
       {
         title: 'Bayar di Tempat (COD)',
         paragraphs: [
-          'Bila tersedia, bayar di tempat hanya berlaku untuk tujuan, kurir, dan produk yang memenuhi syarat saat pesanan dibuat. Ketersediaannya ditampilkan di formulir pemesanan.',
+          'Bila tersedia, bayar di tempat hanya berlaku untuk tujuan, kurir, dan produk yang memenuhi syarat saat pesanan dibuat. Ketersediaannya ditampilkan di formulir pemesanan atau dikonfirmasi oleh tim kami.',
         ],
       },
       {

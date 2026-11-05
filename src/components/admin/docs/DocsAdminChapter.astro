@@ -1,0 +1,322 @@
+---
+// The operator chapters of the Docs book ("Panduan admin"). Labels are the
+// admin's own words, quoted as the code writes them; when a screen's label
+// changes, change it here too. Text only (see chapters.ts).
+import type { DocsChapterSlug } from './chapters';
+import { ADMIN_DATE_FILTER_OPTIONS } from '../../../lib/admin-date-filter';
+
+interface Props {
+  slug: DocsChapterSlug;
+}
+const { slug } = Astro.props;
+const th = 'border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-600';
+const td = 'border-b border-slate-100 px-3 py-2.5 align-top';
+const dateFilters = ADMIN_DATE_FILTER_OPTIONS.map((option) => option.label).join(', ');
+---
+
+{slug === 'mulai' && (
+  <>
+    <p class="lead">AdsBookCMS adalah toko dan admin dalam satu: storefront, form checkout, pesanan, pengiriman lewat Mengantar, pembayaran lewat AutoLaris, dan tracking iklan. Buku ini menjelaskan setiap menu admin dengan nama yang tertulis di layar.</p>
+
+    <h3>Peran pengguna</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Peran</th><th class={th}>Bisa membuka</th></tr></thead>
+        <tbody>
+          <tr><td class={td}>Owner</td><td class={td}>Semua menu. Hanya owner yang mengelola Akses pengguna dan API key Operations.</td></tr>
+          <tr><td class={td}>Admin</td><td class={td}>Semua menu kecuali Akses pengguna.</td></tr>
+          <tr><td class={td}>Customer service (CS)</td><td class={td}>Dashboard, Pesanan (termasuk Pesanan tertinggal), Pengiriman, Cek WA &amp; Ongkir, dan Profil.</td></tr>
+          <tr><td class={td}>Advertiser</td><td class={td}>Dashboard (tanpa panel tindakan), Analitik, Katalog, Landing page, Konten, Iklan &amp; tracking, dan Profil.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Docs ini hanya terlihat oleh owner dan admin.</p>
+
+    <h3>Dashboard</h3>
+    <ul>
+      <li>Enam angka utama: Revenue (nilai pesanan aktif; uang COD baru dihitung setelah paket diterima), Orders, AOV, Lead conversion, Online payment rate (tanpa COD), dan RTS rate (retur ÷ terkirim dan retur).</li>
+      <li>Rentang tanggal maksimal 31 hari, dengan pembanding "vs same day last week", "vs same dates last month", atau "vs previous period".</li>
+      <li>Panel <strong>Action needed</strong> memperbarui diri tiap menit dan hanya menampilkan pekerjaan yang ada: Menunggu konfirmasi, Siap push ke Mengantar, Push Mengantar bermasalah, Menunggu pembayaran online, Lead belum dihubungi, Perlu dibuatkan resi, Perlu jadwal pickup, Perlu drop-off. Lencana merah "&gt;24j" berarti sudah menunggu lebih dari sehari. Angkanya selalu sama dengan daftar yang dibukanya.</li>
+      <li>Owner dan admin melihat banner "Siapkan toko" selama masih ada langkah wajib yang belum selesai; tautannya ke <a href="/admin/status">Status operasional</a>.</li>
+    </ul>
+
+    <h3>Perjalanan satu pesanan</h3>
+    <ol>
+      <li>Pembeli mengisi form checkout. Pesanan masuk sebagai <strong>Menunggu konfirmasi</strong>. Checkout tidak pernah mengirim ke kurir.</li>
+      <li>Untuk QRIS, VA, atau transfer manual, pesanan menunggu lunas. COD bisa langsung diproses.</li>
+      <li>Operator memeriksa pesanan (alamat, kurir, riwayat RTS pembeli), lalu <strong>Push ke Mengantar</strong> dengan pilihan drop-off atau pickup.</li>
+      <li>Mengantar menerbitkan resi. Status bergerak: Diproses Mengantar → Dikirim → Selesai, atau RTS bila paket kembali.</li>
+    </ol>
+    <p>Tiga aturan yang selalu berlaku: lunas hanya membuat pesanan boleh dikirim, tidak mengirimnya; stok tidak pernah menahan penjualan; dan satu pesanan hanya bisa dirilis sekali.</p>
+  </>
+)}
+
+{slug === 'pesanan' && (
+  <>
+    <p class="lead">Menu <strong>Pesanan</strong> adalah tempat kerja harian: memeriksa pesanan masuk, merilisnya ke Mengantar, dan menindaklanjuti pembeli. Submenu <strong>Pesanan tertinggal</strong> berisi checkout yang tidak selesai.</p>
+
+    <h3>Status</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Pengiriman</th><th class={th}>Artinya</th></tr></thead>
+        <tbody>
+          <tr><td class={td}>Menunggu konfirmasi</td><td class={td}>Pesanan baru, belum dikirim ke Mengantar.</td></tr>
+          <tr><td class={td}>Diproses Mengantar</td><td class={td}>Sudah di Mengantar, menunggu resi atau penjemputan.</td></tr>
+          <tr><td class={td}>Dikirim</td><td class={td}>Paket dalam perjalanan.</td></tr>
+          <tr><td class={td}>Selesai</td><td class={td}>Paket diterima pembeli.</td></tr>
+          <tr><td class={td}>RTS</td><td class={td}>Paket kembali ke pengirim.</td></tr>
+          <tr><td class={td}>Batal</td><td class={td}>Pesanan dibatalkan.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Status pembayaran: Belum dibayar, Menunggu pembayaran, Lunas, Kedaluwarsa, Gagal, dan Dikembalikan. Metode: COD, Transfer bank manual, Virtual Account, atau QRIS.</p>
+
+    <h3>Mencari dan menyaring</h3>
+    <p>Chip cepat (Semua, Menunggu, Diproses, Dikirim, Selesai, Batal) dan filter: "Cari order" (invoice, nama, WA, atau resi), Periode order, Status pengiriman, Status pembayaran, Sumber lead (Meta Ads, Google Ads, Organic / Direct), dan Halaman sumber. "Export CSV" mengunduh hasil filter yang sedang tampil (satu baris per produk, maksimal 10.000 baris; nominal hanya di baris pertama tiap pesanan).</p>
+
+    <h3>Merilis pesanan ke kurir</h3>
+    <ol>
+      <li>Pilih "Push ke Mengantar" dari menu aksi pesanan, dari detail pesanan, atau pilih beberapa pesanan sekaligus (1–50 per kali push).</li>
+      <li>Di dialog "Cara serah paket", pilih <strong>Drop-off</strong> (antar sendiri ke counter kurir) atau <strong>Pickup</strong> (kurir menjemput ke gudang; isi tanggal, jam, dan kendaraan).</li>
+      <li>Hasilnya: Terkirim, Sudah terkirim, Draft (saldo wallet Mengantar kurang), atau Belum pasti (cek di Mengantar).</li>
+    </ol>
+    <p>Pesanan baru bisa di-push bila: belum ada di Mengantar, statusnya Menunggu konfirmasi, COD atau sudah lunas, kecamatan tujuan dan kurir terisi, dan gudang punya alamat pickup. Bila belum memenuhi, menu aksi menampilkan alasannya.</p>
+    <p>Bila hasil push "Belum pasti", cek di dashboard Mengantar dulu: "Tautkan paket Mengantar" bila paketnya ada, atau "Sudah dicek, izinkan push ulang" (owner dan admin) bila tidak ada.</p>
+
+    <h3>Detail pesanan</h3>
+    <ul>
+      <li>"Edit pembeli &amp; alamat" mengubah data pembeli dan alamat; terkunci setelah pesanan ada di Mengantar.</li>
+      <li>Kurir dan ongkir hanya bisa diganti untuk pesanan COD yang masih menunggu. Pesanan pembayaran online menampilkan "Biaya Ongkir Terkunci" karena pembeli sudah membayar sesuai ongkir itu.</li>
+      <li>"Transfer Diterima" (khusus transfer manual) menandai lunas dan mengirim Purchase ke Meta; pesanan tetap harus di-push.</li>
+      <li>"Ganti pembayaran COD" memindahkan pesanan COD ke transfer manual atau QRIS/VA, satu arah, selama masih menunggu dan belum dibayar.</li>
+      <li>Untuk QRIS/VA, ringkasan menampilkan nominal "Diterima toko"; bila biaya admin dibayar pembeli, biaya itu dan total yang ditagih ikut tampil.</li>
+      <li>"Riwayat penerima (RTS)" menunjukkan riwayat paket nomor WA ini di Mengantar. "Follow-up WhatsApp" punya langkah Welcome, Detail, FU 1–5, Process, Finish, dan Upsell; langkah tercatat saat Anda mengonfirmasinya, bukan saat WhatsApp terbuka.</li>
+    </ul>
+
+    <h3>Mengubah status dan menghapus</h3>
+    <ul>
+      <li>Pilih beberapa pesanan lalu "Ubah status ke…" atau "Hapus N Order" (1–100 sekaligus).</li>
+      <li>Pesanan yang menunggu hanya bisa dibatalkan sebelum di-push. Tidak ada status yang kembali ke Menunggu. Batal dan RTS tidak bisa dibuka lagi.</li>
+      <li>Dikirim, Selesai, dan RTS butuh pengiriman Mengantar dengan resi. Pesanan non-COD baru bisa Selesai bila sudah lunas. QRIS/VA hanya bisa ditandai lunas lewat rekonsiliasi AutoLaris.</li>
+      <li>Pesanan yang sudah lunas atau sudah di Mengantar tidak bisa dihapus; batalkan atau refund. Hapus bersifat permanen.</li>
+    </ul>
+
+    <h3>Pesanan tertinggal</h3>
+    <p>Checkout yang ditinggalkan pembeli, dengan "Status follow-up": Belum dihubungi, Sudah dihubungi, Berminat, Tidak berminat. "Buka WhatsApp" membuka chat; "Tandai sudah dihubungi" hanya mencatat status. "Jadikan order" membuat pesanan COD yang menunggu, tetap tunduk pada larangan COD per provinsi, dan tetap harus di-push.</p>
+  </>
+)}
+
+{slug === 'pengiriman' && (
+  <>
+    <p class="lead">Menu <strong>Pengiriman</strong> berisi pesanan yang sudah ada di Mengantar. <strong>Ekspedisi</strong> mengatur kurir yang tampil di checkout, dan <strong>Cek WA &amp; Ongkir</strong> membantu CS menjawab pembeli.</p>
+
+    <h3>Antrean pengiriman</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Antrean</th><th class={th}>Isinya</th></tr></thead>
+        <tbody>
+          <tr><td class={td}>Perlu Dibuatkan Resi</td><td class={td}>Sudah di Mengantar, resi belum terbit.</td></tr>
+          <tr><td class={td}>Perlu Pickup</td><td class={td}>Sudah punya resi, belum dijadwalkan pickup, bukan drop-off.</td></tr>
+          <tr><td class={td}>Perlu Drop-off</td><td class={td}>Sudah punya resi dan dipilih antar sendiri ke counter.</td></tr>
+          <tr><td class={td}>Sampai Tujuan</td><td class={td}>Paket sudah diterima.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>"Sinkronkan status" mengambil status terbaru dari Mengantar (1–50 pesanan sekali sinkron).</li>
+      <li>"Jadwalkan pickup" memilih gudang pickup dan catatan kurir. Pickup hanya untuk paket yang sudah punya resi, pukul 09.00–18.00 WIB, minimal 90 menit dari sekarang.</li>
+      <li>Resi tidak bisa diketik manual; resi selalu datang dari Mengantar.</li>
+    </ul>
+
+    <h3>Ekspedisi</h3>
+    <ul>
+      <li>Setiap kurir punya sakelar "Aktif" dan "COD". COD hanya bisa nyala bila kurirnya aktif. Kurir yang nonaktif tidak tampil di checkout. Perubahan langsung berlaku.</li>
+      <li>"Kebijakan Wilayah Khusus Non-COD" adalah daftar provinsi milik toko yang tidak boleh COD, terpisah dari batasan provinsi tiap kurir (tampil sebagai "−N prov" dan tidak bisa diubah dari sini). Tombol bantu: Pilih Semua Jawa, Pilih Semua Luar Jawa, Reset Pilihan, lalu "Simpan kebijakan".</li>
+    </ul>
+
+    <h3>Cek WA &amp; Ongkir</h3>
+    <ul>
+      <li><strong>Cek WA</strong>: "Periksa riwayat" menampilkan jumlah paket Terkirim, RTS, dan Sedang berjalan untuk nomor WA itu per kurir, dengan tingkat Risiko RTS rendah, sedang, atau tinggi.</li>
+      <li><strong>Cek ongkir</strong>: pilih kecamatan asal (bawaan: gudang utama), tujuan, dan berat, lalu "Cek tarif kurir". Saring "Bisa COD", urutkan menurut harga atau estimasi, dan salin daftar tarif untuk dikirim lewat WhatsApp. Tarif dibaca langsung dari Mengantar, termasuk kurir yang dinonaktifkan di Ekspedisi.</li>
+    </ul>
+  </>
+)}
+
+{slug === 'iklan-analitik' && (
+  <>
+    <p class="lead"><strong>Iklan &amp; tracking</strong> menghubungkan toko ke Meta dan Google. <strong>Analitik</strong> membaca hasilnya dari pesanan yang sebenarnya, bukan dari dashboard iklan.</p>
+
+    <h3>Meta Pixel &amp; Conversions API</h3>
+    <ul>
+      <li>Isi "Meta Pixel ID" (5–25 digit). Saat disimpan, ID dicek ke Meta: ID Business Manager, Page, atau Ad Account ditolak.</li>
+      <li>"CAPI Access Token" tidak pernah ditampilkan kembali; statusnya hanya "Tersimpan" atau "Belum diisi". Mengosongkan kolom saat menyimpan berarti token lama tetap dipakai.</li>
+      <li>"Meta Test Event Code" (format <code>TEST</code> diikuti angka) dan "Kirim test event" dipakai untuk menguji di Events Manager.</li>
+      <li>Kartu Meta berstatus "Aktif" bila Pixel ID dan token sama-sama terisi.</li>
+    </ul>
+
+    <h3>Kapan Purchase dikirim</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Pembayaran</th><th class={th}>Purchase dikirim saat</th></tr></thead>
+        <tbody>
+          <tr><td class={td}>COD</td><td class={td}>Pesanan tersimpan, dari halaman terima kasih.</td></tr>
+          <tr><td class={td}>QRIS / VA</td><td class={td}>Rekonsiliasi AutoLaris menyatakan lunas, dari server, walau pembeli tidak kembali ke toko.</td></tr>
+          <tr><td class={td}>Transfer manual</td><td class={td}>Operator menekan "Transfer Diterima".</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Browser dan server memakai <code>event_id</code> yang sama, yaitu nomor pesanan (<code>INV-…</code>), sehingga Meta tidak menghitungnya dua kali. Pesanan yang gagal, batal, di-refund, atau RTS tidak dikirim sebagai Purchase.</p>
+    <p>Event server dicatat dulu di antrean, lalu dikirim. Yang gagal dicoba ulang otomatis sampai 5 kali (15 menit bila Meta membatasi, selebihnya jeda makin panjang sampai 1 jam). Token yang mati langsung gagal; perbaiki tokennya di halaman Meta.</p>
+
+    <h3>Google Ads &amp; Merchant Center</h3>
+    <ul>
+      <li>"Google Tag Manager Container ID" (opsional), atau "Google Ads Conversion ID" (<code>AW-…</code>) bersama "Purchase Conversion Label"; keduanya wajib diisi berpasangan.</li>
+      <li>Feed Merchant Center: <code>/feed/google-catalog.xml</code>. Feed Meta: <code>/feed/meta-catalog.xml</code>. Harga di feed mengikuti varian termurah.</li>
+    </ul>
+
+    <h3>Link UTM</h3>
+    <p>Di "Link UTM", pilih halaman tujuan, sumber (Facebook, Instagram, Google, TikTok, WhatsApp), nama kampanye, dan konten iklan, lalu "Salin link". Pasang link itu di iklan; hasilnya terbaca per kampanye di Analitik › UTM.</p>
+
+    <h3>Analitik</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Laporan</th><th class={th}>Isinya</th></tr></thead>
+        <tbody>
+          <tr><td class={td}>Ringkasan</td><td class={td}>Tren pesanan, lead, dan omset dibanding periode sebelumnya.</td></tr>
+          <tr><td class={td}>Landing page</td><td class={td}>Halaman sumber pesanan, menurut omset terkirim.</td></tr>
+          <tr><td class={td}>Produk</td><td class={td}>Unit, omset, varian, dan RTS per unit (merah bila di atas 20%).</td></tr>
+          <tr><td class={td}>Lokasi</td><td class={td}>Provinsi, kota, kecamatan, termasuk retur.</td></tr>
+          <tr><td class={td}>Waktu beli</td><td class={td}>Jam × hari, waktu WIB.</td></tr>
+          <tr><td class={td}>UTM</td><td class={td}>Per kampanye lalu per konten iklan; "(tanpa UTM)" untuk pesanan tanpa tag.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Pilihan periode di sistem: {dateFilters}, ditambah rentang tanggal sendiri. Di Analitik, rentang sendiri maksimal 90 hari dan dibandingkan dengan periode sama panjang tepat sebelumnya. Di Dashboard maksimal 31 hari dengan tiga pilihan pembanding.</p>
+  </>
+)}
+
+{slug === 'pengaturan' && (
+  <>
+    <p class="lead">Menu <strong>Pengaturan</strong> berisi identitas toko dan semua hal yang jarang diubah. Halaman utamanya juga menampilkan status integrasi Mengantar dan AutoLaris.</p>
+
+    <h3>Integrasi</h3>
+    <ul>
+      <li>API key Mengantar dan AutoLaris diisi di <a href="/admin/profile">Profil</a>, bagian "Mengantar &amp; AutoLaris", dan hanya owner yang bisa menyimpannya. Mengosongkan kolom berarti key lama tetap dipakai. Key tidak pernah ditampilkan utuh.</li>
+      <li>Di Pengaturan, "Tes koneksi" Mengantar mengecek ongkir dari gudang (butuh key dan gudang). "Periksa konfigurasi" AutoLaris hanya memeriksa pengaturan, bukan membuktikan dana masuk.</li>
+    </ul>
+
+    <h3>Toko &amp; customer service</h3>
+    <p>Nama store, email dan alamat usaha, alamat storefront (wajib https), tagline, deskripsi, logo, tampilan storefront, warna tema, locale, dan nama panel admin. Pilihan "Arahkan pembeli COD ke WhatsApp setelah order" membawa pembeli COD langsung ke chat CS. "Domain untuk embed checkout" mengizinkan form checkout dipasang di situs lain.</p>
+
+    <h3>Nomor WhatsApp CS</h3>
+    <p>Sampai 10 nomor, minimal satu aktif. Pesanan COD dibagi rata ke nomor yang aktif, dan satu invoice selalu ke nomor yang sama. Tanpa nomor aktif, tombol WhatsApp di halaman terima kasih disembunyikan.</p>
+
+    <h3>Gudang &amp; pickup</h3>
+    <p>Setiap gudang punya nama, PIC dan nomornya, kecamatan origin Mengantar, alamat, Pickup Address ID, dan provinsi yang dilayani. Ongkir dihitung dari gudang yang melayani tujuan. Gudang yang sudah dipakai pesanan tidak bisa dihapus, hanya dinonaktifkan.</p>
+
+    <h3>Template CRM</h3>
+    <p>Sebelas pesan WhatsApp: Welcome, Order Detail, Follow-up 1–5, Processing, Completed, UpSelling, dan Redirect (halaman terima kasih). Klik variabel untuk menyisipkannya ke pesan, lalu "Simpan semua template". Template ini dipakai tombol Follow-up WhatsApp di detail pesanan.</p>
+
+    <h3>Akses pengguna (owner)</h3>
+    <ul>
+      <li>Peran: Owner, Admin Ops, Operator Ads (advertiser), dan Operator CS. Daftar menu tiap peran ada di bab <a href="/admin/docs/mulai">Mulai di sini</a>.</li>
+      <li>Pengguna baru dan "Reset password sementara" wajib mengganti password saat login pertama. Akun owner tidak bisa diubah atau dihapus dari halaman ini.</li>
+    </ul>
+
+    <h3>Plugin</h3>
+    <p>Fitur opsional seperti Kelola CRM. Owner memasang dengan "Pasang &amp; aktifkan"; menonaktifkan tidak menghapus data, "Hapus data" yang menghapusnya. Kelola butuh URL dan secret webhook; "Kirim order lama" mengirim pesanan yang lewat jendela 24 jam.</p>
+
+    <h3>Profil &amp; keamanan</h3>
+    <p>Ganti username atau password (minimal 8 karakter, tidak sama dengan username). Menyimpan perubahan mengakhiri semua sesi login; masuk lagi dengan data baru. Sesi login berlaku 24 jam.</p>
+
+    <h3>Status operasional</h3>
+    <p>Daftar langkah setup (wajib: produk, Mengantar, gudang, kurir; opsional: pembayaran non-COD dan domain sendiri) dan sinyal kesehatan: antrean CAPI, Mengantar, skor RTS, AutoLaris, antrean Google offline, dan cron. Tekan "Periksa ulang" setelah memperbaiki sesuatu.</p>
+
+    <h3>Pemakaian pertama</h3>
+    <p>Toko baru dipasang sekali di <code>/install</code> dengan token instalasi, lalu login di <code>/hello</code>. Akun yang masih wajib ganti password hanya bisa membuka halaman Profil sampai password diganti.</p>
+  </>
+)}
+
+{slug === 'pembayaran' && (
+  <>
+    <p class="lead">Pembeli bisa membayar dengan COD, QRIS atau Virtual Account lewat AutoLaris, atau transfer manual ke rekening toko. Semua diatur di menu <strong>Pembayaran</strong>; pemeriksaan pembayaran online ada di <strong>Pembayaran › Rekonsiliasi</strong>. Kedua halaman hanya untuk owner dan admin.</p>
+
+    <h3>Mengaktifkan metode pembayaran</h3>
+    <ul>
+      <li><strong>COD</strong>: aktif atau nonaktif lewat sakelar di kartu "Status metode pembayaran".</li>
+      <li><strong>AutoLaris (QRIS dan Virtual Account)</strong>: sakelar baru bisa dinyalakan setelah API key AutoLaris disimpan di <a href="/admin/profile">Profil &amp; Integrasi</a>. Kartu "Channel AutoLaris" menampilkan status tiap channel; channel yang "Tidak aktif di provider" dikunci dari sisi AutoLaris.</li>
+      <li><strong>Transfer manual</strong>: tombol "Kelola rekening" membuka daftar rekening. Rekening yang aktif langsung muncul di checkout sesuai urutannya. Nama pemilik harus sama dengan nama di rekening bank.</li>
+    </ul>
+
+    <h3>Biaya admin: ditanggung pembeli atau toko</h3>
+    <p>Di kartu "Kebijakan biaya transaksi" ada dua pilihan, untuk <em>Pembayaran online</em> (QRIS/VA) dan untuk <em>COD</em>. Perubahan baru berlaku setelah menekan "Simpan kebijakan". Toko baru memakai <strong>Pembeli</strong> untuk keduanya.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Pilihan</th><th class={th}>Yang dilihat pembeli</th><th class={th}>Yang diterima toko</th></tr></thead>
+        <tbody>
+          <tr><td class={td}>Pembeli</td><td class={td}>Total pesanan ditambah biaya admin, sama di checkout, halaman pembayaran, QR/VA, dan halaman terima kasih.</td><td class={td}>Total pesanan utuh.</td></tr>
+          <tr><td class={td}>Seller (toko)</td><td class={td}>Total pesanan saja. Biaya admin tidak ditampilkan; checkout menulis "Tanpa biaya admin".</td><td class={td}>Total pesanan dikurangi biaya admin.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Biaya admin AutoLaris: QRIS 0,7%, VA BCA Rp6.500, VA lain Rp3.000. Saat ditanggung pembeli, QRIS dihitung sedikit di atas 0,7% karena AutoLaris memotong 0,7% dari tagihan, bukan dari total pesanan: pesanan Rp63.000 ditagih Rp63.445, AutoLaris memotong Rp445, toko menerima Rp63.000. Transfer manual tidak dikenai biaya.</p>
+    <p>Biaya COD adalah 3% dari harga produk ditambah ongkir, ditambah PPN 11% dari biaya itu (tampil sebagai 3,33%). Ini tarif toko sendiri dan tidak ikut berubah bila tarif Mengantar berubah.</p>
+    <p>Provinsi yang tidak boleh memakai COD diatur di <a href="/admin/expeditions">Ekspedisi</a>, kartu "Kebijakan Wilayah Khusus Non-COD". Pembeli dari provinsi itu otomatis diarahkan ke form lengkap tanpa pilihan COD.</p>
+
+    <h3>Kapan pembayaran online menjadi lunas</h3>
+    <ul>
+      <li>Setiap jam sistem menanyakan status ke AutoLaris untuk pembayaran yang masih menunggu, termasuk yang kedaluwarsa dalam 24 jam terakhir. Status menjadi lunas hanya bila AutoLaris menjawab lunas dengan jelas.</li>
+      <li>Instruksi yang lewat batas waktu menjadi kedaluwarsa. Pembeli bisa menekan "Buat Ulang Instruksi Pembayaran" di halaman pembayarannya.</li>
+      <li>Lunas hanya membuat pesanan <em>boleh</em> dikirim. Pesanan tidak pernah dikirim ke kurir otomatis; operator tetap merilisnya dari menu Pesanan.</li>
+    </ul>
+
+    <h3>Rekonsiliasi QRIS/VA</h3>
+    <p><a href="/admin/balance">Pembayaran › Rekonsiliasi</a> berisi pembayaran AutoLaris yang menunggu ("Menunggu") dan yang baru diverifikasi ("Verifikasi terbaru").</p>
+    <ul>
+      <li>"Cek AutoLaris" menanyakan status ke provider tanpa mengubah data toko.</li>
+      <li>"Verifikasi" dipakai bila Anda sudah melihat sendiri dana masuk di dashboard AutoLaris: ketik ulang nominal tagihan dan referensi provider, isi catatan audit, centang "Sudah diverifikasi di dashboard AutoLaris", lalu "Konfirmasi lunas di CMS".</li>
+      <li>Verifikasi hanya mengubah status di AdsBookCMS. Ia tidak memindahkan atau mencairkan dana di AutoLaris.</li>
+    </ul>
+
+    <h3>Transfer manual</h3>
+    <p>Pesanan transfer manual dikonfirmasi dari detail pesanan, tombol "Transfer Diterima". Pastikan nominalnya sudah masuk ke rekening toko; pesanan ditandai lunas dan event Purchase dikirim ke Meta dari server. Setelah itu pesanan bisa dirilis ke kurir.</p>
+  </>
+)}
+
+{slug === 'katalog' && (
+  <>
+    <p class="lead">Menu <strong>Katalog</strong> berisi produk dan variannya, serta landing page. Harga, berat, dan identitas produk di sini adalah sumber kebenaran: checkout, feed Google dan Meta, dan ongkir membacanya dari database, bukan dari browser pembeli.</p>
+
+    <h3>Produk</h3>
+    <ul>
+      <li>"Tambah produk" membuka form. Isi "Nama produk", "Slug" (huruf kecil, angka, dan tanda hubung), "Kategori Google" (dicari dari taksonomi Google dan terisi otomatis dari nama produk), "Label kategori di toko", "Merek" (kosong berarti nama toko), dan "Deskripsi produk".</li>
+      <li>"Foto produk": JPG, PNG, WebP, AVIF atau GIF sampai 2 MB, disimpan sebagai WebP. Disarankan persegi minimal 800×800. Setiap foto juga dibuatkan versi kecil 480 px untuk kartu produk.</li>
+      <li>Produk baru langsung aktif. Status diubah dari daftar produk: "Jadikan draft" atau "Aktifkan produk". Produk hanya bisa aktif bila punya nama, slug, foto, dan minimal satu varian yang valid.</li>
+      <li>Produk yang sudah punya pesanan sebaiknya dijadikan draft, bukan dihapus.</li>
+    </ul>
+
+    <h3>Varian dan harga</h3>
+    <ul>
+      <li>Setiap varian punya "Nama varian" (maksimal 15 karakter), "SKU", "Harga jual" (minimal Rp1), "Harga coret" (opsional, harus lebih tinggi dari harga jual; form menampilkan "Hemat X%"), dan "Berat kirim" dalam gram (1–50.000) yang dipakai untuk menghitung ongkir.</li>
+      <li>"Product / Content ID" di ringkasan adalah ID yang dipakai Meta dan Google untuk produk ini.</li>
+      <li><strong>Stok tidak pernah menahan penjualan.</strong> Stok tidak dicek saat checkout dan tidak berkurang saat ada pesanan.</li>
+    </ul>
+
+    <h3>Dari daftar produk</h3>
+    <p>Setiap produk punya aksi "Edit produk", "Lihat di storefront", "Embed checkout form" (Hybrid, Full, atau Middle), "Salin Content ID", dan "Hapus produk".</p>
+
+    <h3>Landing page</h3>
+    <ul>
+      <li>Landing page CMS disimpan di database, diedit dari admin, dan tayang begitu disimpan dengan "Status Terbit" aktif. Landing page native (file Astro di repository) butuh deploy; CMS bisa menautkan dan menjadikannya halaman produk, tetapi tidak bisa mengedit atau menghapusnya.</li>
+      <li>Setiap landing page tampil di <code>domain/&lt;slug&gt;</code>. Slug yang sudah dipakai halaman sistem ditolak.</li>
+      <li>Wajib diisi: "Judul Landing Page", "URL Slug", dan "Produk Katalog". "Meta Title" dan "Meta Description" opsional untuk SEO dan share.</li>
+      <li>Di kanvas, "Tambah section ke canvas" menambah Headline, Paragraf, Daftar angka, Bullet, Gambar, HTML, atau Form COD. Teks bisa memakai <code>{'{{product_name}}'}</code>, <code>{'{{product_price}}'}</code>, <code>{'{{compare_price}}'}</code>, <code>{'{{discount_percent}}'}</code>, dan <code>{'{{cs_whatsapp}}'}</code>. Section HTML hanya bisa diubah owner dan admin.</li>
+      <li>Form COD punya tiga mode: Hybrid (bawaan, menyesuaikan wilayah pembeli), Middle (form ringkas nama dan HP), dan Full (alamat dan ongkir lengkap).</li>
+      <li>"Preview" membuka halaman dengan <code>?preview=1</code>, termasuk halaman yang belum terbit, untuk admin yang sedang login.</li>
+      <li>"Jadikan Landing Page Produk Utama" membuat landing page tampil di <code>/produk/&lt;slug-produk&gt;</code>, dan alamat aslinya dialihkan ke sana. Satu produk hanya bisa punya satu landing page utama.</li>
+    </ul>
+
+    <h3>Konten toko</h3>
+    <p>Teks dan media halaman depan serta tiap produk dikelola di "Konten &amp; media", dibuka dari Pengaturan › Toko lewat "Buka pengaturan konten". Draft bisa dibuat dengan AI, tetapi baru tayang setelah "Publish Draft". AI hanya mengubah teks dan referensi media; harga, SKU, dan varian tetap dari database.</p>
+  </>
+)}

@@ -13,7 +13,7 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { StoreMark } from "./StoreMark";
-import { ChevronRight } from "lucide-react";
+import { BookOpen, ChevronRight, Sparkles } from "lucide-react";
 import {
   ADMIN_ACCENT,
   getVisibleNavGroups,
@@ -34,6 +34,7 @@ export function AppSidebar({
   adminRole,
   restricted = false,
   onOpenChangelog,
+  docsHref,
 }: {
   activeMenu: string;
   currentPath: string;
@@ -44,7 +45,10 @@ export function AppSidebar({
   adminRole: AdminRole;
   restricted?: boolean;
   onOpenChangelog?: () => void;
+  /** Set only for a role that may open /admin/docs. */
+  docsHref?: string;
 }) {
+  const docsActive = Boolean(docsHref) && (currentPath === docsHref || currentPath.startsWith(`${docsHref}/`));
   const rawName = siteName || adminName;
   const storeName = rawName
     .replace(/\s+preview\s+ops$/i, "")
@@ -74,7 +78,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 pb-20 group-data-[collapsible=icon]:pb-14">
+      <SidebarContent className="px-2 pb-28 group-data-[collapsible=icon]:pb-28">
         {restricted && (
           <SidebarGroup className="py-1">
             <SidebarGroupLabel className="mb-0.5 h-6 px-2 text-xs font-medium uppercase tracking-wider text-slate-400">
@@ -181,14 +185,29 @@ export function AppSidebar({
         ))}
       </SidebarContent>
 
-      {/* The product card: who made this admin and what changed. Keluar moved
-          to the account menu in the top bar. Collapsed (icon rail) it is the
-          product icon alone. It floats over the menu's last rows as frosted
-          glass (Paduka, 2026-11-01); the menu's bottom padding keeps its last
-          item reachable above it. */}
+      {/* The product card: what this admin is, its docs and what changed.
+          Keluar lives in the account menu in the top bar. It floats over the
+          menu's last rows as frosted glass (Paduka, 2026-11-01); the menu's
+          bottom padding keeps its last item reachable above it. Collapsed
+          (icon rail) it is two icons: Docs and the version. */}
       <SidebarFooter className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-2 *:pointer-events-auto">
-        {onOpenChangelog && (
-          <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
+        <SidebarMenu className="hidden gap-1 group-data-[collapsible=icon]:flex">
+          {docsHref && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={docsActive}
+                tooltip="Docs · API & CLI"
+                className="h-10 bg-white/55 ring-1 ring-slate-900/5 backdrop-blur-md hover:bg-white/75"
+              >
+                <a href={docsHref} aria-current={docsActive ? "page" : undefined}>
+                  <BookOpen aria-hidden="true" />
+                  <span>Docs</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
+          {onOpenChangelog && (
             <SidebarMenuItem>
               <SidebarMenuButton
                 type="button"
@@ -200,36 +219,41 @@ export function AppSidebar({
                 <span>v{CMS_VERSION.version}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          </SidebarMenu>
-        )}
-        {onOpenChangelog ? (
-          <button
-            type="button"
-            onClick={onOpenChangelog}
-            title="Lihat yang baru di AdsBookCMS"
-            className="group flex w-full items-center gap-2.5 rounded-xl border border-white/70 bg-white/55 px-2.5 py-2 text-left shadow-[0_8px_24px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 backdrop-blur-md backdrop-saturate-150 transition-[background-color,box-shadow] hover:bg-white/75 hover:shadow-[0_10px_28px_-12px_rgba(15,23,42,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 group-data-[collapsible=icon]:hidden"
-          >
-            <img src="/images/adsbook-icon.svg" alt="" width="28" height="28" className="shrink-0" />
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-semibold leading-4 text-slate-900">AdsBookCMS</span>
-              <span className="mt-0.5 flex items-center gap-0.5 text-xs leading-4 text-slate-500 group-hover:text-slate-700">
-                What's new
-                <ChevronRight className="size-3" aria-hidden="true" />
-              </span>
-            </span>
-            <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 font-mono text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/15">
-              v{CMS_VERSION.version}
-            </span>
-          </button>
-        ) : (
-          <div className="flex items-center gap-2.5 rounded-xl border border-white/70 bg-white/55 px-2.5 py-2 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 backdrop-blur-md backdrop-saturate-150 group-data-[collapsible=icon]:hidden">
-            <img src="/images/adsbook-icon.svg" alt="" width="28" height="28" className="shrink-0" />
-            <span className="min-w-0 flex-1 text-[13px] font-semibold text-slate-900">AdsBookCMS</span>
+          )}
+        </SidebarMenu>
+        <div className="rounded-xl border border-white/70 bg-white/55 p-1.5 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.35)] ring-1 ring-slate-900/5 backdrop-blur-md backdrop-saturate-150 group-data-[collapsible=icon]:hidden">
+          <div className="flex items-center gap-2.5 px-1 pb-1.5 pt-0.5">
+            <img src="/images/adsbook-icon.svg" alt="" width="24" height="24" className="shrink-0" />
+            <span className="min-w-0 flex-1 text-[13px] font-semibold leading-4 text-slate-900">AdsBookCMS</span>
             <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 font-mono text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/15">
               v{CMS_VERSION.version}
             </span>
           </div>
-        )}
+          {(docsHref || onOpenChangelog) && (
+            <div className={docsHref && onOpenChangelog ? "grid grid-cols-2 gap-1" : "grid grid-cols-1 gap-1"}>
+              {docsHref && (
+                <a
+                  href={docsHref}
+                  aria-current={docsActive ? "page" : undefined}
+                  className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 ${docsActive ? "bg-slate-900 text-white" : "bg-white/70 text-slate-700 ring-1 ring-slate-900/5 hover:bg-white hover:text-slate-950"}`}
+                >
+                  <BookOpen className="size-3.5" aria-hidden="true" />
+                  Docs
+                </a>
+              )}
+              {onOpenChangelog && (
+                <button
+                  type="button"
+                  onClick={onOpenChangelog}
+                  className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white/70 text-xs font-medium text-slate-700 ring-1 ring-slate-900/5 transition-colors hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                >
+                  <Sparkles className="size-3.5" aria-hidden="true" />
+                  What's new
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

@@ -143,6 +143,7 @@ type PaymentTransactionRow = {
   provider_transaction_id: string | null;
   reference_id: string;
   channel_code: string;
+  fee_bearer: string | null;
   status: string;
   amount: number;
   admin_fee: number;
@@ -273,7 +274,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     `).bind(order.id).all();
 
     const payment = await db.prepare(`
-      SELECT provider_transaction_id, reference_id, channel_code, status,
+      SELECT provider_transaction_id, reference_id, channel_code, fee_bearer, status,
         amount, admin_fee, total_amount, expires_at, paid_at, failed_reason
       FROM payment_transactions
       WHERE order_id = ?
@@ -378,6 +379,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
         payment: payment ? {
           reference_id: payment.reference_id,
           channel_code: payment.channel_code,
+          fee_bearer: payment.fee_bearer,
           status: effectivePaymentStatus(payment.status, payment.expires_at),
           amount: payment.amount,
           admin_fee: payment.admin_fee,

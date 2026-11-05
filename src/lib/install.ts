@@ -215,6 +215,9 @@ export async function runInstall(
     const [storeResult, credentialResult] = await database.batch([
       database
         .prepare(
+          // payment_fee_bearer is left to the column's 'buyer' default (0020):
+          // a new store bills QRIS/VA fees to the buyer (Paduka, 2026-11-02,
+          // reversing A-447 once the bill was fixed to include the fee).
           `INSERT INTO stores (name, slug, site_url, tagline, locale, storefront_template, admin_name, support_whatsapp, created_at)
            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
            WHERE NOT EXISTS (SELECT 1 FROM stores)`,

@@ -2,7 +2,7 @@ import { formatIdr } from "@/lib/format-idr";
 import { isVoidOrder } from "@/lib/order-lifecycle";
 import { acceptedShipmentId, isDispatchOutcomeUnknown } from "@/lib/payment-dispatch-policy";
 import { useConfirm } from "./useConfirm";
-import { calculateCodCustomerTotal, calculateCodFeeBreakdown } from "@/lib/payment-fee-policy";
+import { calculateCodCustomerTotal, calculateCodFeeBreakdown, paymentFeeIsSellers } from "@/lib/payment-fee-policy";
 import { TrafficSourceBadge } from "./TrafficSourceBadge";
 import { type SyntheticEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildWaUrl, defaultCrmTemplates, renderCrmMessage } from "../../lib/crm-template";
@@ -82,6 +82,7 @@ type PaymentDetails = {
   provider_transaction_id: string | null;
   reference_id: string;
   channel_code: string;
+  fee_bearer: string | null;
   status: string;
   amount: number;
   admin_fee: number;
@@ -1794,6 +1795,36 @@ export function OrderDetail({
                   {currency(order.total_amount || 0)}
                 </span>
               </div>
+
+              {/* The QRIS/VA admin fee (Paduka, 2026-11-02). Seller-borne: not
+                  shown as a fee, it only lowers what the store receives.
+                  Buyer-borne: shown, and the store receives the whole order. */}
+              {order.payment_method !== "cod" && order.payment && Number(order.payment.admin_fee) > 0 && (() => {
+                const payment = order.payment;
+                const sellers = paymentFeeIsSellers(payment);
+                return (
+                  <div className="space-y-2 rounded-lg bg-slate-50 p-3">
+                    {!sellers && (
+                      <>
+                        <div className="flex justify-between items-center gap-3">
+                          <span className="text-slate-500 font-medium">Biaya admin {payment.channel_code} (pembeli)</span>
+                          <span className="font-semibold text-slate-900">{currency(payment.admin_fee)}</span>
+                        </div>
+                        <div className="flex justify-between items-center gap-3">
+                          <span className="text-slate-500 font-medium">Ditagih ke pembeli</span>
+                          <span className="font-semibold text-slate-900">{currency(payment.total_amount)}</span>
+                        </div>
+                      </>
+                    )}
+                    <div className={`flex justify-between items-center gap-3 ${sellers ? "" : "border-t border-slate-200 pt-2"}`}>
+                      <span className="font-semibold text-slate-900">Diterima toko</span>
+                      <span className="font-semibold text-slate-900">
+                        {currency(sellers ? Math.max(0, payment.total_amount - payment.admin_fee) : payment.amount)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 

@@ -1,0 +1,293 @@
+---
+// The text of every Docs chapter. Endpoint, scope, limit and CLI tables are
+// read from the modules that enforce them, so the book cannot drift from the
+// API: a new operation without a sentence here fails `npm run check`.
+import DocsCode from './DocsCode.astro';
+import type { DocsChapterSlug } from './chapters';
+import { HEADLESS_OPERATIONS, type HeadlessOperation } from '../../../lib/headless-api';
+import { OPS_OPERATIONS, type OpsOperation } from '../../../lib/ops-api';
+import {
+  DEFAULT_API_KEY_DAILY_QUOTA,
+  DEFAULT_API_KEY_RATE_LIMIT,
+  MAX_API_KEY_DAILY_QUOTA,
+  MAX_API_KEY_RATE_LIMIT,
+  type ApiKeyScope,
+} from '../../../lib/developer-api-keys';
+import { OPS_ORDERS_PAGE_MAX } from '../../../lib/ops-order';
+import { ADMIN_DATE_FILTER_OPTIONS, ADMIN_CUSTOM_DATE_FILTER } from '../../../lib/admin-date-filter';
+import { ADSBOOK_CLI_USAGE } from '../../../lib/adsbook-cli';
+import { SCOPE_OPTIONS } from '../HeadlessApiManagement';
+
+interface Props {
+  slug: DocsChapterSlug;
+  origin: string;
+}
+const { slug, origin } = Astro.props;
+const n = (value: number) => value.toLocaleString('id-ID');
+
+const HEADLESS_DESCRIPTIONS: Record<HeadlessOperation, string> = {
+  storefrontRead: 'Konfigurasi toko: nama, branding, dan pengaturan yang dibutuhkan storefront.',
+  catalogList: 'Daftar produk aktif beserta varian dan harga.',
+  catalogDetail: 'Detail satu produk berdasarkan slug.',
+  districtSearch: 'Cari kecamatan atau kota tujuan dengan ?q=.',
+  shippingQuote: 'Opsi kurir dan ongkir ke kecamatan tujuan.',
+  checkoutCreate: 'Membuat pesanan COD atau non-COD. Pesanan masuk sebagai pending.',
+  orderStatusRead: 'Status publik satu pesanan, dengan order_number dan status_token dari checkout.',
+  trackingCreate: 'Mengirim event iklan (mis. Purchase) ke Meta CAPI lewat antrean server.',
+  openApiRead: 'Kontrak OpenAPI 3.1 lengkap untuk semua endpoint di atas.',
+};
+const OPS_DESCRIPTIONS: Record<OpsOperation, string> = {
+  ordersList: 'Daftar order dan lead: browse terbaru, atau sinkronisasi sejak waktu tertentu.',
+  orderDetail: 'Detail satu order berdasarkan nomornya, termasuk item dan instruksi bayar terakhir.',
+  openApiRead: 'Kontrak OpenAPI 3.1 Operations API.',
+};
+const SCOPE_DESCRIPTIONS: Record<ApiKeyScope, string> = {
+  'storefront:read': 'Membaca konfigurasi toko dan kontrak OpenAPI headless.',
+  'catalog:read': 'Membaca katalog produk.',
+  'shipping:read': 'Mencari kecamatan dan menghitung ongkir.',
+  'checkout:write': 'Membuat pesanan.',
+  'orders:read': 'Membaca status satu pesanan dengan token publiknya.',
+  'tracking:write': 'Mengirim event iklan ke Meta CAPI.',
+  'ops:orders:read': 'Membaca semua order toko, tanpa data pribadi pembeli.',
+  'ops:orders:read_pii': 'Menambahkan nama, telepon, email, alamat, kode pos, click id iklan, dan nomor VA ke respons order.',
+  'ops:orders:write': 'Aksi order.',
+  'ops:shipping:write': 'Aksi pengiriman dan pickup.',
+  'ops:reports:read': 'Laporan.',
+  'ops:catalog:read': 'Membaca katalog dan landing page lewat Operations API.',
+};
+const usedScopes = new Set<string>([
+  ...Object.values(HEADLESS_OPERATIONS).map((op) => op.scope),
+  ...Object.values(OPS_OPERATIONS).map((op) => op.scope),
+  'ops:orders:read_pii', // additive: widens the order routes rather than owning one
+]);
+const scopes = SCOPE_OPTIONS.map((scope) => ({ ...scope, description: SCOPE_DESCRIPTIONS[scope.value], live: usedScopes.has(scope.value) }));
+const headlessRows = (Object.keys(HEADLESS_OPERATIONS) as HeadlessOperation[]).map((key) => ({ ...HEADLESS_OPERATIONS[key], description: HEADLESS_DESCRIPTIONS[key] }));
+const opsRows = (Object.keys(OPS_OPERATIONS) as OpsOperation[]).map((key) => ({ ...OPS_OPERATIONS[key], description: OPS_DESCRIPTIONS[key] }));
+const dateFilters = [...ADMIN_DATE_FILTER_OPTIONS.map((option) => option.value), ADMIN_CUSTOM_DATE_FILTER].join(', ');
+
+const ERRORS = [
+  ['400', 'FILTER_INVALID · LIMIT_INVALID · CURSOR_INVALID · BAD_REQUEST', 'Parameter tidak valid.', 'Perbaiki parameter; jangan diulang apa adanya.'],
+  ['401', 'API_KEY_REQUIRED · API_KEY_INVALID', 'Key tidak dikirim, salah, atau sudah dicabut.', 'Periksa header, atau buat key baru.'],
+  ['403', 'API_SCOPE_FORBIDDEN', 'Key tidak punya scope untuk operasi ini.', 'Tambahkan scope di Pengaturan › Headless API.'],
+  ['403', 'ORIGIN_FORBIDDEN', 'Domain browser pemanggil tidak ada di allowlist (Headless API).', 'Tambahkan domain ke allowlist.'],
+  ['404', 'ORDER_NOT_FOUND', 'Tidak ada order dengan nomor itu.', 'Periksa nomor order.'],
+  ['422', 'DATE_RANGE_INVALID', 'Rentang tanggal custom tidak valid.', 'Perbaiki date_start dan date_end.'],
+  ['429', 'API_RATE_LIMITED · API_QUOTA_EXHAUSTED', 'Batas per menit atau kuota harian habis.', 'Tunggu sampai X-RateLimit-Reset, atau hari berikutnya (UTC) untuk kuota harian.'],
+  ['503', 'API_KEY_STORE_UNAVAILABLE · API_KEY_POLICY_UNAVAILABLE', 'Penyimpanan key atau kebijakan pemakaian tidak tersedia.', 'Ulangi beberapa saat lagi dengan jeda.'],
+  ['500', 'INTERNAL', 'Kesalahan di server toko.', 'Ulangi dengan jeda; bila berulang, laporkan.'],
+];
+
+const th = 'border-b border-slate-200 px-3 py-2 text-left text-xs font-semibold text-slate-600';
+const td = 'border-b border-slate-100 px-3 py-2.5 align-top';
+const method = (value: string) => value === 'GET' ? 'bg-blue-50 text-blue-700 ring-blue-600/20' : 'bg-emerald-50 text-emerald-700 ring-emerald-600/20';
+---
+
+{slug === 'integrasi' && (
+  <>
+    <p class="lead">AdsBookCMS bisa dihubungkan ke sistem lain lewat tiga pintu. Ketiganya memakai API key yang sama, dibuat di <a href="/admin/settings/developer">Pengaturan › Headless API</a>; yang membedakan adalah scope pada key dan dari mana pintu itu dipanggil.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Pintu</th><th class={th}>Untuk</th><th class={th}>Dipanggil dari</th><th class={th}>Alamat</th></tr></thead>
+        <tbody>
+          <tr><td class={td}><a href="/admin/docs/headless-api">Headless API</a></td><td class={td}>Storefront atau form order di domain lain</td><td class={td}>Browser (domain di allowlist) atau server</td><td class={td}><code>/api/v1</code></td></tr>
+          <tr><td class={td}><a href="/admin/docs/ops-api">Operations API</a></td><td class={td}>Membaca order untuk laporan, spreadsheet, sinkronisasi, atau agen</td><td class={td}>Server atau terminal, tidak pernah browser</td><td class={td}><code>/api/ops/v1</code></td></tr>
+          <tr><td class={td}><a href="/admin/docs/cli">CLI adsbook</a></td><td class={td}>Melihat order dengan cepat dari terminal</td><td class={td}>Terminal dengan Node 22+</td><td class={td}>Memakai Operations API</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Yang tetap dipegang toko</h3>
+    <ul>
+      <li>Harga, stok, berat, dan identitas produk selalu dibaca dari database toko. Nilai yang dikirim pemanggil tidak pernah menjadi dasar harga.</li>
+      <li>Checkout tidak pernah langsung mengirim ke kurir. Pesanan masuk sebagai <code>pending</code> dan dirilis operator dari menu Pesanan.</li>
+      <li>Operations API versi 1 hanya membaca. Mengubah status, membuat resi, atau pickup tetap dilakukan dari admin.</li>
+    </ul>
+    <h3>Kontrak lengkap untuk mesin</h3>
+    <p>Setiap pintu menyajikan dokumen OpenAPI 3.1 yang dibuat dari kode yang sama dengan endpoint-nya. Gunakan dokumen itu untuk generator client, Postman, atau agen; buku ini menjelaskan aturannya.</p>
+    <DocsCode code={`curl -H "Authorization: Bearer $ADSBOOK_KEY" ${origin}/api/v1/openapi.json\ncurl -H "Authorization: Bearer $ADSBOOK_KEY" ${origin}/api/ops/v1/openapi.json`} />
+  </>
+)}
+
+{slug === 'api-key' && (
+  <>
+    <p class="lead">Satu key bisa membawa scope Headless dan Operations sekaligus, tetapi sebaiknya satu key untuk satu sistem, dengan scope sesedikit mungkin. Key yang bocor cukup dicabut tanpa mengganggu sistem lain.</p>
+    <h3>Membuat key</h3>
+    <ol>
+      <li>Buka <a href="/admin/settings/developer">Pengaturan › Headless API</a>, bagian API key.</li>
+      <li>Beri nama yang menjelaskan pemakainya, misalnya <em>Sheet laporan harian</em>.</li>
+      <li>Centang hanya scope yang dibutuhkan. Tidak ada scope <code>ops:</code> yang tercentang otomatis.</li>
+      <li>Simpan. Secret lengkap hanya ditampilkan sekali; salin ke tempat penyimpanan rahasia sistem pemakainya.</li>
+    </ol>
+    <p>Owner dan admin dapat mengelola key Headless. Key yang membawa scope <code>ops:</code> hanya dapat dibuat, diubah, atau dicabut oleh owner, karena key itu membaca seluruh buku order.</p>
+    <h3>Scope</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Scope</th><th class={th}>Label di admin</th><th class={th}>Memberi akses</th></tr></thead>
+        <tbody>
+          {scopes.map((scope) => (
+            <tr>
+              <td class={td}><code class="whitespace-nowrap">{scope.value}</code>{!scope.live && <span class="ml-1.5 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">belum aktif</span>}</td>
+              <td class={td}>{scope.label}</td>
+              <td class={td}>{scope.description}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p>Scope storefront tidak pernah membuka route Operations, dan scope <code>ops:</code> tidak pernah membuka route storefront. Scope bertanda <em>belum aktif</em> sudah dicadangkan, tetapi belum ada endpoint yang memakainya.</p>
+    <h3>Batas pemakaian</h3>
+    <p>Setiap key punya batas per menit (bawaan {n(DEFAULT_API_KEY_RATE_LIMIT)}, maksimal {n(MAX_API_KEY_RATE_LIMIT)}) dan kuota harian (bawaan {n(DEFAULT_API_KEY_DAILY_QUOTA)}, maksimal {n(MAX_API_KEY_DAILY_QUOTA)}). Keduanya diatur per key dan dihitung di database toko, sehingga berlaku sama di semua lokasi edge.</p>
+    <h3>Audit dan pencabutan</h3>
+    <p>Setiap panggilan dengan key yang dikenali, diizinkan maupun ditolak, dicatat beserta operasinya dan kode statusnya; daftarnya tampil di halaman yang sama. Key yang dicabut langsung ditolak dengan <code>401</code> pada panggilan berikutnya.</p>
+    <div class="note"><strong>Jangan taruh key Operations di kode browser.</strong> Halaman web dapat dibaca siapa pun yang membukanya, dan key itu membaca semua order toko.</div>
+  </>
+)}
+
+{slug === 'headless-api' && (
+  <>
+    <p class="lead">Headless API melayani storefront yang dibangun di luar AdsBookCMS: situs Next.js, Astro, atau form order di domain lain. Katalog, ongkir, dan penyimpanan pesanan tetap dikerjakan toko ini.</p>
+    <h3>Memanggil</h3>
+    <ul>
+      <li>Alamat: <code>{origin}/api/v1</code></li>
+      <li>Key dikirim lewat <code>Authorization: Bearer &lt;key&gt;</code> atau <code>X-App-Key: &lt;key&gt;</code>.</li>
+      <li>Dari browser, domain halaman pemanggil harus ada di <a href="/admin/settings/developer">Domain Allowlist Headless API</a>. Panggilan dari server tanpa header <code>Origin</code> cukup membawa key.</li>
+    </ul>
+    <h3>Endpoint</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Endpoint</th><th class={th}>Scope</th><th class={th}>Fungsi</th></tr></thead>
+        <tbody>
+          {headlessRows.map((row) => (
+            <tr>
+              <td class={td}><span class:list={['mr-1.5 rounded px-1.5 py-0.5 font-mono text-xs font-semibold ring-1 ring-inset', method(row.method)]}>{row.method}</span><code class="whitespace-nowrap">{row.path}</code></td>
+              <td class={td}><code class="whitespace-nowrap">{row.scope}</code></td>
+              <td class={td}>{row.description}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <h3>Alur pesanan dari storefront</h3>
+    <ol>
+      <li><code>GET /storefront</code> dan <code>GET /products</code> untuk menampilkan toko dan produk.</li>
+      <li><code>GET /geo/districts?q=</code> saat pembeli mengetik kecamatan, lalu <code>POST /geo/shipping-rates</code> untuk pilihan kurir.</li>
+      <li><code>POST /checkout</code> membuat pesanan dan mengembalikan <code>order_number</code> serta <code>public_status_token</code>. Untuk QRIS/VA, nominal yang dibayar pembeli adalah <code>payment.total_amount</code>: bila biaya admin ditanggung pembeli, biaya itu sudah termasuk; bila ditanggung toko, nominalnya sama dengan total pesanan dan biaya admin tidak perlu ditampilkan.</li>
+      <li><code>POST /orders/status</code> dengan body <code>order_number</code> dan <code>status_token</code> (berisi <code>public_status_token</code> tadi) untuk halaman terima kasih atau pembayaran.</li>
+      <li><code>POST /tracking/events</code> untuk mengirim Purchase ke Meta; <code>event_id</code>-nya adalah nomor order.</li>
+    </ol>
+    <h3>Contoh</h3>
+    <DocsCode code={`curl -H "Authorization: Bearer $ADSBOOK_KEY" ${origin}/api/v1/products`} />
+    <DocsCode label="javascript · browser" code={`const response = await fetch("${origin}/api/v1/geo/districts?q=cibinong", {\n  headers: { "X-App-Key": STOREFRONT_KEY },\n});\nconst body = await response.json();\nif (!body.success) throw new Error(body.error.code);`} />
+    <h3>Bentuk respons</h3>
+    <p>Berhasil: <code>{'{ "success": true, "timestamp": "…", … }'}</code>. Gagal: <code>{'{ "success": false, "error": { "message": "…", "code": "…" } }'}</code>. Pesan error berbahasa Indonesia dan boleh ditampilkan ke pembeli; logika program sebaiknya membaca <code>error.code</code>, bukan teks pesannya.</p>
+    <div class="note">Key storefront yang dipakai di browser akan terlihat oleh pengunjung. Beri key itu scope storefront saja, dan batasi domainnya lewat allowlist.</div>
+  </>
+)}
+
+{slug === 'ops-api' && (
+  <>
+    <p class="lead">Operations API adalah pintu server-ke-server untuk membaca order toko: laporan harian, sinkronisasi ke spreadsheet atau sistem gudang, dan agen AI. Versi 1 hanya membaca.</p>
+    <h3>Memanggil</h3>
+    <ul>
+      <li>Alamat: <code>{origin}/api/ops/v1</code></li>
+      <li>Key dengan scope <code>ops:orders:read</code>, dikirim lewat <code>Authorization: Bearer</code> atau <code>X-App-Key</code>.</li>
+      <li>Tanpa CORS: browser di domain lain tidak akan pernah bisa membaca responsnya. Panggil dari server atau terminal.</li>
+      <li>Setiap respons <code>Cache-Control: no-store</code>, karena berisi data pembeli.</li>
+    </ul>
+    <h3>Endpoint</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Endpoint</th><th class={th}>Scope</th><th class={th}>Fungsi</th></tr></thead>
+        <tbody>
+          {opsRows.map((row) => (
+            <tr>
+              <td class={td}><span class:list={['mr-1.5 rounded px-1.5 py-0.5 font-mono text-xs font-semibold ring-1 ring-inset', method(row.method)]}>{row.method}</span><code class="whitespace-nowrap">{row.path.replace('/api/ops/v1', '')}</code></td>
+              <td class={td}><code class="whitespace-nowrap">{row.scope}</code></td>
+              <td class={td}>{row.description}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <h3>Dua cara membaca daftar order</h3>
+    <p><strong>Browse</strong>, tanpa <code>updated_since</code>: order terbaru lebih dulu, menurut waktu dibuat. Cocok untuk melihat atau mencari.</p>
+    <p><strong>Sinkronisasi</strong>, dengan <code>updated_since=&lt;ISO-8601&gt;</code>: perubahan terlama lebih dulu, menurut <code>updated_at</code>. Simpan <code>updated_at</code> terakhir yang diterima, lalu minta lagi dari situ. Setiap perubahan order (status, pembayaran, resi, edit admin) memajukan <code>updated_at</code>, jadi tidak ada yang terlewat.</p>
+    <DocsCode code={`# Sinkronisasi: semua yang berubah sejak tengah malam UTC\ncurl -H "Authorization: Bearer $ADSBOOK_KEY" \\\n  "${origin}/api/ops/v1/orders?updated_since=2026-11-01T00:00:00Z&limit=${OPS_ORDERS_PAGE_MAX}"`} />
+    <p>Satu halaman berisi sampai {OPS_ORDERS_PAGE_MAX} order (bawaan 50). Bila <code>next_cursor</code> tidak <code>null</code>, kirim lagi permintaan yang sama dengan <code>cursor=&lt;next_cursor&gt;</code>. Cursor hanya berlaku untuk mode dan filter tempat ia diterbitkan.</p>
+    <h3>Filter</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Parameter</th><th class={th}>Isi</th></tr></thead>
+        <tbody>
+          <tr><td class={td}><code>kind</code></td><td class={td}><code>order</code>, <code>lead</code> (checkout yang ditinggalkan), atau <code>all</code></td></tr>
+          <tr><td class={td}><code>status</code></td><td class={td}>Status order, sama dengan filter di menu Pesanan</td></tr>
+          <tr><td class={td}><code>payment_method</code>, <code>payment_status</code></td><td class={td}>Metode dan status pembayaran</td></tr>
+          <tr><td class={td}><code>date_filter</code></td><td class={td}>{dateFilters}. Hari dihitung menurut WIB, sama dengan admin.</td></tr>
+          <tr><td class={td}><code>date_start</code>, <code>date_end</code></td><td class={td}><code>YYYY-MM-DD</code>, untuk <code>date_filter=custom</code></td></tr>
+          <tr><td class={td}><code>source_slug</code>, <code>utm_campaign</code></td><td class={td}>Landing page asal dan kampanye UTM</td></tr>
+          <tr><td class={td}><code>updated_since</code></td><td class={td}>Waktu ISO-8601; mengaktifkan mode sinkronisasi</td></tr>
+          <tr><td class={td}><code>limit</code>, <code>cursor</code></td><td class={td}>1–{OPS_ORDERS_PAGE_MAX}, dan <code>next_cursor</code> dari halaman sebelumnya</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Isi order</h3>
+    <ul>
+      <li>Nominal dalam rupiah bulat.</li>
+      <li><code>void: true</code> menandai order yang sudah dikeluarkan dari pembukuan.</li>
+      <li>Atribusi berisi <code>source_slug</code>, sumber trafik, dan lima tag UTM.</li>
+      <li>Tanpa <code>ops:orders:read_pii</code>, nama, telepon, email, alamat, kode pos, click id iklan, dan nomor VA tidak disertakan. Order tetap dikembalikan, hanya tanpa kolom itu.</li>
+      <li>Detail order menambahkan item (dengan berat saat order dibuat) dan instruksi pembayaran terakhir.</li>
+    </ul>
+    <DocsCode code={`curl -H "Authorization: Bearer $ADSBOOK_KEY" ${origin}/api/ops/v1/orders/INV-10023`} />
+  </>
+)}
+
+{slug === 'cli' && (
+  <>
+    <p class="lead"><code>adsbook</code> adalah client Operations API untuk terminal. Ia hanya membaca order, dengan key yang sama dan aturan yang sama dengan API-nya.</p>
+    <h3>Yang dibutuhkan</h3>
+    <ul>
+      <li>Node.js 22 atau lebih baru.</li>
+      <li>Salinan repository toko ini, sudah menjalankan <code>npm ci</code>. CLI berjalan dari dalam repository, bukan dari paket terpisah.</li>
+      <li>API key dengan scope <code>ops:orders:read</code> (tambah <code>ops:orders:read_pii</code> bila perlu data pembeli).</li>
+    </ul>
+    <h3>Login</h3>
+    <DocsCode code={`npm run -s adsbook -- login --url ${origin}`} />
+    <p>CLI menanyakan key tanpa menampilkannya di layar, lalu mengujinya ke toko sebelum menyimpan; key tanpa <code>ops:orders:read</code> ditolak, tidak disimpan. Key juga bisa dikirim lewat pipe. Opsi <code>--key</code> ada untuk skrip, tetapi meninggalkan key di riwayat shell.</p>
+    <p>Kredensial disimpan di <code>~/.config/adsbook/credentials.json</code> dengan izin 0600. <code>adsbook logout</code> menghapusnya. Key tidak pernah muncul di output maupun pesan error CLI.</p>
+    <h3>Perintah</h3>
+    <DocsCode code={`npm run -s adsbook -- orders list --status pending\nnpm run -s adsbook -- orders list --date-filter today --kind lead\nnpm run -s adsbook -- orders show INV-10023\nnpm run -s adsbook -- logout`} />
+    <p>Tanpa <code>--json</code>, output berupa tabel dengan waktu WIB. Dengan <code>--json</code>, CLI mencetak persis isi <code>data</code> dari API, sehingga bisa diteruskan ke <code>jq</code> atau skrip lain; cursor halaman berikutnya ditulis ke stderr agar tidak mengotori stdout.</p>
+    <DocsCode code={`npm run -s adsbook -- orders list --updated-since 2026-11-01T00:00:00Z --json \\\n  | jq -r '.[] | [.number, .status.shipping, .amounts.total] | @tsv'`} />
+    <p>Opsi <code>-s</code> pada <code>npm run</code> menyembunyikan banner npm supaya output JSON tetap bersih.</p>
+    <h3>Referensi lengkap</h3>
+    <p>Teks berikut sama dengan <code>adsbook help</code>.</p>
+    <DocsCode label="adsbook help" code={ADSBOOK_CLI_USAGE} />
+  </>
+)}
+
+{slug === 'error' && (
+  <>
+    <p class="lead">Kedua API mengembalikan error dalam bentuk yang sama. Bacalah <code>error.code</code> untuk memutuskan langkah program; <code>error.message</code> berbahasa Indonesia dan ditujukan untuk manusia.</p>
+    <DocsCode label="json" code={`{ "success": false, "error": { "message": "…", "code": "API_SCOPE_FORBIDDEN" } }`} />
+    <h3>Kode error</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th class={th}>Status</th><th class={th}>Kode</th><th class={th}>Arti</th><th class={th}>Tindakan</th></tr></thead>
+        <tbody>
+          {ERRORS.map(([status, code, meaning, action]) => (
+            <tr><td class={td}><code>{status}</code></td><td class={td}><code class="break-words">{code}</code></td><td class={td}>{meaning}</td><td class={td}>{action}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <p>Endpoint Headless tertentu punya kode tambahan sendiri, misalnya validasi checkout atau tracking. Daftar lengkapnya ada di kontrak OpenAPI masing-masing.</p>
+    <h3>Header batas pemakaian</h3>
+    <ul>
+      <li><code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>: jatah per menit dan sisanya.</li>
+      <li><code>X-RateLimit-Reset</code>: waktu ISO-8601 saat jatah menit berikutnya dimulai.</li>
+      <li><code>X-DailyQuota-Limit</code>, <code>X-DailyQuota-Remaining</code>: kuota harian, dihitung per tanggal UTC.</li>
+    </ul>
+    <h3>Mengulang dengan aman</h3>
+    <p>Ulangi hanya <code>429</code>, <code>503</code>, dan <code>500</code>, dengan jeda yang makin panjang. Semua endpoint Operations API hanya membaca, jadi aman diulang. Untuk <code>POST /api/v1/checkout</code>, periksa dulu apakah pesanan sudah tercatat sebelum mengirim ulang agar tidak membuat pesanan ganda.</p>
+  </>
+)}

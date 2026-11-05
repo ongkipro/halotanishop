@@ -1,4 +1,5 @@
 import { getAdTaxonomy } from "./ad-taxonomy.ts";
+import { cheapestVariant } from "./form-config.ts";
 
 export type CatalogProductVariant = {
   id: number | string;
@@ -184,7 +185,7 @@ function buildCatalogXml(
     // already show. `variants[0]` was whichever was entered first, so a product
     // whose large size came first was listed at a price its page never showed
     // — a price mismatch Merchant Center disapproves.
-    const variant = product.variants.reduce((low, candidate) => (candidate.price < low.price ? candidate : low));
+    const variant = cheapestVariant(product.variants)!;
     // One row that predates the five-digit scheme must not take the catalog
     // down. The strict identity rule still governs what gets published — an
     // unpublishable row is left out — but the feed is an aggregate, and

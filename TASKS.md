@@ -1,6 +1,6 @@
 # Tasks: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `b4db64e` (A46 added for PAY-2; other sections retain their recorded evidence)
+> Verified against disk: 2026-11-02 @ `3f5027c` (A46 done; other sections retain their recorded evidence)
 
 ## A21 — A landing page may become the product page
 
@@ -4410,7 +4410,7 @@ local table (`src/lib/payment-fee-policy.ts`), not from what the provider bills.
 bill the admin fee to the buyer. Yes: `buyer` stays a real option and A-449 is
 about honouring it. No (expected): `buyer` is not a real option for this account.
 
-- [ ] **A-447** — Make `seller` the default for new installs.
+- [x] **A-447** — Make `seller` the default for new installs.
   New forward migration (never edit `0020`): SQLite cannot alter a column
   default in place, so follow the repository's table-rebuild pattern only if a
   default is truly required; otherwise make the code treat a missing or unset
@@ -4421,7 +4421,18 @@ about honouring it. No (expected): `buyer` is not a real option for this account
   -> REQ: PAY-2 · deps: [] · Done when: a fresh local D1 (`npm run dev:local`,
   empty database) shows QRIS "Tanpa biaya admin" at checkout, a focused test
   proves the default, and `npm test` / `npm run check` stay green.
-- [ ] **A-448** — Set klikinaja and cekat to `seller`.
+  Done 2026-11-02: the install wizard (`src/lib/install.ts`) writes
+  `payment_fee_bearer='seller'`; no migration (a column default needs a table
+  rebuild, and the wizard is the only writer of a new store row).
+  `normalizePaymentFeeBearer` was left alone: it also normalises the COD
+  bearer, which stays `buyer`. Test in `install.test.ts` (fails with the fix
+  removed); `dev:local --reset` + `dev:seed`: every QRIS/VA channel
+  `fee_bearer: "seller"`, the checkout shows "QRIS Tanpa biaya admin";
+  `npm test` 1174, `npm run check` 0 errors.
+  **Reversed 2026-11-02 by Paduka** once the bill included the fee (A-449):
+  a new store is `buyer` again (the column default); the wizard no longer
+  writes the bearer, and `install.test.ts` now asserts `buyer`.
+- [x] **A-448** — Set klikinaja and cekat to `seller`.
   One row each, `UPDATE stores SET payment_fee_bearer='seller' WHERE id=(SELECT
   id FROM stores ORDER BY id LIMIT 1) AND payment_fee_bearer='buyer'`, via
   `npx wrangler d1 execute <db> --remote` from each install's directory
@@ -4430,7 +4441,11 @@ about honouring it. No (expected): `buyer` is not a real option for this account
   -> REQ: PAY-2 · deps: [] · Done when: a read of `stores.payment_fee_bearer`
   on all eleven installs returns `seller`, and `/api/payment-methods` on
   klikinaja.shop and cekat.shop reports `fee_bearer: "seller"` for QRIS.
-- [ ] **A-449** — Never promise a total the provider will not bill.
+  Done 2026-11-02 with Paduka's go-ahead: klikinaja-d1, cekat-shop-d1 and
+  also skincarebpom-d1 (the twelfth store, outside the update rollout, was
+  `buyer` too) — one row each, `changes = 1`, `cod_fee_bearer` untouched.
+  `/api/payment-methods` on all twelve stores reports `seller` for QRIS and VA.
+- [x] **A-449** — Never promise a total the provider will not bill.
   If the gate answered "no": hide or disable `buyer` in the admin payment
   settings with a one-line reason, and keep the server refusing it. If "yes":
   keep `buyer`, and after `/submit` compare `payment.total` with the checkout
@@ -4439,7 +4454,28 @@ about honouring it. No (expected): `buyer` is not a real option for this account
   order detail instead of the log alone.
   -> REQ: PAY-2 · deps: [decision gate] · Done when: tests cover the chosen
   branch, and the admin screen is opened in a browser at 390 px and 1280 px.
-- [ ] **A-450** — Prove it with one order and close PAY-2.
+  Done 2026-11-02. The gate was answered from the code, not by AutoLaris:
+  `/submit` always sent `grand_total = order total`, and AutoLaris bills
+  exactly `grand_total` and deducts its fee from it, so `buyer` never reached
+  the provider. Paduka's rule (2026-11-02): seller = the fee comes out of the
+  store's revenue; buyer = the bill is the order total plus the fee (QRIS
+  0.7%, VA BCA Rp6.500, other VA Rp3.000). `buyer` stays: `grand_total` is
+  now `autoLarisGrandTotal()` (order total + fee on `buyer`), the answer is
+  recorded by `recordedAutoLarisBill()` (amount = order value, admin = the
+  fee, total = the bill), and the order detail shows the fee with
+  "Diterima toko" (seller) or "Ditagih ke pembeli" (buyer), opened at 390 px
+  and 1280 px. The dev AutoLaris stand-in now bills grand_total like the live
+  account. Tests: `payment-fee-policy.test.ts`, `autolaris-payment.test.ts`
+  (fails with grand_total reverted), `dev-providers.test.ts`.
+  Refined the same day (Paduka): `buyer` grosses QRIS up so the store receives
+  the whole order total after AutoLaris takes 0.7% of the bill
+  (`buyerPaymentAdminFee`, shared by checkout and `/submit`: Rp63.000 is
+  billed Rp63.445, AutoLaris keeps 445); a `seller` fee is not shown to the
+  buyer on `/payment`, and the order detail shows only "Diterima toko" for it.
+  Local orders: INV-10019 QRIS buyer 63.445 on checkout, /payment, record and
+  QR, store receives 63.000; INV-10016 VA BRI buyer 66.000, store 63.000;
+  INV-10018 QRIS seller 63.000 with no fee shown, store 62.559.
+- [x] **A-450** — Prove it with one order and close PAY-2.
   One QRIS test order on a store with AutoLaris live, labelled as a test in the
   name and address ("TEST ORDER ... JANGAN DIPROSES"), Pixel and
   `/api/meta-event` blocked in the browser, never paid. Compare the checkout
@@ -4447,6 +4483,16 @@ about honouring it. No (expected): `buyer` is not a real option for this account
   -> REQ: PAY-2 · deps: [A-447, A-448, A-449] · Done when: the four figures
   agree, BUILD-LOG gets one entry, PAY-2 moves to closed in
   UNIMPLEMENTED_SPECS, and FLEET.md records which installs were changed.
+  Done 2026-11-02 on a local AdsBookCMS (Paduka: "order tes di adsbook cms
+  aja"), through the real checkout form, against the stand-in that bills like
+  the live account. Senter LED Rp45.000 + J&T Rp18.000 = Rp63.000:
+  INV-10013 QRIS `seller` — checkout 63.000, /payment 63.000, recorded total
+  63.000, QR tag 54 63000, admin 441 "Ditanggung seller", order detail
+  "Diterima toko Rp62.559"; INV-10014 QRIS `buyer` — 63.441 in all four,
+  admin 441; INV-10015 VA BCA `buyer` — checkout, /payment, recorded and
+  stand-in bill 69.500, admin 6.500. Not proven live: whether AutoLaris
+  accepts a `grand_total` above the item lines on `buyer` (no store uses
+  `buyer`; every live store is `seller`).
 
 Constraints for whoever picks this up: no version bump and no admin changelog
 entry unless Paduka asks (these are fixes); product changes go through a PR to

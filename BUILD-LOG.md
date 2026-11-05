@@ -1,6 +1,6 @@
 # BUILD LOG: AdsBookCMS
 
-> Verified against disk: 2026-11-02 @ `cf4ce18` (Entry 246; earlier entries retain their historical evidence)
+> Verified against disk: 2026-11-02 @ `8566bf6` (Entry 264; earlier entries retain their historical evidence)
 
 Author & Curator: **[ongki.pro](https://ongki.pro)**
 
@@ -8527,3 +8527,285 @@ provider did not add (total equals amount) as the seller's, whatever the store s
 INV-10357 stays `pending`, its QR expires on its own; cancel it in the admin
 (UNIMPLEMENTED_SPECS OPS-1). No version bump, no changelog.
 
+
+### Entry 247: admin Docs book for the API and the CLI
+
+Requested by Paduka: one place inside AdsBookCMS that explains the CLI and the API, text
+only (a screenshot goes stale with the first UI change). `/admin/docs/<chapter>` (owner and
+admin, `ADMIN_PAGE_ROUTES`) is a six-chapter book: start here, API key and scope, Headless
+API, Operations API, `adsbook` CLI, errors and limits. A sticky contents column from 1280 px,
+a fold below it; previous/next under each chapter; a copy button on every code block; on a
+phone each table row reads as a stacked card. The endpoint, scope, limit and CLI tables are
+rendered from `HEADLESS_OPERATIONS`, `OPS_OPERATIONS`, the scope lists, the key limits and
+`ADSBOOK_CLI_USAGE` (now exported), and each operation and scope needs a sentence in a
+`Record` keyed by it, so a new operation without one fails `npm run check`.
+
+Checking the prose against the code corrected two things the earlier text had wrong: an
+API-key 429 carries `X-RateLimit-Reset` (ISO time), not `Retry-After`; and an ops order's
+fields are `number`, `status.shipping`, `amounts.total`. The hand-written endpoint cards on
+`/admin/settings/developer`, which missed `orders/status` and `tracking/events`, became a
+link to the book. The AdsBookCMS card under the sidebar now holds two actions, Docs and
+What's new (two icons on the collapsed rail); Docs is also in the account menu and the
+mobile menu. One item added to the 1.9.2 What's new entry at Paduka's request; no version
+bump. Rendered at 360, 390, 768, 1024, 1280 and 1920 px: no horizontal overflow, the
+previous/next links clear the mobile bottom bar, the copy button writes the clipboard.
+
+### Entry 248: every store bills QRIS/VA fees to the seller, and so does a new one (PAY-2)
+
+TASKS A-447 and A-448. A new install was written `payment_fee_bearer = 'buyer'`, the
+column default from `0020`, so its checkout would add an admin fee this AutoLaris account
+never bills (Entry 246). `runInstall` now writes `'seller'` in the store insert; no
+migration, since a SQLite column default needs a table rebuild and the wizard is the only
+writer of a new store row. `normalizePaymentFeeBearer` stays as it was: it also reads the
+COD bearer, which is the buyer's on purpose. `install.test.ts` runs the wizard on SQLite and
+reads `seller`/`buyer` back; it fails with the fix removed. On a fresh `dev:local --reset`
+plus `dev:seed`, every QRIS/VA channel reports `fee_bearer: "seller"` and the checkout reads
+"QRIS Tanpa biaya admin".
+
+With Paduka's go-ahead, one D1 row each on klikinaja, cekat and skincarebpom (the last one
+outside the update rollout, found `buyer` by the same read): `payment_fee_bearer` from
+`buyer` to `seller`, guarded on the old value, `changes = 1`, `cod_fee_bearer` untouched.
+`/api/payment-methods` on all twelve stores now reports `seller` for QRIS and VA. PAY-2
+stays open for A-449 (AutoLaris's answer on billing the fee to the buyer) and A-450 (one
+test order comparing the four totals). No version bump, no changelog.
+
+### Entry 249: the buyer pays the QRIS/VA fee only when the store asks AutoLaris for it (PAY-2 closed)
+
+TASKS A-449 and A-450. Reading the code behind Entry 246: `/api/h2h/submit` always sent
+`grand_total` = the order total, and the live account bills exactly `grand_total` and deducts
+its fee from it (zvara, every QRIS and VA row since October: amount = total, admin 0.7% /
+Rp3.000). `buyer` therefore never reached the provider; checkout added the fee on its own.
+Paduka's rule: seller, the fee comes out of the store's revenue; buyer, the bill is the order
+total plus the fee (QRIS 0.7% rounded up, which matches the provider's rounding — 229.430 gave
+1.607 — VA BCA Rp6.500, other VA Rp3.000; BCA not yet seen in a live transaction).
+
+`autoLarisGrandTotal()` now decides what is asked for (order total, plus the fee on `buyer`);
+`recordedAutoLarisBill()` records amount = order value, admin = the fee, total = the bill,
+so `/payment` keeps telling the two apart; `calculateAutoLarisRequestAmount()`, which assumed
+the provider adds the fee, is gone. The order detail shows the QRIS/VA fee with "Diterima toko"
+(total minus fee) or "Ditagih ke pembeli". The dev AutoLaris stand-in bills `grand_total` like
+the live account (it used to add the fee, which is how the local checks missed this).
+`lazy:` on `buyer` QRIS the provider's 0.7% is taken from the grossed-up total, so the store
+nets about 0.005% less than the order total (Rp41 on Rp858.600).
+
+Test orders on a local AdsBookCMS at Paduka's instruction, through the checkout form,
+Rp63.000 each: INV-10013 QRIS seller 63.000 everywhere, store receives 62.559; INV-10014 QRIS
+buyer 63.441 on checkout, /payment, the recorded total and QR tag 54; INV-10015 VA BCA buyer
+69.500 on all three. `npm test` 1176, `npm run check` 0 errors; order detail opened at 390 and
+1280 px. Every live store is `seller`, so live behaviour is unchanged until an install takes
+this release and a store chooses `buyer`. No version bump, no changelog.
+
+### Entry 250: Paduka's fee rules — the buyer pays so the store keeps the whole order, the seller's fee stays out of sight
+
+Refines Entry 249 at Paduka's instruction. Buyer-borne: the store receives the whole order
+total, so QRIS grosses up — `buyerPaymentAdminFee()` returns the smallest bill X with
+X − ceil(0.7% of X) ≥ the order total (Rp63.000 → Rp63.445, AutoLaris keeps 445), and VA adds
+its fixed fee. Checkout (`form-hybrid.ts`) and `/submit` use the same function, so the QR asks
+what checkout showed. Seller-borne: the fee is not shown to the buyer on `/payment`; the order
+detail shows only "Diterima toko" (total minus fee), and for a buyer-borne fee it shows the fee,
+what the buyer is billed and "Diterima toko" = the order total. A new install is `buyer` again:
+the wizard stops writing `seller` (A-447 reversed), `install.test.ts` asserts `buyer`. The 1.9.2
+What's new items follow. Local orders through the checkout form: INV-10019 QRIS buyer 63.445 on
+checkout, /payment, record and QR tag 54, store 63.000; INV-10016 VA BRI buyer 66.000, store
+63.000; INV-10018 QRIS seller 63.000, no fee line, store 62.559. Order detail at 390 px.
+
+### Entry 251: the thanks page hides a seller-borne fee; the headless contract names what the buyer pays
+
+Paduka's rule from Entry 250 (a seller-borne QRIS/VA fee is not shown to the buyer) held on
+`/payment` but not on `/thanks`, whose payment details always listed "Biaya admin". It now
+hides that row when the store's bearer is `seller`, or when the bill did not grow (the same
+rule as `/payment` and `paymentFeeIsSellers()`); `payment-fee-display.test.ts` checks every
+place that fills the fee also hides it. Local orders through the checkout form, then `/thanks`:
+seller QRIS shows Rp63.000 with no fee row; buyer QRIS shows Rp63.000, Biaya admin Rp445,
+Total tagihan Rp63.445. STOREFRONT_INTEGRATION.md: a 429 carries `X-RateLimit-Reset`, never
+`Retry-After` (the Docs book already said so), and `payment.total_amount` is what a headless
+storefront shows the buyer under either bearer; the Docs Headless chapter says the same.
+`npm test` 1178.
+
+### Entry 252: the Docs book gains the operator guide
+
+At Paduka's go-ahead on the proposed outline, `/admin/docs` becomes a 13-chapter book in two
+parts. "Panduan admin" (new, `DocsAdminChapter.astro`): Mulai di sini (roles, dashboard,
+an order's path), Pesanan, Pengiriman & ekspedisi, Pembayaran (methods, the fee bearer rules
+of Entries 249-251, reconciliation), Katalog & landing page, Iklan & analitik, Pengaturan.
+"Integrasi API & CLI": the six chapters of Entry 247, the first renamed `integrasi`. The table
+of contents groups the two parts; `/admin/docs` opens the operator guide. Facts were gathered
+from the code by three read-only searches and every label is quoted as the screen writes it;
+the date-filter labels are read from `admin-date-filter.ts`. Inconsistencies the searches
+found in the product are listed for follow-up, not written into the guide as fact (the Meta
+token help text says "encrypted KV" while the code stores it in D1; no UI calls the CAPI
+requeue action that the health text points to; Analitik still offers a TikTok channel; the
+login page shows a donation QRIS that PRD-ADMIN-LOGIN LOGIN-18 forbids; the profile page
+shows integration keys to admins while only the owner may save them). All 13 chapters open
+200 with no console error; no horizontal overflow at 360-1920 px. `npm test` 1178.
+
+### Entry 253: forms open on the cheapest variant; a helper for what a page may state about couriers and payments
+
+From the revenleather screening (2026-11-02). `/produk/nayaka-pouch` opened its form on Brown
+Rp510.100 while its cards, Product JSON-LD and both feeds said Rp500.100 (Tan): a form with no
+variant chosen took `variants[0]`, the first entered. `cheapestVariant()` (form-config.ts, the
+first among equals) is now that default and the one rule the catalogue's "from" price and the
+feed already used, each of which had its own copy. A chosen variant still wins; an unknown one
+is still refused. Second, hand-written storefront copy named seven couriers and one bank while
+the checkout offered five and six: `getStorePublicFacts()` (public-store.ts) returns the
+enabled couriers, the payment methods `/api/payment-methods` offers (summarised by
+`summarizePaymentMethods`) and the store's non-COD provinces, for an install's own pages to
+print instead of a list that goes stale. Nothing in it varies per visitor. `npm test` 1180.
+
+### Entry 254: revenleather screened and corrected
+
+A read-only screening of page.revenleather.com (pixel and order calls blocked, no form
+submitted): 86 sitemap URLs 200, no broken link or image in 892 checked, and the price of all
+79 products agrees across cards, product pages, Product JSON-LD and both feeds. Paduka chose
+to leave the page content's random flash-sale timer, stock and sold counts as they are.
+Corrected: the 79 product-page heroes held a tagline as their only H1; the product name sat
+in a `p.eyebrow` above it. The two tags swapped roles in D1 (`h1.eyebrow`, `p.rv-tagline`,
+the two hero CSS selectors renamed, one rule keeping the eyebrow's line height), first on one
+page, then the other 78, each UPDATE guarded on the old content's length. Tested on the live
+DOM before writing and re-shot after: 0 differing pixels at 390 and 1280 px once fonts are
+loaded; all 79 pages now answer one H1 naming the product. In the install repository
+(`f12522f`, not deployed): product #167-#175 merged with the grafir files kept, `/kontak`,
+`/pengiriman` and `/tentang` print `getStorePublicFacts()` instead of hand-written couriers,
+banks and "COD ke seluruh Indonesia", grafir copy names QRIS/VA/transfer, the `/kontak` title
+no longer doubles the store name, and the header nav (`justify-center-safe`, tighter gap) fits
+390 px. Latency: D1 is APAC; Smart Placement runs the Worker in Singapore and pulled a request
+that entered at HKG to SIN (`remote-SIN`), so an explicit `placement.region` would add nothing.
+
+### Entry 255: revenleather deployed with product 1.9.2 + #167-#175
+
+At Paduka's go-ahead, `npm run deploy` from the install (`f12522f`, Worker version `c8639527`,
+no migration in the range). Checked live after the deploy, cache bypassed: `/pengiriman` lists
+JNE, SiCepat, J&T Express, Anteraja and SPX Express, COD plus QRIS, five VAs and Mandiri
+transfer, and the 15 non-COD provinces; `/kontak` says COD "Tersedia, kecuali 15 provinsi" and
+its title names the store once; the home strip reads "QRIS · VA · Transfer"; the header nav
+fits 390 px (scrolls from its first item at 360 px); `nayaka-pouch` opens on Tan Rp500.100,
+the feed's sale price; its H1 is the product name; no page error. `/admin/docs` asks for a
+login. The fleet's other installs do not carry #167-#175 yet.
+
+### Entry 256: the Worker pinned to Singapore; the dashboard paints without Recharts and asks for its data at once
+
+PageSpeed Insights' API now answers keyless requests with quota 0, so the same engine ran
+locally (Lighthouse 12.6.0, mobile preset, pixel beacon and CAPI blocked) on revenleather:
+home 72, `/produk` 82, product page 67, home desktop 99; Accessibility and SEO 97-100. Two
+causes. Third-party tags (Meta ~790 ms, Google ~400 ms of blocking time) stay by ADR-030's
+decision. The product page's document took 3.38 s: requests entering at LAX were not moved by
+Smart Placement (`local-LAX`, 2.0-2.9 s; SIN 0.3 s). ADR-034 pins the Worker with
+`placement.region: "aws:ap-southeast-1"`; revenleather deployed it (Worker `e5ac2f20`): every
+request now runs in SIN, LAX-entry product pages at a median 1.1 s. The template follows.
+
+Admin dashboard: Recharts (330 KB, 97 KB gzipped) loaded before any card could paint, the
+rankings were requested only after the cards' data arrived, and `/api/admin/analytics` made six
+independent D1 reads one after another. The chart is now its own lazy module
+(`DashboardRevenueChart`), the rankings go out beside the cards, and the six reads run in one
+`Promise.all` (a test holds them all in flight). Locally under Slow 4G and 4x CPU, three runs
+each: cards at 1.51/1.59/1.95 s before, 1.35/1.38/1.48 s after; the live gain grows with each
+D1 round trip saved. `npm test` 1181.
+
+### Entry 257: revenleather takes the lighter dashboard
+
+2026-11-03, at Paduka's go-ahead: product #176-#178 merged into revenleather without a conflict
+(its `wrangler.jsonc` kept, already pinned to Singapore), `npm test` 1186 pass / 3 skipped,
+`npm run check` 0 errors, deployed from `f047360` (Worker `b19e3ed5`). Live: the new
+`AnalyticsDashboard` and `DashboardRevenueChart` chunks answer 200, home, a product page and
+`/kontak` 200 with `cf-placement: local-SIN`, `/admin/dashboard` redirects to the login. The
+dashboard itself was not opened live (no store credentials used); it was proven locally in
+Entry 256. The other installs do not carry #167-#178 yet.
+
+### Entry 258: baven takes the refined product
+
+2026-11-03, Paduka: "lanjutkan baven + update dengan adsbookcms yang sudah di sempurnakan".
+`install/bavenshop` merged `product/main` (28 commits, #167-#179) without a conflict, its
+`wrangler.jsonc` kept by the merge driver, then pinned to Singapore (`placement.region
+aws:ap-southeast-1`; `wrangler d1 info`: APAC). `npm test` 1180 pass / 1 skipped, `npm run
+check` 0 errors; preflight: ledger 80 applied, no migration. Deployed from `938e864`, Worker
+`526a823f`. Live afterwards: home, `/produk`, `/kontak`, `/pengiriman` 200 with `cf-placement:
+local-SIN` at 0.4-0.5 s; `/api/payment-methods` COD buyer, QRIS and five VAs seller; the Google
+feed lists 27 items; a product page has one H1, one checked variant, three JSON-LD blocks, no
+overflow at 390/1280 px and no page error; `/admin/docs` asks for a login. The admin screens
+were not opened with store credentials. A first commit message carried a `Co-Authored-By`
+trailer against the global rule; it was unpushed and was redone without it before the push.
+
+### Entry 259: open work from the 2026-11-02/03 sessions recorded
+
+`UNIMPLEMENTED_SPECS.md` gains eight rows so nothing lives only in a conversation: ROLL-1
+(product #167-#180 on two installs of twelve, with the per-install procedure), ROLL-2
+(klikinaja, cekat and skincarebpom return to `buyer` only after their rollout), PAY-3 (the BCA
+Rp6.500 fee and a `buyer` store's first live QR are unproven), PROD-1 and PROD-2 (the five
+admin copy/behaviour mismatches found while writing the Docs book, each re-read against the
+code before recording), PERF-2 (public scores and the keyless PageSpeed quota), REV-2
+(revenleather's made-up counters, left by Paduka's decision, recorded so it is not raised again)
+and DASH-1 (the lighter dashboard not yet opened live). No code changed.
+
+### Entry 260: agritani and taniniaga reviewed; three product fixes from the findings
+
+Both installs merged `product/main` (#167-#181) and deployed on 2026-11-03 (agritani Worker
+`3c0cc17e`, taniniaga `0eaccb84`, ledger 80/80, `placement.region aws:ap-southeast-1` on APAC
+D1s). Each had install-owned variant logic (`resolvePreferredFormVariant`: agritani opens 500 ml,
+or 1 Liter for sawit products; taniniaga 500 ml for scoped brands, with badges and dosage notes);
+the merge kept the install's side and only replaced the "no match" fallback with
+`cheapestVariant()`. Read-only live reviews of both stores (49 and 40 sitemap URLs) found prices,
+JSON-LD and feeds consistent, no foreign merchant content, no overflow. Product-owned findings,
+fixed here with tests: (1) the shipping page and `/llms.txt` said shipping is computed in the
+order form, but both stores use the CS-confirm form with no courier list — the copy now covers
+both; (2) the skincare category rule held the keyword `kojien`, so taniniaga's plant nutrient
+titled only "Kojien" went to both feeds as Skin Care (567); (3) `/kontak` doubled the store name
+in its title (revenleather had patched it in its own copy). Still open for each store, recorded in
+UNIMPLEMENTED_SPECS: STORE-1 (agritani, which also holds a test lead left by a review agent) and STORE-2 (taniniaga).
+
+### Entry 261: llms.txt line, and the two stores redeployed
+
+Entry 260's copy fix missed `/llms.txt`, which builds its own "Cara memesan" text in `llms-txt.ts`
+and still said shipping and payment "ditampilkan di form pesanan sesuai alamat tujuan". It now
+says so only when the form shows them (test added). agritani (Worker `b8e6864f`) and taniniaga
+(`39a53872`) took Entries 260 and 261 and were checked live: `/kontak` names the store once,
+`/pengiriman` carries the new sentence, both stores answer `cf-placement: local-SIN` on 7 of 8
+spot requests, and taniniaga's Kojien feed category is Google 113 (it was 567). Data, taniniaga D1:
+`products.category` of Kojien (id 99118) 'Umum' -> 'Pupuk & Nutrisi Tanaman', guarded on the old
+value, 1 row; the "before" read failed on a column name, the old value was known from an earlier
+read. A review agent that was told to read only filled a form on agritani and left the lead
+`ABN-10718` (UNIMPLEMENTED_SPECS STORE-1); review agents are now briefed never to type into a form.
+
+### Entry 262: baven and petanisejahtera reviewed; the landing list hides alias slugs
+
+beranda-tani (petanisejahtera.com) merged product #167-#183 (one conflict, `kontak.astro`, resolved
+to the install's themed page) and deployed twice: the first deploy ran without the Singapore pin
+because the pin script failed on that file's different comment and the following commands ran
+anyway (Worker `7730e80c`); the second carries it (`f134ad0f`). Read-only live reviews of baven
+(39 URLs) and petanisejahtera (24 URLs) were clean on prices, feeds, JSON-LD, payments, aliases
+and brand; their findings are STORE-3 and STORE-4. Product fix with a test: `listPublicLandingPages`
+now leaves out alias slugs that declare a `canonicalSlug`, as the sitemap already did, which
+removes petanisejahtera's duplicate "Aussie Formula Baru (2)" card and explains taniniaga's
+"32 of 32 listed, 28 in the sitemap". `npm test` 1185.
+
+### Entry 263: correction to Entry 262, and four installs redeployed
+
+Entry 262 said the landing list's alias filter explained taniniaga's "32 listed, 28 in the sitemap".
+It does not: taniniaga has no alias slugs. Read from its D1, 32 = 28 standalone landing pages plus 4
+that are the product pages (`is_product_page`, linked as `/produk/…`), which the sitemap leaves out by
+design; the count is correct and STORE-2 now says so. The filter fixes petanisejahtera's duplicate
+"Aussie Formula Baru (2)" card only. Redeployed on 2026-11-03 with #182-#185: baven `195681ff`,
+taniniaga `727cd330`, agritani `a60d1b84`, beranda-tani `2a968dcb`; live, every one answers `/llms.txt`
+with the corrected line and a single-name `/kontak` title, and `cf-placement` is SIN on most requests.
+petanisejahtera's home hero text, badges and `/produk` intro are fixed live; its landing descriptions
+come from `native-landing-pages.ts` through the hourly reconcile (cron minute 7), so "(dari
+petanisawit.com)" disappears at the next run, not at deploy. An import of the D1 content update through
+`--file` failed with an authentication error (nothing changed) and the same statement ran through
+`--command`, 1 row.
+
+### Entry 264: baven and petanisejahtera content cleaned (Paduka: "rekomendasi 1,2,3,4 jalankan")
+
+D1 edits, each row guarded on its old content length and backed up outside the repository.
+baven (`bavenshop-d1`): 13 `landing_sections` rows, 5 `storefront_content` rows and the garlive
+`landing_pages.meta_description`. Garlive's BPOM: a web search found TR183310871 listed for
+"Habbats Garlive" (ingredients identical: black seed oil, propolis, olive oil extract, garlic oil
+extract) and TR193332931 nowhere, so the page and its meta description now carry TR183310871; the
+source is a health blog, so the register check stays Paduka's (STORE-3). The `bvn` template's timer
+restarted from 02:14:45 on every load, its "Tersisa N paket lagi" bar had no data (stock never gates
+a sale, ADR-023), and foam toilet's script rotated six invented buyers; baven has 14 real orders in
+all. All removed or reworded as listed in STORE-3. beranda-tani: four `storefront_content` product
+rows lost their hand-written rating, reviews and sold counts, the dead email is hidden in the
+install (Worker `f32cdbf9`). Verified live with the cache bypassed: none of the removed strings on
+the eight baven pages checked, one BPOM number on both garlive URLs, no `AggregateRating` or
+`Review` in petanisejahtera's JSON-LD. Correction: the review agent called petanisejahtera's "42
+orang memesan dalam 24 jam" invented; it is the real aggregate of A-300 (83 orders in the last day
+by a plain count, 42 by the toast's own rule).

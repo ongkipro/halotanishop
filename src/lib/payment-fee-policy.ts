@@ -90,26 +90,71 @@ export function calculatePaymentAdminFee(
     : Math.ceil(normalizedAmount * rule.rate);
 }
 
-export function calculateAutoLarisRequestAmount(
+/**
+ * The fee a buyer pays on top of the order total so that the store still
+ * receives the whole order total once AutoLaris deducts its own fee from the
+ * bill (Paduka, 2026-11-02). A fixed VA fee is the fee itself; QRIS grosses up:
+ * the smallest bill X with X - ceil(0.7% of X) >= the order total. Null for a
+ * code with no AutoLaris fee rule, so a caller can fall back.
+ */
+export function buyerPaymentAdminFee(channel: string, orderTotal: number) {
+  const rule = (PAYMENT_FEE_RULES as Record<string, PaymentFeeRule | undefined>)[channel];
+  if (!rule) return null;
+  const total = Math.max(0, Math.round(orderTotal));
+  if (rule.kind === "fixed") return rule.amount;
+  let bill = Math.ceil(total / (1 - rule.rate));
+  while (bill - 1 - Math.ceil((bill - 1) * rule.rate) >= total) bill -= 1;
+  while (bill - Math.ceil(bill * rule.rate) < total) bill += 1;
+  return bill - total;
+}
+
+/**
+ * What `/api/h2h/submit` is asked to bill. AutoLaris bills the buyer exactly
+ * `grand_total` and deducts its admin fee from it (every live transaction since
+ * October: provider total = grand_total, PAY-2), so the store chooses who pays
+ * here: `seller` sends the order total and receives it minus the fee; `buyer`
+ * sends the order total plus `buyerPaymentAdminFee`, the total checkout showed,
+ * and the store receives the whole order total.
+ */
+export function autoLarisGrandTotal(
   channel: AutoLarisCheckoutChannel,
   orderTotal: number,
   bearer: PaymentFeeBearer,
 ) {
-  const normalizedTotal = Math.max(1, Math.round(orderTotal));
-  if (bearer === "buyer") return normalizedTotal;
+  const total = Math.max(1, Math.round(orderTotal));
+  return bearer === "buyer" ? total + (buyerPaymentAdminFee(channel, total) ?? 0) : total;
+}
 
-  const rule = PAYMENT_FEE_RULES[channel];
-  if (rule.kind === "fixed") return Math.max(1, normalizedTotal - rule.amount);
+/**
+ * The provider's answer as the store records it: `amount` is the order value,
+ * `admin_fee` is the fee, `total_amount` is what the QR or VA asks for. On
+ * `buyer` the fee is what the buyer pays on top (total minus the order value);
+ * on `seller` it is the provider's deduction, so the store receives
+ * `total - admin_fee`.
+ */
+export function recordedAutoLarisBill(
+  orderTotal: number,
+  bearer: PaymentFeeBearer,
+  provider: { amount: number; admin: number; total: number },
+) {
+  const value = Math.max(1, Math.round(orderTotal));
+  return bearer === "buyer"
+    ? { amount: value, admin: Math.max(0, provider.total - value), total: provider.total }
+    : { amount: provider.amount, admin: provider.admin, total: provider.total };
+}
 
-  let low = 1;
-  let high = normalizedTotal;
-  while (low < high) {
-    const candidate = Math.ceil((low + high) / 2);
-    const billed = candidate + calculatePaymentAdminFee(channel, candidate);
-    if (billed <= normalizedTotal) low = candidate;
-    else high = candidate - 1;
-  }
-  return low;
+/**
+ * Whether a recorded payment's fee came out of the store's revenue. A row that
+ * says `buyer` but whose bill did not grow (total equals amount) was billed
+ * before the store added the fee itself (PR #164's rule), so it is the seller's.
+ */
+export function paymentFeeIsSellers(row: {
+  fee_bearer?: string | null;
+  amount: number;
+  admin_fee: number;
+  total_amount: number;
+}) {
+  return row.fee_bearer === "seller" || (row.admin_fee > 0 && row.total_amount === row.amount);
 }
 
 export function paymentFeeDescription(channel: AutoLarisCheckoutChannel) {

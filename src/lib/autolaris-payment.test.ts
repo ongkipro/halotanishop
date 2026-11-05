@@ -17,7 +17,7 @@ import {
   AUTOLARIS_EXPIRED_RECHECK_HOURS,
 } from "./autolaris-payment.ts";
 
-function createAutoLarisOrderDatabase(autoLarisApiKey: string | null) {
+function createAutoLarisOrderDatabase(autoLarisApiKey: string | null, paymentFeeBearer: "buyer" | "seller" = "seller") {
   const state = {
     transaction: null as null | Record<string, unknown>,
   };
@@ -35,7 +35,7 @@ function createAutoLarisOrderDatabase(autoLarisApiKey: string | null) {
     postal_code: "64475",
     total_amount: 118_400,
     payment_method: "qris",
-    payment_fee_bearer: "seller",
+    payment_fee_bearer: paymentFeeBearer,
     store_name: "QA Store",
     warehouse_name: "QA Warehouse",
     warehouse_contact_name: "Warehouse PIC",
@@ -249,6 +249,41 @@ test("payment orchestration sends one complete Create Order payload to AutoLaris
   assert.equal(payment.adminFee, 824);
   assert.equal(payment.totalAmount, 118_400);
   assert.equal(payment.expiresAt, "2026-09-03T09:42:00.000Z");
+});
+
+test("a buyer-borne fee is asked for in grand_total, because AutoLaris only deducts it (PAY-2)", async (context) => {
+  const originalFetch = globalThis.fetch;
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  const { database } = createAutoLarisOrderDatabase("qa-key", "buyer");
+  let grandTotal: unknown;
+  globalThis.fetch = async (_input, init) => {
+    grandTotal = (JSON.parse(String(init?.body)) as Record<string, unknown>).grand_total;
+    // The live answer: the bill is grand_total, the admin is 0.7% of it.
+    return Response.json({
+      rc: "00",
+      data: {
+        transaction_id: "TRX-PAY-41",
+        amount: 119_235,
+        biaya_admin: 835,
+        total: 119_235,
+        payment_info: { expired: "2026-09-03 16:42:00", qr: "QR-PAYLOAD" },
+      },
+    });
+  };
+
+  const payment = await createAutoLarisPaymentForOrder(database, QA_LOCALS, {
+    orderId: 41,
+    channelCode: "QRIS",
+  });
+
+  // 118.400 grossed up so that 119.235 - 0,7% (835) leaves the store 118.400.
+  assert.equal(grandTotal, "119235");
+  assert.equal(payment.totalAmount, 119_235);
+  // Recorded as the buyer sees it: the order value and the fee on top.
+  assert.equal(payment.amount, 118_400);
+  assert.equal(payment.adminFee, 835);
 });
 
 test("payment orchestration records failure without a provider call when AutoLaris is unconfigured", async (context) => {

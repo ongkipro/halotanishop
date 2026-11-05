@@ -39,3 +39,10 @@ test("llms.txt publishes no admin, API or order-status surface", () => {
   // No merchant description: no generated sentence repeating the facts.
   assert.match(text, /sabun-cair\): mulai Rp97\.500, kategori Rumah, pilihan 1 L \/ 250 ml\.\n/);
 });
+
+test("llms.txt does not promise a courier list a CS-confirm form never shows (agritani, taniniaga, 2026-11-03)", async () => {
+  const { buildLlmsTxt } = await import("./llms-txt.ts");
+  const text = buildLlmsTxt({ name: "Toko Uji", siteUrl: "https://toko.example", description: "" } as never, []);
+  assert.match(text, /bila form menampilkannya; bila tidak, toko mengonfirmasinya/);
+  assert.doesNotMatch(text, /sesuai alamat tujuan/);
+});

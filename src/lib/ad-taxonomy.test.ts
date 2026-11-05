@@ -125,3 +125,13 @@ test("an ambiguous product emits no category rather than guessing", () => {
   assert.equal(result.googleCategoryId, undefined);
   assert.equal(result.productType, "Umum > Perawatan");
 });
+
+test("a plant product titled only Kojien is not filed under Skin Care (taniniaga, 2026-11-03)", () => {
+  // Its title alone used to win the skincare rule; with a plant-nutrient
+  // description it now earns no category rather than a wrong one.
+  const plant = getAdTaxonomy("Umum", "Kojien", "Nutrisi pelindung sel tanaman bio-silika untuk padi dan jagung");
+  assert.notEqual(plant.googleCategoryId, 567);
+  assert.notEqual(plant.productType, "Kecantikan & Perawatan > Skincare");
+  // A genuine kojic-acid skincare product still maps to Skin Care.
+  assert.equal(getAdTaxonomy("Kecantikan", "Kojic Acid Soap Pemutih", "sabun wajah").googleCategoryId, 567);
+});

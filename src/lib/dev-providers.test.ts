@@ -75,15 +75,18 @@ test("the dev providers satisfy the real Mengantar and AutoLaris clients", async
     orderDetails: [{ name: "Produk", qty: 1, unitPrice: 150000 }],
   });
   assert.ok(payment.qr && payment.expiresAt);
-  // The simulator charges the store's own fee table: QRIS 0.7%, VA BCA Rp6.500.
-  assert.equal(payment.total, 150000 + 1050);
+  // As the live account (PAY-2): the bill is grand_total, and the store's own
+  // fee table (QRIS 0.7%, VA BCA Rp6.500) is deducted from it, not added.
+  assert.equal(payment.total, 150000);
+  assert.equal(payment.admin, 1050);
   const va = await autolaris.createOrder({
     reffId: "10002", channelCode: "VABCA", origin: "1", destination: "2",
     shipperName: "Toko", shipperPhone: "6281200000000", shipperEmail: "toko@example.test", shipperAddress: "Jl. Uji 1",
     receiverName: "Pembeli", receiverPhone: "6281200000001", receiverEmail: "pembeli@example.test", receiverAddress: "Jl. Uji 2",
     grandTotal: 150000, orderDetails: [{ name: "Produk", qty: 1, unitPrice: 150000 }],
   });
-  assert.equal(va.total, 150000 + 6500);
+  assert.equal(va.total, 150000);
+  assert.equal(va.admin, 6500);
   assert.equal((await autolaris.inquirePayment(payment.transactionId)).settlement, "pending");
 
   await fetch(`${base}/__dev/autolaris/pay?transaction_id=${payment.transactionId}`, { method: "POST" });

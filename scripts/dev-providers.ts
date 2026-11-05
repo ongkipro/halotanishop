@@ -153,24 +153,25 @@ export function createDevProviderServer(): Server {
     }
     if (url.pathname === "/api/h2h/submit" && method === "POST") {
       const body = await readBody(request);
+      // As the live account answers (PAY-2): the bill is exactly grand_total,
+      // and the fee from the store's own table is deducted from it, not added.
       const amount = Number(body.grand_total) || 0;
-      // The fee table the store itself shows the buyer, so the local
-      // instruction never disagrees with the checkout or invoice label.
       const channel = String(body.channel_code);
       const admin = isAutoLarisCheckoutChannel(channel) ? calculatePaymentAdminFee(channel, amount) : 0;
       const transactionId = String(Date.now()) + String((sequence += 1));
-      payments.set(transactionId, { paid: false, total: amount + admin, receiver: String(body.receiver_name || ""), channel: String(body.channel_code || "") });
+      payments.set(transactionId, { paid: false, total: amount, receiver: String(body.receiver_name || ""), channel: String(body.channel_code || "") });
       const qris = String(body.channel_code) === "QRIS";
       return send(response, 200, {
         rc: "00",
         ket: "SUCCESS",
         data: {
           transaction_id: transactionId,
+          amount,
           biaya_admin: admin,
-          total: amount + admin,
+          total: amount,
           payment_info: {
             ...(qris
-              ? { qr: `00020101021226DEV${transactionId}5303360540${amount + admin}6304ABCD` }
+              ? { qr: `00020101021226DEV${transactionId}5303360540${amount}6304ABCD` }
               : { va: `8808${transactionId.slice(-10)}` }),
             expired: jakartaIn(24),
           },

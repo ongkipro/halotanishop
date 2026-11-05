@@ -5,9 +5,11 @@ import {
   type AutoLarisPayment,
 } from "./autolaris-client.ts";
 import {
-  calculateAutoLarisRequestAmount,
+  autoLarisGrandTotal,
+  buyerPaymentAdminFee,
   calculatePaymentAdminFee,
   normalizePaymentFeeBearer,
+  recordedAutoLarisBill,
   type PaymentFeeBearer,
 } from "./payment-fee-policy.ts";
 import { getProviderConfig } from "./provider-config.ts";
@@ -710,16 +712,17 @@ export async function createAutoLarisPaymentForOrder(
   const publicToken = crypto.randomUUID();
   const feeBearer = normalizePaymentFeeBearer(order.payment_fee_bearer);
   const referenceId = autoLarisAttemptReferenceId(order.order_number, Boolean(existing));
-  const requestAmount = calculateAutoLarisRequestAmount(
+  // AutoLaris bills exactly grand_total and deducts its fee from it, so the
+  // bearer is decided by what is asked for here (PAY-2).
+  const requestAmount = Math.max(1, Math.round(order.total_amount));
+  const expectedAdminFee = feeBearer === "buyer"
+    ? buyerPaymentAdminFee(input.channelCode, requestAmount) ?? 0
+    : calculatePaymentAdminFee(input.channelCode, requestAmount);
+  const expectedBilledTotal = autoLarisGrandTotal(
     input.channelCode,
     order.total_amount,
     feeBearer,
   );
-  const expectedAdminFee = calculatePaymentAdminFee(
-    input.channelCode,
-    requestAmount,
-  );
-  const expectedBilledTotal = requestAmount + expectedAdminFee;
 
   if (existing) {
     // The old instruction is kept before the row is rewritten (H-1), and the
@@ -864,7 +867,7 @@ export async function createAutoLarisPaymentForOrder(
         .filter(Boolean)
         .join(", "),
       callbackUrl: "",
-      grandTotal: order.total_amount,
+      grandTotal: expectedBilledTotal,
       codValue: 0,
       remark: order.order_number,
       orderDetails: items.map((item) => ({
@@ -888,6 +891,7 @@ export async function createAutoLarisPaymentForOrder(
       });
     }
 
+    const recorded = recordedAutoLarisBill(order.total_amount, feeBearer, payment);
     await database
       .prepare(
         `UPDATE payment_transactions SET
@@ -899,9 +903,9 @@ export async function createAutoLarisPaymentForOrder(
       )
       .bind(
         payment.transactionId,
-        payment.amount,
-        payment.admin,
-        payment.total,
+        recorded.amount,
+        recorded.admin,
+        recorded.total,
         payment.virtualAccount || null,
         payment.qr || null,
         payment.paymentCode || null,

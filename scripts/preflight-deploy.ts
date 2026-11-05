@@ -157,7 +157,10 @@ const result = evaluateDeployPreflight({
 for (const note of result.notes) console.log(`[preflight] ${note}`);
 if (!target.placement) {
   console.warn('[preflight] wrangler.jsonc has no `placement`: a visitor routed to a far colo pays every D1 read across the ocean.');
-  console.warn('  Add `"placement": { "mode": "smart" }` as the product template does (ADR-030).');
+  console.warn('  Add `"placement": { "region": "aws:ap-southeast-1" }` as the product template does (ADR-034).');
+} else if ((target.placement as { mode?: unknown }).mode === 'smart') {
+  console.warn('[preflight] wrangler.jsonc uses Smart Placement, which declined requests entering at LAX (ADR-034).');
+  console.warn('  With D1 in APAC, pin it: `"placement": { "region": "aws:ap-southeast-1" }`.');
 }
 
 // An install that shares history with the product: what it has changed in the
